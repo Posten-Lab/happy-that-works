@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     getAvailableModels,
     getAvailablePermissionModes,
+    getClaudeModelModes,
     getCodexModelModes,
     getClaudePermissionModes,
     getDefaultEffortKey,
@@ -28,6 +29,14 @@ describe('modelModeOptions', () => {
         const modes = getClaudePermissionModes(translate);
         expect(modes.map((mode) => mode.key)).toEqual(['default', 'plan', 'dontAsk', 'acceptEdits', 'bypassPermissions']);
         expect(modes[0].name).toBe('tr:agentInput.permissionMode.default');
+    });
+
+    it('offers Claude Opus 5 through the latest Opus alias', () => {
+        expect(getClaudeModelModes()).toContainEqual({
+            key: 'opus',
+            name: 'opus 5',
+            description: null,
+        });
     });
 
     it('builds codex model fallbacks', () => {

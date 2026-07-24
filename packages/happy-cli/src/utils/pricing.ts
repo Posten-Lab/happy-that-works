@@ -12,6 +12,12 @@ export const PRICING = {
         cache_write: 12.50,
         cache_read: 1.00
     },
+    'claude-opus-5': {
+        input: 5.0,
+        output: 25.0,
+        cache_write: 6.25,
+        cache_read: 0.50
+    },
     'claude-opus-4-8': {
         input: 5.0,
         output: 25.0,
@@ -129,7 +135,8 @@ export function calculateCost(usage: Usage, modelId?: string): { total: number, 
             pricing = PRICING['claude-fable-5'];
         }
         else if (modelId?.includes('opus')) {
-            if (modelId.includes('4.5')) pricing = PRICING['claude-4.5-opus'];
+            if (modelId === 'opus' || modelId.includes('opus-5')) pricing = PRICING['claude-opus-5'];
+            else if (modelId.includes('4.5')) pricing = PRICING['claude-4.5-opus'];
             else if (modelId.includes('4.1')) pricing = PRICING['claude-4.1-opus'];
             else if (modelId.includes('4')) pricing = PRICING['claude-4-opus'];
             else pricing = PRICING['claude-3-opus-20240229'];
