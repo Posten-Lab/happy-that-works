@@ -22,8 +22,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pnpm test` - Run tests in watch mode (Vitest)
 - No existing tests in the codebase yet
 
-### Production
-- `pnpm ota` - Deploy over-the-air updates via EAS Update to production branch
+### OTA Updates
+Both publish directly from your machine (typecheck runs first). Set `OTA_MESSAGE="..."` to label the update.
+- `pnpm ota` - Deploy an OTA update to the **preview** branch/channel (the TestFlight build)
+- `pnpm ota:production` - Deploy an OTA update to the **production** branch/channel (the installed production app)
+
+Verify what actually landed with `eas channel:view <preview|production>` — the most recent update group's
+commit should match the HEAD you just pushed.
+
+Note: `.eas/workflows/preview.yaml` also auto-runs a preview OTA on every push to `main`.
 
 ## Architecture Overview
 
