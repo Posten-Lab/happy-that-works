@@ -42,6 +42,9 @@ import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { formatPathRelativeToHome, formatLastSeen } from '@/utils/sessionUtils';
 import { useNavigateToSession } from '@/hooks/useNavigateToSession';
 import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
+import { useImagePicker } from '@/hooks/useImagePicker';
+import { useDocumentPicker } from '@/hooks/useDocumentPicker';
+import { AgentInputAttachmentStrip } from '@/components/AgentInputAttachmentStrip';
 import { useShallow } from 'zustand/react/shallow';
 import type { MultiTextInputHandle } from '@/components/MultiTextInput';
 import { Modal } from '@/modal';
@@ -554,6 +557,16 @@ function NewSessionScreen() {
     const zenMode = useLocalSetting('zenMode');
     const { width: windowWidth } = useWindowDimensions();
 
+    // Attachments picked before the session exists. Upload is session-scoped,
+    // so we hold the previews here and hand them to sendMessage once the spawn
+    // hands back a sessionId (expImageUpload feature flag, same as SessionView).
+    const expImageUpload = useSetting('expImageUpload');
+    const { selectedImages, pickImages, removeImage, clearImages, addImages } = useImagePicker();
+    const { pickDocuments } = useDocumentPicker({
+        currentCount: selectedImages.length,
+        addImages,
+    });
+
     // Persisted draft state (survives navigation).
     //
     // We deliberately do NOT subscribe to `input` at the parent level here:
@@ -970,9 +983,17 @@ function NewSessionScreen() {
                     const trimmedPrompt = draftState.input.trim();
                     draftState.setInput('');
 
+                    // Attachments could only be uploaded once the session exists
+                    // (blob key + upload endpoints are session-scoped), so they
+                    // ride along with the first message here.
+                    const attachments = expImageUpload && selectedImages.length > 0
+                        ? selectedImages
+                        : undefined;
+
                     // Send initial message if provided
-                    if (trimmedPrompt) {
-                        await sync.sendMessage(result.sessionId, trimmedPrompt, { source: 'new_session' });
+                    if (trimmedPrompt || attachments) {
+                        clearImages();
+                        await sync.sendMessage(result.sessionId, trimmedPrompt, { source: 'new_session', attachments });
                     }
 
                     router.back();
@@ -1001,7 +1022,7 @@ function NewSessionScreen() {
         } finally {
             setIsSpawning(false);
         }
-    }, [selectedMachineId, selectedMachine, selectedPath, selectedAgent, router, navigateToSession, currentPermission.key, currentModelKey, currentEffort?.key, effectiveAgentDefaults.permissionMode, effectiveAgentDefaults.modelMode, effectiveAgentDefaults.effortLevel, worktreeKey]);
+    }, [selectedMachineId, selectedMachine, selectedPath, selectedAgent, router, navigateToSession, currentPermission.key, currentModelKey, currentEffort?.key, effectiveAgentDefaults.permissionMode, effectiveAgentDefaults.modelMode, effectiveAgentDefaults.effortLevel, worktreeKey, expImageUpload, selectedImages, clearImages]);
 
     const canSend = selectedMachineId && selectedMachine && isMachineOnline(selectedMachine) && !isSpawning;
     const sidebarLayout = getNewSessionSidebarLayout({
@@ -1316,6 +1337,12 @@ function NewSessionScreen() {
 
     const composerNode = (
         <View style={styles.inputBox}>
+            {expImageUpload && selectedImages.length > 0 && (
+                <AgentInputAttachmentStrip
+                    images={selectedImages}
+                    onRemove={removeImage}
+                />
+            )}
             <View style={styles.inputField}>
                 <PromptInput
                     ref={composerInputRef}
@@ -1324,7 +1351,38 @@ function NewSessionScreen() {
                 />
             </View>
             <View style={styles.actionButtonsContainer}>
-                <View style={styles.actionButtonsLeft} />
+                <View style={styles.actionButtonsLeft}>
+                    {expImageUpload && !zenMode && (
+                        <>
+                            {/* Photos / videos from the library */}
+                            <Pressable
+                                onPress={pickImages}
+                                hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
+                                style={(p) => [styles.attachButton, p.pressed && styles.attachButtonPressed]}
+                            >
+                                <Ionicons
+                                    name="image-outline"
+                                    size={16}
+                                    color={selectedImages.length > 0
+                                        ? theme.colors.radio.active
+                                        : theme.colors.button.secondary.tint}
+                                />
+                            </Pressable>
+                            {/* Arbitrary files from Files.app */}
+                            <Pressable
+                                onPress={pickDocuments}
+                                hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
+                                style={(p) => [styles.attachButton, p.pressed && styles.attachButtonPressed]}
+                            >
+                                <Ionicons
+                                    name="document-attach-outline"
+                                    size={16}
+                                    color={theme.colors.button.secondary.tint}
+                                />
+                            </Pressable>
+                        </>
+                    )}
+                </View>
                 <View style={[
                     styles.sendButton,
                     isSpawning ? styles.sendButtonActive :
@@ -1705,6 +1763,18 @@ const styles = StyleSheet.create((theme) => ({
         gap: 8,
         flex: 1,
         overflow: 'hidden',
+    },
+    attachButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Platform.select({ default: 16, android: 20 }),
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        height: 32,
+    },
+    attachButtonPressed: {
+        opacity: 0.7,
     },
     sendButton: {
         width: COMPOSER_SEND_BUTTON_SIZE,
