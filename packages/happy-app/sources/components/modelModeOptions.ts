@@ -77,7 +77,10 @@ export function getGeminiPermissionModes(translate: Translate): PermissionMode[]
 export function getClaudeModelModes(): ModelMode[] {
     return [
         { key: 'default', name: 'default model', description: null },
-        { key: 'opus', name: 'opus 5', description: null },
+        // Full model ID instead of the bare 'opus' alias — the bundled Claude Code
+        // resolves the `opus` alias to its *default* Opus (4.8), so the alias would
+        // silently downgrade an "opus 5" selection. Send the explicit ID instead.
+        { key: 'claude-opus-5', name: 'opus 5', description: null },
         // Full model ID instead of the 'fable' alias — older bundled Claude Code
         // versions don't know the alias and reject the session's --model value.
         { key: 'claude-fable-5', name: 'fable 5', description: null },

@@ -31,12 +31,15 @@ describe('modelModeOptions', () => {
         expect(modes[0].name).toBe('tr:agentInput.permissionMode.default');
     });
 
-    it('offers Claude Opus 5 through the latest Opus alias', () => {
+    it('offers Claude Opus 5 via its explicit model ID, not the bare alias', () => {
+        // The bare `opus` alias resolves to the bundled Claude Code's default
+        // Opus (4.8), so the picker must send the full `claude-opus-5` ID.
         expect(getClaudeModelModes()).toContainEqual({
-            key: 'opus',
+            key: 'claude-opus-5',
             name: 'opus 5',
             description: null,
         });
+        expect(getClaudeModelModes().some((m) => m.key === 'opus')).toBe(false);
     });
 
     it('builds codex model fallbacks', () => {
@@ -58,7 +61,7 @@ describe('modelModeOptions', () => {
 
     it('uses code defaults for agent defaults', () => {
         expect(getDefaultPermissionModeKey('claude')).toBe('bypassPermissions');
-        expect(getDefaultModelKey('claude')).toBe('opus');
+        expect(getDefaultModelKey('claude')).toBe('claude-opus-5');
         expect(getDefaultEffortKey('claude')).toBe('medium');
         expect(getDefaultPermissionModeKey('codex')).toBe('yolo');
         expect(getDefaultModelKey('codex')).toBe('gpt-5.5');
