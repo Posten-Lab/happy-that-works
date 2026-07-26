@@ -890,6 +890,11 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                         if (nextTasks) {
                             state.taskItems = nextTasks;
                             updateLatestTodos(state, nextTasks, msg.createdAt);
+                            // TodoWrite carried the whole list on every call, so a
+                            // checklist rendered inline each time. Task* calls carry
+                            // only their own task, so attach the folded list here to
+                            // keep that same inline rendering.
+                            message.tool.taskSnapshot = nextTasks;
                         }
                     }
 

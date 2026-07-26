@@ -3114,6 +3114,34 @@ describe('reducer', () => {
             expect(result.todos?.[3].content).toContain('[blocked by #4, #5]');
         });
 
+        it('attaches the full list to every task call, so each renders a checklist inline', () => {
+            // TodoWrite carried the whole list on every call, which is why a
+            // checklist kept appearing as work progressed. TaskCreate/TaskUpdate
+            // only carry their own task, so the reducer must attach the folded
+            // list — otherwise only the (rare) TaskList call can render one.
+            const state = createReducer();
+            const result = reducer(state, [
+                taskCall('t1', 1000, 'TaskCreate', { subject: 'first' }),
+                taskResult('t1', 1010, 'Task #1 created successfully: first'),
+                taskCall('t2', 1020, 'TaskCreate', { subject: 'second' }),
+                taskResult('t2', 1030, 'Task #2 created successfully: second'),
+                taskCall('t3', 1040, 'TaskUpdate', { taskId: '1', status: 'in_progress' }),
+                taskResult('t3', 1050, 'Updated task #1 status'),
+            ]);
+
+            const snapshots = result.messages
+                .filter((m) => m.kind === 'tool-call')
+                .map((m) => (m.kind === 'tool-call' ? m.tool.taskSnapshot : undefined));
+
+            // every task call carries a snapshot, growing as tasks are added
+            expect(snapshots.map((s) => s?.length)).toEqual([1, 2, 2]);
+            // and the last one reflects the status change
+            expect(snapshots[2]).toEqual([
+                { id: '1', content: 'first', status: 'in_progress' },
+                { id: '2', content: 'second', status: 'pending' },
+            ]);
+        });
+
         it('ignores errored Task* results', () => {
             const state = createReducer();
             const result = reducer(state, [

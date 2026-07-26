@@ -4,15 +4,24 @@ import { TodoItemsList } from './TodoView';
 import { parseTaskList, toResultText } from '@/sync/reducer/taskTools';
 
 /**
- * Renders a `TaskList` call as the same checklist TodoWrite used to produce.
- * TaskList reports plain text rather than a structured payload, so the result
- * is parsed here (see sync/reducer/taskTools).
+ * Renders any TaskCreate/TaskUpdate/TaskList call as the checklist TodoWrite
+ * used to produce.
+ *
+ * TodoWrite carried the whole list on every call, so the checklist appeared
+ * inline throughout a conversation. The Task* tools each report only their own
+ * task, so the reducer folds them into a running list and attaches it as
+ * `taskSnapshot` — that is the preferred source here. A TaskList result is
+ * parsed directly as a fallback, which also covers messages reduced before
+ * snapshots existed.
  */
 export const TaskListView = React.memo<ToolViewProps>(({ tool }) => {
     const items = React.useMemo(() => {
+        if (tool.taskSnapshot && tool.taskSnapshot.length > 0) {
+            return tool.taskSnapshot;
+        }
         const text = toResultText(tool.result);
         return text ? parseTaskList(text) : [];
-    }, [tool.result]);
+    }, [tool.taskSnapshot, tool.result]);
 
     return <TodoItemsList items={items} />;
 });

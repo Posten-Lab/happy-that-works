@@ -40,7 +40,11 @@ export const toolViewRegistry: Record<string, ToolViewComponent> = {
     CodexDiff: CodexDiffView,
     Write: WriteView,
     TodoWrite: TodoView,
-    // Claude Code >= 2.1.170 emits TaskList instead of TodoWrite.
+    // Claude Code >= 2.1.170 emits these instead of TodoWrite. All three render
+    // the same checklist so it appears inline as work progresses, exactly as
+    // TodoWrite's did.
+    TaskCreate: TaskListView,
+    TaskUpdate: TaskListView,
     TaskList: TaskListView,
     ExitPlanMode: ExitPlanToolView,
     exit_plan_mode: ExitPlanToolView,

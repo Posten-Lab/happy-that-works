@@ -29,6 +29,14 @@ function getPatchFiles(input: any): string[] {
     return [];
 }
 
+/**
+ * Expand a Task* call into its checklist whenever the reducer attached a
+ * snapshot, mirroring how TodoWrite expanded whenever it carried todos.
+ */
+const showChecklistWhenSnapshotPresent = (opts: { metadata: Metadata | null, tool: ToolCall, messages?: Message[] }) => {
+    return !(opts.tool.taskSnapshot && opts.tool.taskSnapshot.length > 0);
+};
+
 const taskLikeTool = {
     title: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
         if (opts.tool.input && opts.tool.input.description && typeof opts.tool.input.description === 'string') {
@@ -417,7 +425,7 @@ export const knownTools = {
         title: t('tools.names.taskAdd'),
         icon: ICON_TODO,
         noStatus: true,
-        minimal: true,
+        minimal: showChecklistWhenSnapshotPresent,
         input: z.object({
             subject: z.string().describe('Short task title'),
             description: z.string().describe('Longer task detail'),
@@ -434,7 +442,7 @@ export const knownTools = {
         title: t('tools.names.taskUpdate'),
         icon: ICON_TODO,
         noStatus: true,
-        minimal: true,
+        minimal: showChecklistWhenSnapshotPresent,
         input: z.object({
             taskId: z.union([z.string(), z.number()]).describe('Task id being updated'),
             status: z.string().describe('pending | in_progress | completed'),
@@ -453,6 +461,7 @@ export const knownTools = {
         title: t('tools.names.todoList'),
         icon: ICON_TODO,
         noStatus: true,
+        minimal: showChecklistWhenSnapshotPresent,
     },
     'WebSearch': {
         title: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
