@@ -13,6 +13,18 @@ import { TodoItem } from '../storageTypes';
 
 export const TASK_TOOL_NAMES = ['TaskCreate', 'TaskUpdate', 'TaskList'] as const;
 
+/**
+ * A task plus the timestamp of the call that last wrote it. The client loads the
+ * newest page first and back-fills older pages, so calls arrive out of order —
+ * `at` lets an older page fill gaps without overwriting newer state.
+ */
+export type FoldedTask = TodoItem & { at?: number };
+
+/** Drop provenance before publishing to the UI. */
+export function stripFoldMeta(items: FoldedTask[]): TodoItem[] {
+    return items.map(({ at, ...task }) => task);
+}
+
 // "#6 [pending] Phase 5 — open both PRs [blocked by #4, #5]"
 const TASK_LIST_LINE = /^#(\d+)\s+\[([a-z_]+)\]\s+(.+)$/;
 // "Task #1 created successfully: Phase 0 — Plan + design spec"
@@ -86,12 +98,40 @@ function toId(value: unknown): string | null {
     return null;
 }
 
+/**
+ * Task ids are ascending integers, so sorting by id restores creation order no
+ * matter which page the calls arrived on. Without this the list would be
+ * ordered by arrival, which for back-filled pages is roughly backwards.
+ */
+function sortById(items: FoldedTask[]): FoldedTask[] {
+    return [...items].sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0));
+}
+
 /** "Phase 5 — open both PRs" + ['4','5'] -> "Phase 5 — open both PRs [blocked by #4, #5]" */
 function withBlockedBy(subject: string, blockedBy: unknown): string {
     if (!Array.isArray(blockedBy) || blockedBy.length === 0) {
         return subject;
     }
     return `${subject} [blocked by ${blockedBy.map((b) => `#${b}`).join(', ')}]`;
+}
+
+/**
+ * Merge one task in, newest-write-wins per field. An older call may fill a
+ * missing subject but must not roll back a status a newer call already set.
+ */
+function upsert(current: FoldedTask[], incoming: FoldedTask, at: number): FoldedTask[] {
+    const existing = current.find((t) => t.id === incoming.id);
+    if (!existing) {
+        return sortById([...current, { ...incoming, at }]);
+    }
+    const isNewer = at >= (existing.at ?? 0);
+    return sortById(current.map((t) => t.id !== incoming.id ? t : {
+        ...t,
+        // A placeholder subject ("#4") always yields to a real one.
+        content: isNewer || /^#\d+$/.test(t.content) ? incoming.content : t.content,
+        status: isNewer ? incoming.status : t.status,
+        at: Math.max(at, existing.at ?? 0),
+    }));
 }
 
 /**
@@ -102,23 +142,26 @@ function withBlockedBy(subject: string, blockedBy: unknown): string {
  * structured `toolUseResult` that the wire normalizer prefers. So `result` is
  * normally an object, and the text parsers above are the fallback.
  *
- * `TaskList` is authoritative: it alone reports every task at once (including
- * blocked-by edges), so it replaces the list wholesale. The other two are
- * incremental, which keeps the checklist live in sessions that never call it.
+ * Every path merges by task id with `at` as the tiebreaker, because the client
+ * loads the newest page first and then back-fills older ones — so a TaskList
+ * snapshot can arrive *after* creates that postdate it, and an update can arrive
+ * before the create that introduced its task. Nothing here may assume order.
  */
 export function foldTaskTool(
-    current: TodoItem[],
+    current: FoldedTask[],
     toolName: string,
     input: unknown,
     result: unknown,
-): TodoItem[] | null {
+    at: number = 0,
+): FoldedTask[] | null {
     const obj = asObject(result);
     const text = toResultText(result);
 
     if (toolName === 'TaskList') {
         // structured: { tasks: [{ id, subject, status, blockedBy }] }
+        let listed: TodoItem[] = [];
         if (obj && Array.isArray(obj.tasks)) {
-            const items = obj.tasks
+            listed = obj.tasks
                 .map((raw: any) => {
                     const id = toId(raw?.id);
                     const subject = typeof raw?.subject === 'string' ? raw.subject : null;
@@ -130,11 +173,15 @@ export function foldTaskTool(
                     };
                 })
                 .filter(Boolean) as TodoItem[];
-            return items.length > 0 ? items : null;
+        } else if (text) {
+            listed = parseTaskList(text);
         }
-        if (!text) return null;
-        const parsed = parseTaskList(text);
-        return parsed.length > 0 ? parsed : null;
+        if (listed.length === 0) {
+            return null;
+        }
+        // Merge rather than replace: a TaskList from an older page must not
+        // delete tasks created after that snapshot was taken.
+        return listed.reduce((acc, task) => upsert(acc, task, at), current);
     }
 
     if (toolName === 'TaskCreate') {
@@ -154,11 +201,10 @@ export function foldTaskTool(
         if (!created) {
             return null;
         }
-        // A retried create must not duplicate the row it already produced.
-        if (current.some((t) => t.id === created!.id)) {
-            return current.map((t) => (t.id === created!.id ? { ...t, content: created!.content } : t));
-        }
-        return [...current, created];
+        // A create is the oldest possible word on a task, so it must never roll
+        // back a status an update already applied — hence `at` of 0 for status,
+        // while the subject still fills any placeholder.
+        return upsert(current, created, Math.min(at, existingAt(current, created.id) ?? at));
     }
 
     if (toolName === 'TaskUpdate') {
@@ -174,23 +220,21 @@ export function foldTaskTool(
         const nextSubject = typeof obj?.subject === 'string' && obj.subject
             ? obj.subject
             : typeof fields.subject === 'string' && fields.subject ? fields.subject : null;
-
-        let matched = false;
-        const next = current.map((task) => {
-            if (task.id !== id) {
-                return task;
-            }
-            matched = true;
-            return {
-                ...task,
-                status: nextStatus ? normalizeStatus(nextStatus) : task.status,
-                content: nextSubject ?? task.content,
-            };
-        });
-        // An update for a task we never saw created (e.g. a resumed session)
-        // is dropped; the next TaskList call repopulates the whole list.
-        return matched ? next : null;
+        if (!nextStatus && !nextSubject) {
+            return null;
+        }
+        const existing = current.find((t) => t.id === id);
+        return upsert(current, {
+            id,
+            // Placeholder subject when the create has not landed yet.
+            content: nextSubject ?? existing?.content ?? `#${id}`,
+            status: nextStatus ? normalizeStatus(nextStatus) : existing?.status ?? 'pending',
+        }, at);
     }
 
     return null;
+}
+
+function existingAt(current: FoldedTask[], id?: string): number | undefined {
+    return current.find((t) => t.id === id)?.at;
 }

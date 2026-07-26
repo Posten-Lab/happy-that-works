@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { foldTaskTool, isTaskTool, parseTaskCreate, parseTaskList, toResultText } from './taskTools';
+import { foldTaskTool, isTaskTool, parseTaskCreate, parseTaskList, stripFoldMeta, toResultText } from './taskTools';
 
 // Verbatim payloads captured from session ba91de6b (Claude Code 2.1.210/2.1.220).
 const REAL_TASK_LIST = [
@@ -67,21 +67,22 @@ describe('taskTools', () => {
         expect(list.map((t) => t.content)).toEqual(['first', 'second']);
 
         list = foldTaskTool(list, 'TaskUpdate', { taskId: '1', status: 'completed' }, 'Updated task #1 status')!;
-        expect(list[0]).toEqual({ id: '1', content: 'first', status: 'completed' });
+        expect(stripFoldMeta(list)[0]).toEqual({ id: '1', content: 'first', status: 'completed' });
         expect(list[1].status).toBe('pending');
     });
 
     it('accepts a numeric taskId and can rename via subject', () => {
         const seeded = foldTaskTool([], 'TaskCreate', {}, 'Task #7 created successfully: old')!;
         const renamed = foldTaskTool(seeded, 'TaskUpdate', { taskId: 7, subject: 'new', status: 'in_progress' }, '')!;
-        expect(renamed[0]).toEqual({ id: '7', content: 'new', status: 'in_progress' });
+        expect(stripFoldMeta(renamed)[0]).toEqual({ id: '7', content: 'new', status: 'in_progress' });
     });
 
-    it('lets TaskList replace the list wholesale', () => {
+    it('lets a TaskList refresh every task it reports', () => {
         const stale = [{ id: '1', content: 'stale', status: 'pending' as const }];
-        const next = foldTaskTool(stale, 'TaskList', {}, REAL_TASK_LIST)!;
+        const next = foldTaskTool(stale, 'TaskList', {}, REAL_TASK_LIST, 10)!;
         expect(next).toHaveLength(4);
         expect(next[0].status).toBe('completed');
+        expect(next[0].content).toBe('Phase 0 — Plan + design spec + approval');
     });
 
     it('returns null when a call carries nothing usable, so state is left alone', () => {
@@ -89,8 +90,11 @@ describe('taskTools', () => {
         expect(foldTaskTool([], 'TaskList', {}, 'no task lines here')).toBeNull();
         expect(foldTaskTool([], 'TaskCreate', {}, 'unexpected wording')).toBeNull();
         expect(foldTaskTool([], 'TaskUpdate', {}, 'x')).toBeNull();
-        // update for a task we never saw created
-        expect(foldTaskTool([], 'TaskUpdate', { taskId: '9', status: 'completed' }, 'x')).toBeNull();
+        // An update for a task we have not seen created is NOT dropped — pages
+        // arrive newest-first, so the create is usually still to come. It is
+        // held as a placeholder until the create supplies the real subject.
+        expect(stripFoldMeta(foldTaskTool([], 'TaskUpdate', { taskId: '9', status: 'completed' }, 'x')!))
+            .toEqual([{ id: '9', content: '#9', status: 'completed' }]);
         expect(foldTaskTool([], 'TodoWrite', {}, 'x')).toBeNull();
     });
 
@@ -109,7 +113,7 @@ describe('taskTools — structured toolUseResult (what the reducer actually sees
         const next = foldTaskTool([], 'TaskCreate', { subject: 'x' }, {
             task: { id: '1', subject: 'Phase 0 — Plan + design spec + approval' },
         })!;
-        expect(next).toEqual([
+        expect(stripFoldMeta(next)).toEqual([
             { id: '1', content: 'Phase 0 — Plan + design spec + approval', status: 'pending' },
         ]);
     });
@@ -131,7 +135,7 @@ describe('taskTools — structured toolUseResult (what the reducer actually sees
                 { id: '6', subject: 'Phase 5', status: 'pending', blockedBy: ['4', '5'] },
             ],
         })!;
-        expect(next).toEqual([
+        expect(stripFoldMeta(next)).toEqual([
             { id: '1', content: 'Phase 0', status: 'completed' },
             { id: '4', content: 'Phase 3', status: 'in_progress' },
             { id: '6', content: 'Phase 5 [blocked by #4, #5]', status: 'pending' },
@@ -140,6 +144,50 @@ describe('taskTools — structured toolUseResult (what the reducer actually sees
 
     it('still falls back to text parsing when no structured result is present', () => {
         const next = foldTaskTool([], 'TaskCreate', {}, 'Task #2 created successfully: legacy')!;
-        expect(next).toEqual([{ id: '2', content: 'legacy', status: 'pending' }]);
+        expect(stripFoldMeta(next)).toEqual([{ id: '2', content: 'legacy', status: 'pending' }]);
+    });
+});
+
+// The client fetches the newest page first and back-fills older pages, so task
+// calls arrive out of order: an update before its create, and a TaskList
+// snapshot after creates that postdate it. Folding must be order-independent.
+describe('taskTools — out-of-order page arrival', () => {
+    it('keeps an update that arrives before its create, then fills the subject', () => {
+        // newest page first: the update
+        let list = foldTaskTool([], 'TaskUpdate', {}, {
+            taskId: '3', statusChange: { from: 'pending', to: 'completed' },
+        }, 2000)!;
+        expect(stripFoldMeta(list)).toEqual([{ id: '3', content: '#3', status: 'completed' }]);
+
+        // older page: the create that introduced it
+        list = foldTaskTool(list, 'TaskCreate', {}, { task: { id: '3', subject: 'real subject' } }, 1000)!;
+        expect(stripFoldMeta(list)).toEqual([
+            { id: '3', content: 'real subject', status: 'completed' }, // status NOT rolled back
+        ]);
+    });
+
+    it('does not let an older TaskList delete tasks created after it', () => {
+        // newest page: task #9 created late
+        let list = foldTaskTool([], 'TaskCreate', {}, { task: { id: '9', subject: 'late task' } }, 3000)!;
+        // older page: a TaskList snapshot taken before #9 existed
+        list = foldTaskTool(list, 'TaskList', {}, {
+            tasks: [{ id: '1', subject: 'first', status: 'completed', blockedBy: [] }],
+        }, 1000)!;
+        expect(stripFoldMeta(list)).toEqual([
+            { id: '1', content: 'first', status: 'completed' },
+            { id: '9', content: 'late task', status: 'pending' },
+        ]);
+    });
+
+    it('sorts by task id regardless of arrival order', () => {
+        let list = foldTaskTool([], 'TaskCreate', {}, { task: { id: '10', subject: 'ten' } }, 3000)!;
+        list = foldTaskTool(list, 'TaskCreate', {}, { task: { id: '2', subject: 'two' } }, 2000)!;
+        expect(list.map((t) => t.id)).toEqual(['2', '10']);
+    });
+
+    it('does not roll a status back when an older update lands later', () => {
+        let list = foldTaskTool([], 'TaskUpdate', {}, { taskId: '1', statusChange: { from: 'x', to: 'completed' } }, 5000)!;
+        list = foldTaskTool(list, 'TaskUpdate', {}, { taskId: '1', statusChange: { from: 'x', to: 'in_progress' } }, 1000)!;
+        expect(list[0].status).toBe('completed');
     });
 });
