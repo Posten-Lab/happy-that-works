@@ -93,6 +93,21 @@ export default React.memo(function TaskPanelPreview() {
             <Text style={styles.caption}>empty session — must render nothing</Text>
             <View style={styles.frame}><SessionTaskPanel session={fakeSession([])} /></View>
 
+            <Text style={styles.caption}>all completed — header only, no rows</Text>
+            <View style={styles.frame}><SessionTaskPanel session={fakeSession(
+                CREATES.map(([id, subject]) => ({ id, content: subject, status: 'completed' as const }))
+            )} /></View>
+
+            <Text style={styles.caption}>nothing started — should show the next pending item</Text>
+            <View style={styles.frame}><SessionTaskPanel session={fakeSession(
+                CREATES.slice(0, 4).map(([id, subject]) => ({ id, content: subject, status: 'pending' as const }))
+            )} /></View>
+
+            <Text style={styles.caption}>single very long title — must wrap, not overflow</Text>
+            <View style={styles.frame}><SessionTaskPanel session={fakeSession([
+                { id: '1', content: 'Re-capture every brief-bearing state against the current build including the signed-out variant and the empty-portfolio case', status: 'in_progress' },
+            ])} /></View>
+
             <Text style={styles.caption}>{`raw: client=${clientOrder.length} chronological=${chronological.length} placeholders=${placeholdersOnly.length}`}</Text>
         </ScrollView>
     );
