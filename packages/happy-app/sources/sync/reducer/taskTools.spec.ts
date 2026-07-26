@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { foldTaskTool, isTaskTool, parseTaskCreate, parseTaskList, stripFoldMeta, toResultText } from './taskTools';
+import { addPendingCreate, applyCreateSubjects, createSubject, foldTaskTool, isTaskTool, parseTaskCreate, parseTaskList, stripFoldMeta, toResultText } from './taskTools';
 
 // Verbatim payloads captured from session ba91de6b (Claude Code 2.1.210/2.1.220).
 const REAL_TASK_LIST = [
@@ -189,5 +189,65 @@ describe('taskTools — out-of-order page arrival', () => {
         let list = foldTaskTool([], 'TaskUpdate', {}, { taskId: '1', statusChange: { from: 'x', to: 'completed' } }, 5000)!;
         list = foldTaskTool(list, 'TaskUpdate', {}, { taskId: '1', statusChange: { from: 'x', to: 'in_progress' } }, 1000)!;
         expect(list[0].status).toBe('completed');
+    });
+});
+
+
+// On the real wire happy-cli does not forward these tool results: tool.result is
+// null, so the subject only exists in the input and the id only arrives via
+// TaskUpdate/TaskList. Verified against the live production session
+// cms0plcs70003xd0tvfbaume4, where 12 creates all had result === null.
+describe('taskTools — real wire (null result, subject in input)', () => {
+    it('takes the subject from the input when the result is null', () => {
+        expect(createSubject({ subject: 'Phase 0 — Plan', description: 'x' }, null)).toBe('Phase 0 — Plan');
+        expect(createSubject({}, null)).toBeNull();
+    });
+
+    it('still prefers a structured result when one exists', () => {
+        expect(createSubject({ subject: 'from input' }, { task: { id: '1', subject: 'from result' } }))
+            .toBe('from result');
+    });
+
+    it('orders creates by call time and ignores replays', () => {
+        let c = addPendingCreate([], 200, 'second');
+        c = addPendingCreate(c, 100, 'first');
+        c = addPendingCreate(c, 100, 'first'); // replayed page
+        expect(c.map((x) => x.subject)).toEqual(['first', 'second']);
+    });
+
+    it('joins subjects to ids by creation order, keeping statuses from updates', () => {
+        const items = [
+            { id: '1', content: '#1', status: 'completed' as const, at: 10 },
+            { id: '2', content: '#2', status: 'in_progress' as const, at: 20 },
+        ];
+        const creates = [{ at: 1, subject: 'first' }, { at: 2, subject: 'second' }];
+        expect(stripFoldMeta(applyCreateSubjects(items, creates))).toEqual([
+            { id: '1', content: 'first', status: 'completed' },
+            { id: '2', content: 'second', status: 'in_progress' },
+        ]);
+    });
+
+    it('re-derives on every pass so a partial create list self-corrects', () => {
+        const items = [{ id: '1', content: '#1', status: 'pending' as const }];
+        // only the newest create has loaded — it wrongly lands on id 1
+        const partial = applyCreateSubjects(items, [{ at: 99, subject: 'newest' }]);
+        expect(partial[0].content).toBe('newest');
+        // once the older create back-fills, id 1 must become the OLDEST subject
+        const full = applyCreateSubjects(partial, [{ at: 1, subject: 'oldest' }, { at: 99, subject: 'newest' }]);
+        expect(full.map((t) => t.content)).toEqual(['oldest', 'newest']);
+    });
+
+    it('does not guess while creates are still missing', () => {
+        // ids up to 5 are known but only one create has loaded
+        const items = [{ id: '5', content: '#5', status: 'completed' as const }];
+        expect(applyCreateSubjects(items, [{ at: 1, subject: 'only one' }])[0].content).toBe('#5');
+    });
+
+    it('adds rows for tasks created but never updated', () => {
+        const out = applyCreateSubjects([], [{ at: 1, subject: 'a' }, { at: 2, subject: 'b' }]);
+        expect(stripFoldMeta(out)).toEqual([
+            { id: '1', content: 'a', status: 'pending' },
+            { id: '2', content: 'b', status: 'pending' },
+        ]);
     });
 });

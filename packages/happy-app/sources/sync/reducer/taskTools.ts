@@ -20,6 +20,77 @@ export const TASK_TOOL_NAMES = ['TaskCreate', 'TaskUpdate', 'TaskList'] as const
  */
 export type FoldedTask = TodoItem & { at?: number };
 
+/**
+ * A TaskCreate as it actually arrives: happy-cli does not forward the tool
+ * result, so `tool.result` is null and the only real data is the input — which
+ * carries the subject but NOT the id. Ids come from TaskUpdate/TaskList. Claude
+ * Code numbers tasks 1..N in creation order, so ordering creates by timestamp
+ * recovers the mapping.
+ */
+export type PendingCreate = { at: number; subject: string };
+
+/** Subject of a TaskCreate call, preferring the (usually absent) result. */
+export function createSubject(input: unknown, result: unknown): string | null {
+    const res = asObject(result);
+    const task = asObject(res?.task);
+    if (task && typeof task.subject === 'string' && task.subject) {
+        return task.subject;
+    }
+    const text = toResultText(result);
+    const parsed = text ? parseTaskCreate(text) : null;
+    if (parsed) {
+        return parsed.content;
+    }
+    const inp = asObject(input);
+    return typeof inp?.subject === 'string' && inp.subject ? inp.subject : null;
+}
+
+/** Insert a create keeping the list ordered by call time, ignoring replays. */
+export function addPendingCreate(creates: PendingCreate[], at: number, subject: string): PendingCreate[] {
+    if (creates.some((c) => c.at === at && c.subject === subject)) {
+        return creates;
+    }
+    return [...creates, { at, subject }].sort((a, b) => a.at - b.at);
+}
+
+/**
+ * Fill in subjects for tasks we only know by id.
+ *
+ * Claude Code numbers tasks 1..N in creation order, so the nth create (by call
+ * time) is task n. That mapping is only valid once every create is loaded —
+ * the client back-fills older pages, so a partial set would attach the newest
+ * subjects to the lowest ids. Guard on having at least as many creates as the
+ * highest id any update mentioned; until then leave the placeholders, which the
+ * panel hides rather than showing something wrong.
+ */
+export function applyCreateSubjects(items: FoldedTask[], creates: PendingCreate[]): FoldedTask[] {
+    if (creates.length === 0) {
+        return items;
+    }
+    const maxKnownId = items.reduce((max, t) => Math.max(max, Number(t.id ?? 0) || 0), 0);
+    if (creates.length < maxKnownId) {
+        return items;
+    }
+    const next = [...items];
+    creates.forEach((create, index) => {
+        const id = String(index + 1);
+        const found = next.findIndex((t) => t.id === id);
+        if (found === -1) {
+            next.push({ id, content: create.subject, status: 'pending', at: create.at });
+            return;
+        }
+        const existing = { ...next[found] };
+        next[found] = existing;
+        // Always re-derive, never patch once: pages stream in, so an earlier
+        // partial create list may have assigned the wrong subject to this id.
+        // Recomputing from the current (sorted) list self-corrects as it grows.
+        existing.content = create.subject;
+    });
+    return sortById(next);
+}
+
+const PLACEHOLDER = /^#\d+$/;
+
 /** Drop provenance before publishing to the UI. */
 export function stripFoldMeta(items: FoldedTask[]): TodoItem[] {
     return items.map(({ at, ...task }) => task);
