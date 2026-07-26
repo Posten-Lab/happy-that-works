@@ -114,7 +114,6 @@ import { Message, ToolCall } from "../typesMessage";
 import { AgentEvent, NormalizedMessage, UsageData } from "../typesRaw";
 import { createTracer, traceMessages, TracerState } from "./reducerTracer";
 import { AgentState, TodoItem, TodoItemsSchema } from "../storageTypes";
-import { foldTaskTool, isTaskTool, stripFoldMeta, applyCreateSubjects, addPendingCreate, createSubject, FoldedTask, PendingCreate } from "./taskTools";
 import { MessageMeta } from "../typesMessageMeta";
 import { parseMessageAsEvent } from "./messageToEvent";
 
@@ -158,14 +157,6 @@ export type ReducerState = {
         todos: TodoItem[];
         timestamp: number;
     };
-    // Running list folded from the TaskCreate/TaskUpdate/TaskList tools, which
-    // replaced TodoWrite in Claude Code 2.1.170. Kept separately because those
-    // calls are incremental — each one only reports its own task.
-    taskItems?: FoldedTask[];
-    // TaskCreate arrives with a null result, so the subject lives in the input
-    // and the id does not arrive at all. Ids come from TaskUpdate/TaskList;
-    // these creates, ordered by call time, supply the matching subjects.
-    taskCreates?: PendingCreate[];
     latestUsage?: {
         inputTokens: number;
         outputTokens: number;
@@ -334,8 +325,6 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
             };
             // Drop the folded Task* list too, otherwise a later TaskUpdate would
             // fold into — and so resurrect — the pre-reset tasks.
-            state.taskItems = [];
-            state.taskCreates = [];
             state.latestUsage = {
                 inputTokens: 0,
                 outputTokens: 0,
@@ -885,41 +874,6 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                         updateLatestTodos(state, message.tool.result?.newTodos, msg.createdAt);
                     }
 
-                    if (isTaskTool(message.tool.name) && !c.is_error) {
-                        if (message.tool.name === 'TaskCreate') {
-                            const subject = createSubject(message.tool.input, message.tool.result);
-                            if (subject) {
-                                state.taskCreates = addPendingCreate(state.taskCreates ?? [], msg.createdAt, subject);
-                            }
-                        }
-                        const folded = foldTaskTool(
-                            state.taskItems ?? [],
-                            message.tool.name,
-                            message.tool.input,
-                            message.tool.result,
-                            msg.createdAt,
-                        );
-                        const nextTasks = applyCreateSubjects(folded ?? state.taskItems ?? [], state.taskCreates ?? []);
-                        if (nextTasks.length > 0) {
-                            state.taskItems = nextTasks;
-                            const publishedTasks = stripFoldMeta(nextTasks);
-                            // Not updateLatestTodos(): its timestamp guard drops
-                            // anything older than what it already holds, and the
-                            // client back-fills older pages after the newest one,
-                            // so task calls routinely arrive with descending
-                            // timestamps. The folded list is already the merged
-                            // truth, so publish it regardless of arrival order.
-                            state.latestTodos = {
-                                todos: publishedTasks,
-                                timestamp: Math.max(msg.createdAt, state.latestTodos?.timestamp ?? 0),
-                            };
-                            // TodoWrite carried the whole list on every call, so a
-                            // checklist rendered inline each time. Task* calls carry
-                            // only their own task, so attach the folded list here to
-                            // keep that same inline rendering.
-                            message.tool.taskSnapshot = publishedTasks;
-                        }
-                    }
 
                     changed.add(messageId);
                 }

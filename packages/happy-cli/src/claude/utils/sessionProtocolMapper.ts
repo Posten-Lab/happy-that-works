@@ -16,7 +16,14 @@ export type ClaudeSessionProtocolState = {
     hiddenParentToolCalls?: Set<string>;
     startedSubagents?: Set<string>;
     activeSubagents?: Set<string>;
+    // Claude's TaskCreate/TaskUpdate/TaskList calls each report only their own
+    // task. Folded here — where the stream is chronological and ids are exact —
+    // and republished as a whole-list TodoWrite so clients need no task logic.
+    taskList?: ClaudeTask[];
+    pendingTaskCalls?: Map<string, { name: string; input: Record<string, unknown> }>;
 };
+
+export type ClaudeTask = { id: string; content: string; status: 'pending' | 'in_progress' | 'completed' };
 
 type ClaudeMapperResult = {
     currentTurnId: string | null;
@@ -447,6 +454,121 @@ function toolResultPayload(message: any, block: any): unknown {
     return content ?? undefined;
 }
 
+
+const TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TaskList']);
+const TASK_CREATED_TEXT = /^Task\s+#(\d+)\s+created successfully:\s*(.+)$/i;
+const TASK_LIST_LINE = /^#(\d+)\s+\[([a-z_]+)\]\s+(.+)$/;
+
+function taskStatus(raw: unknown): ClaudeTask['status'] {
+    return raw === 'completed' || raw === 'in_progress' || raw === 'pending' ? raw : 'pending';
+}
+
+function getTaskList(state: ClaudeSessionProtocolState): ClaudeTask[] {
+    if (!state.taskList) {
+        state.taskList = [];
+    }
+    return state.taskList;
+}
+
+function getPendingTaskCalls(state: ClaudeSessionProtocolState): Map<string, { name: string; input: Record<string, unknown> }> {
+    if (!state.pendingTaskCalls) {
+        state.pendingTaskCalls = new Map();
+    }
+    return state.pendingTaskCalls;
+}
+
+function upsertTask(list: ClaudeTask[], task: ClaudeTask): void {
+    const existing = list.find((t) => t.id === task.id);
+    if (existing) {
+        existing.content = task.content || existing.content;
+        existing.status = task.status;
+        return;
+    }
+    list.push(task);
+    list.sort((a, b) => Number(a.id) - Number(b.id));
+}
+
+/** Text form of a tool result, whatever shape it arrived in. */
+function resultText(message: any, block: any): string {
+    const c = block?.content;
+    if (typeof c === 'string') return c;
+    if (Array.isArray(c)) return c.map((x: any) => (typeof x?.text === 'string' ? x.text : '')).filter(Boolean).join('\n');
+    return '';
+}
+
+/**
+ * Fold one completed Task* call into the running list.
+ *
+ * The CLI sees calls in order and gets the real ids (from the structured
+ * `toolUseResult` when present, otherwise from the result text), so this is
+ * exact — no positional guessing, no reconciling out-of-order pages.
+ * Returns true when the list changed.
+ */
+function foldClaudeTaskCall(
+    state: ClaudeSessionProtocolState,
+    call: { name: string; input: Record<string, unknown> },
+    message: any,
+    block: any,
+): boolean {
+    const list = getTaskList(state);
+    const structured = message?.toolUseResult;
+    const text = resultText(message, block);
+
+    if (call.name === 'TaskCreate') {
+        const fromStructured = structured?.task;
+        const id = fromStructured?.id != null ? String(fromStructured.id) : TASK_CREATED_TEXT.exec(text.trim())?.[1];
+        const subject = typeof fromStructured?.subject === 'string'
+            ? fromStructured.subject
+            : TASK_CREATED_TEXT.exec(text.trim())?.[2] ?? (typeof call.input.subject === 'string' ? call.input.subject : null);
+        if (!id || !subject) return false;
+        upsertTask(list, { id, content: subject, status: 'pending' });
+        return true;
+    }
+
+    if (call.name === 'TaskUpdate') {
+        const id = structured?.taskId != null ? String(structured.taskId)
+            : call.input.taskId != null ? String(call.input.taskId) : null;
+        if (!id) return false;
+        const status = typeof structured?.statusChange?.to === 'string'
+            ? structured.statusChange.to
+            : typeof call.input.status === 'string' ? call.input.status : null;
+        const subject = typeof call.input.subject === 'string' ? call.input.subject : null;
+        const existing = list.find((t) => t.id === id);
+        upsertTask(list, {
+            id,
+            content: subject ?? existing?.content ?? `#${id}`,
+            status: status ? taskStatus(status) : existing?.status ?? 'pending',
+        });
+        return true;
+    }
+
+    if (call.name === 'TaskList') {
+        const tasks = Array.isArray(structured?.tasks) ? structured.tasks : null;
+        if (tasks) {
+            for (const raw of tasks) {
+                const id = raw?.id != null ? String(raw.id) : null;
+                const subject = typeof raw?.subject === 'string' ? raw.subject : null;
+                if (!id || !subject) continue;
+                const blockedBy = Array.isArray(raw.blockedBy) && raw.blockedBy.length > 0
+                    ? ` [blocked by ${raw.blockedBy.map((b: unknown) => `#${b}`).join(', ')}]`
+                    : '';
+                upsertTask(list, { id, content: subject + blockedBy, status: taskStatus(raw.status) });
+            }
+            return tasks.length > 0;
+        }
+        let changed = false;
+        for (const line of text.split('\n')) {
+            const m = TASK_LIST_LINE.exec(line.trim());
+            if (!m) continue;
+            upsertTask(list, { id: m[1], content: m[3].trim(), status: taskStatus(m[2]) });
+            changed = true;
+        }
+        return changed;
+    }
+
+    return false;
+}
+
 export function closeClaudeTurnWithStatus(
     state: ClaudeSessionProtocolState,
     status: SessionTurnEndStatus,
@@ -550,6 +672,13 @@ function mapClaudeLogMessageToSessionEnvelopesInternal(
                     ? { ...baseArgs, sessionSubagent: sessionSubagentForCall }
                     : baseArgs;
 
+                if (TASK_TOOLS.has(name)) {
+                    // Remember it so the result can be folded; the call itself is
+                    // not published — the folded TodoWrite below replaces it.
+                    getPendingTaskCalls(state).set(call, { name, input: (baseArgs ?? {}) as Record<string, unknown> });
+                    continue;
+                }
+
                 envelopes.push(createEnvelope('agent', {
                     t: 'tool-call-start',
                     call,
@@ -645,6 +774,31 @@ function mapClaudeLogMessageToSessionEnvelopesInternal(
                         maybeEmitSubagentStop(state, turnId, sessionSubagentForToolResult, envelopes);
                     }
                 }
+                const pendingTask = getPendingTaskCalls(state).get(block.tool_use_id);
+                if (pendingTask) {
+                    getPendingTaskCalls(state).delete(block.tool_use_id);
+                    const changed = foldClaudeTaskCall(state, pendingTask, message, block);
+                    const list = getTaskList(state);
+                    if (changed && list.length > 0) {
+                        const todos = list.map((t) => ({ content: t.content, status: t.status }));
+                        const todoCall = createId();
+                        envelopes.push(createEnvelope('agent', {
+                            t: 'tool-call-start',
+                            call: todoCall,
+                            name: 'TodoWrite',
+                            title: 'Todo List',
+                            description: '',
+                            args: { todos },
+                        }, { turn: turnId, subagent }));
+                        envelopes.push(createEnvelope('agent', {
+                            t: 'tool-call-end',
+                            call: todoCall,
+                            result: { oldTodos: [], newTodos: todos },
+                        }, { turn: turnId, subagent }));
+                    }
+                    continue;
+                }
+
                 envelopes.push(createEnvelope('agent', {
                     t: 'tool-call-end',
                     call: block.tool_use_id,

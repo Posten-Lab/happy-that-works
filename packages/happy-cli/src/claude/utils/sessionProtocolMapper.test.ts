@@ -434,3 +434,74 @@ describe('tool-call-end carries the tool result', () => {
         expect((empty.envelopes.find((e) => e.ev.t === 'tool-call-end')!.ev as any).result).toBeUndefined();
     });
 });
+
+// Claude's Task* calls each report only their own task. The CLI sees the stream
+// in order and gets exact ids, so it folds them and republishes the whole list
+// as TodoWrite — clients then need no task-specific logic at all.
+describe('claude Task* -> folded TodoWrite', () => {
+    const call = (id: string, name: string, input: any) => ({
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'tool_use', id, name, input }] },
+    } as any);
+    const result = (id: string, content: string, toolUseResult?: any) => ({
+        type: 'user',
+        ...(toolUseResult ? { toolUseResult } : {}),
+        message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content }] },
+    } as any);
+
+    const todosOf = (envs: any[]) => {
+        const end = [...envs].reverse().find((e) => e.ev.t === 'tool-call-end' && e.ev.result?.newTodos);
+        return end?.ev.result.newTodos;
+    };
+
+    it('builds the whole list from creates and updates, with exact ids', () => {
+        const state: any = { currentTurnId: null };
+        let envs: any[] = [];
+        const step = (m: any) => { const r = mapClaudeLogMessageToSessionEnvelopes(m, state); state.currentTurnId = r.currentTurnId; envs = r.envelopes; };
+
+        step(call('c1', 'TaskCreate', { subject: 'Phase 0' }));
+        step(result('c1', 'Task #1 created successfully: Phase 0'));
+        expect(todosOf(envs)).toEqual([{ content: 'Phase 0', status: 'pending' }]);
+
+        step(call('c2', 'TaskCreate', { subject: 'Phase 1' }));
+        step(result('c2', 'Task #2 created successfully: Phase 1'));
+        step(call('c3', 'TaskUpdate', { taskId: '1', status: 'completed' }));
+        step(result('c3', 'Updated task #1 status'));
+
+        expect(todosOf(envs)).toEqual([
+            { content: 'Phase 0', status: 'completed' },
+            { content: 'Phase 1', status: 'pending' },
+        ]);
+    });
+
+    it('prefers the structured result and keeps concurrent in-progress steps', () => {
+        const state: any = { currentTurnId: null };
+        let envs: any[] = [];
+        const step = (m: any) => { const r = mapClaudeLogMessageToSessionEnvelopes(m, state); state.currentTurnId = r.currentTurnId; envs = r.envelopes; };
+
+        step(call('c1', 'TaskList', {}));
+        step(result('c1', '', { tasks: [
+            { id: '1', subject: 'a', status: 'completed', blockedBy: [] },
+            { id: '2', subject: 'b', status: 'in_progress', blockedBy: [] },
+            { id: '3', subject: 'c', status: 'in_progress', blockedBy: [] },
+            { id: '4', subject: 'd', status: 'pending', blockedBy: ['2', '3'] },
+        ] }));
+
+        expect(todosOf(envs)).toEqual([
+            { content: 'a', status: 'completed' },
+            { content: 'b', status: 'in_progress' },
+            { content: 'c', status: 'in_progress' },
+            { content: 'd [blocked by #2, #3]', status: 'pending' },
+        ]);
+    });
+
+    it('does not publish the raw Task* calls themselves', () => {
+        const state: any = { currentTurnId: null };
+        const started = mapClaudeLogMessageToSessionEnvelopes(call('c1', 'TaskCreate', { subject: 'x' }), state);
+        expect(started.envelopes.some((e: any) => e.ev.name === 'TaskCreate')).toBe(false);
+        state.currentTurnId = started.currentTurnId;
+        const ended = mapClaudeLogMessageToSessionEnvelopes(result('c1', 'Task #1 created successfully: x'), state);
+        expect(ended.envelopes.every((e: any) => e.ev.name !== 'TaskCreate')).toBe(true);
+        expect(ended.envelopes.some((e: any) => e.ev.name === 'TodoWrite')).toBe(true);
+    });
+});

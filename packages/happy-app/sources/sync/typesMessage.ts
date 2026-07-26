@@ -10,11 +10,6 @@ export type ToolCall = {
     completedAt: number | null;
     description: string | null;
     result?: any;
-    // Full task list as of this call, folded by the reducer from the
-    // TaskCreate/TaskUpdate/TaskList tools. Those calls each report only their
-    // own task, but TodoWrite used to carry the whole list — this restores that
-    // so the same inline checklist renders at every task call.
-    taskSnapshot?: { content: string; status: 'pending' | 'in_progress' | 'completed'; id?: string }[];
     permission?: {
         id: string;
         status: 'pending' | 'approved' | 'denied' | 'canceled';

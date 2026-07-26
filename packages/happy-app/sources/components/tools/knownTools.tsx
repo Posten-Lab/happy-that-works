@@ -29,14 +29,6 @@ function getPatchFiles(input: any): string[] {
     return [];
 }
 
-/**
- * Expand a Task* call into its checklist whenever the reducer attached a
- * snapshot, mirroring how TodoWrite expanded whenever it carried todos.
- */
-const showChecklistWhenSnapshotPresent = (opts: { metadata: Metadata | null, tool: ToolCall, messages?: Message[] }) => {
-    return !(opts.tool.taskSnapshot && opts.tool.taskSnapshot.length > 0);
-};
-
 const taskLikeTool = {
     title: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
         if (opts.tool.input && opts.tool.input.description && typeof opts.tool.input.description === 'string') {
@@ -390,6 +382,10 @@ export const knownTools = {
         title: t('tools.names.todoList'),
         icon: ICON_TODO,
         noStatus: true,
+        // The list is republished on every change, so rendering it inline
+        // reprints the whole checklist over and over. The pinned session panel
+        // shows the current list once instead.
+        hidden: true,
         minimal: (opts: { metadata: Metadata | null, tool: ToolCall, messages?: Message[] }) => {
             // Check if there are todos in the input
             if (opts.tool.input?.todos && Array.isArray(opts.tool.input.todos) && opts.tool.input.todos.length > 0) {
@@ -417,51 +413,6 @@ export const knownTools = {
             }
             return t('tools.names.todoList');
         },
-    },
-    // Claude Code >= 2.1.170 replaced TodoWrite with TaskCreate/TaskUpdate/TaskList.
-    // These report plain text, so descriptions are built from the input instead
-    // of a parsed result; TaskList renders the checklist via TaskListView.
-    'TaskCreate': {
-        title: t('tools.names.taskAdd'),
-        icon: ICON_TODO,
-        noStatus: true,
-        minimal: showChecklistWhenSnapshotPresent,
-        input: z.object({
-            subject: z.string().describe('Short task title'),
-            description: z.string().describe('Longer task detail'),
-            activeForm: z.string().describe('Present-tense label shown while active'),
-        }).partial().passthrough(),
-        extractDescription: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
-            if (typeof opts.tool.input?.subject === 'string' && opts.tool.input.subject) {
-                return opts.tool.input.subject;
-            }
-            return t('tools.names.taskAdd');
-        },
-    },
-    'TaskUpdate': {
-        title: t('tools.names.taskUpdate'),
-        icon: ICON_TODO,
-        noStatus: true,
-        minimal: showChecklistWhenSnapshotPresent,
-        input: z.object({
-            taskId: z.union([z.string(), z.number()]).describe('Task id being updated'),
-            status: z.string().describe('pending | in_progress | completed'),
-            subject: z.string().describe('Optional replacement title'),
-        }).partial().passthrough(),
-        extractDescription: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
-            const id = opts.tool.input?.taskId;
-            const status = opts.tool.input?.status;
-            if ((typeof id === 'string' || typeof id === 'number') && typeof status === 'string') {
-                return `#${id} → ${status}`;
-            }
-            return t('tools.names.taskUpdate');
-        },
-    },
-    'TaskList': {
-        title: t('tools.names.todoList'),
-        icon: ICON_TODO,
-        noStatus: true,
-        minimal: showChecklistWhenSnapshotPresent,
     },
     'WebSearch': {
         title: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
