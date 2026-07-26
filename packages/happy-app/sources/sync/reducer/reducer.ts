@@ -114,6 +114,7 @@ import { Message, ToolCall } from "../typesMessage";
 import { AgentEvent, NormalizedMessage, UsageData } from "../typesRaw";
 import { createTracer, traceMessages, TracerState } from "./reducerTracer";
 import { AgentState, TodoItem, TodoItemsSchema } from "../storageTypes";
+import { foldTaskTool, isTaskTool, toResultText } from "./taskTools";
 import { MessageMeta } from "../typesMessageMeta";
 import { parseMessageAsEvent } from "./messageToEvent";
 
@@ -157,6 +158,10 @@ export type ReducerState = {
         todos: TodoItem[];
         timestamp: number;
     };
+    // Running list folded from the TaskCreate/TaskUpdate/TaskList tools, which
+    // replaced TodoWrite in Claude Code 2.1.170. Kept separately because those
+    // calls are incremental — each one only reports its own task.
+    taskItems?: TodoItem[];
     latestUsage?: {
         inputTokens: number;
         outputTokens: number;
@@ -323,6 +328,9 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                 todos: [],
                 timestamp: msg.createdAt  // Use message timestamp, not current time
             };
+            // Drop the folded Task* list too, otherwise a later TaskUpdate would
+            // fold into — and so resurrect — the pre-reset tasks.
+            state.taskItems = [];
             state.latestUsage = {
                 inputTokens: 0,
                 outputTokens: 0,
@@ -870,6 +878,19 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
 
                     if (message.tool.name === 'TodoWrite' && !c.is_error) {
                         updateLatestTodos(state, message.tool.result?.newTodos, msg.createdAt);
+                    }
+
+                    if (isTaskTool(message.tool.name) && !c.is_error) {
+                        const nextTasks = foldTaskTool(
+                            state.taskItems ?? [],
+                            message.tool.name,
+                            message.tool.input,
+                            toResultText(message.tool.result),
+                        );
+                        if (nextTasks) {
+                            state.taskItems = nextTasks;
+                            updateLatestTodos(state, nextTasks, msg.createdAt);
+                        }
                     }
 
                     changed.add(messageId);

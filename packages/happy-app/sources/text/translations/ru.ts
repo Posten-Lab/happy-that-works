@@ -570,6 +570,8 @@ export const ru: TranslationStructure = {
             readNotebook: 'Чтение блокнота',
             editNotebook: 'Редактирование блокнота',
             todoList: 'Список задач',
+            taskAdd: 'Добавить задачу',
+            taskUpdate: 'Обновить задачу',
             webSearch: 'Веб-поиск',
             reasoning: 'Рассуждение',
             applyChanges: 'Обновить файл',

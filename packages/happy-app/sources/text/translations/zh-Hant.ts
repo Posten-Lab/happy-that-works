@@ -554,6 +554,8 @@ export const zhHant: TranslationStructure = {
             readNotebook: '讀取 Notebook',
             editNotebook: '編輯 Notebook',
             todoList: '待辦清單',
+            taskAdd: '新增任務',
+            taskUpdate: '更新任務',
             webSearch: 'Web 搜尋',
             reasoning: '推理',
             applyChanges: '更新檔案',

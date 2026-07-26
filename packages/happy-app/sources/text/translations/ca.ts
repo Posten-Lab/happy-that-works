@@ -554,6 +554,8 @@ export const ca: TranslationStructure = {
             readNotebook: 'Llegeix quadern',
             editNotebook: 'Edita quadern',
             todoList: 'Llista de tasques',
+            taskAdd: 'Afegeix tasca',
+            taskUpdate: 'Actualitza tasca',
             webSearch: 'Cerca web',
             reasoning: 'Raonament',
             applyChanges: 'Actualitza fitxer',

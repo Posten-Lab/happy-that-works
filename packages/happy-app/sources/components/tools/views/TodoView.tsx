@@ -11,58 +11,64 @@ export interface Todo {
     id?: string;
 }
 
+/**
+ * Shared checklist rendering, used by both the legacy TodoWrite view and the
+ * TaskList view (Claude Code >= 2.1.170), so the two engines look identical.
+ */
+export const TodoItemsList = React.memo<{ items: Todo[] }>(({ items }) => {
+    if (items.length === 0) {
+        return null;
+    }
+    return (
+        <ToolSectionView>
+            <View style={styles.container}>
+                {items.map((todo, index) => {
+                    const isCompleted = todo.status === 'completed';
+                    const isInProgress = todo.status === 'in_progress';
+                    const isPending = todo.status === 'pending';
+
+                    let textStyle: any = styles.todoText;
+                    let icon = '☐';
+
+                    if (isCompleted) {
+                        textStyle = [styles.todoText, styles.completedText];
+                        icon = '☑';
+                    } else if (isInProgress) {
+                        textStyle = [styles.todoText, styles.inProgressText];
+                        icon = '☐';
+                    } else if (isPending) {
+                        textStyle = [styles.todoText, styles.pendingText];
+                    }
+
+                    return (
+                        <View key={todo.id || `todo-${index}`} style={styles.todoItem}>
+                            <Text style={textStyle}>
+                                {icon} {todo.content}
+                            </Text>
+                        </View>
+                    );
+                })}
+            </View>
+        </ToolSectionView>
+    );
+});
+
 export const TodoView = React.memo<ToolViewProps>(({ tool }) => {
     let todosList: Todo[] = [];
-    
+
     // Try to get todos from input first
     let parsedArguments = knownTools.TodoWrite.input.safeParse(tool.input);
     if (parsedArguments.success && parsedArguments.data.todos) {
         todosList = parsedArguments.data.todos;
     }
-    
+
     // If we have a properly structured result, use newTodos from there
     let parsed = knownTools.TodoWrite.result.safeParse(tool.result);
     if (parsed.success && parsed.data.newTodos) {
         todosList = parsed.data.newTodos;
     }
-    
-    // If we have todos to display, show them
-    if (todosList.length > 0) {
-        return (
-            <ToolSectionView>
-                <View style={styles.container}>
-                    {todosList.map((todo, index) => {
-                        const isCompleted = todo.status === 'completed';
-                        const isInProgress = todo.status === 'in_progress';
-                        const isPending = todo.status === 'pending';
 
-                        let textStyle: any = styles.todoText;
-                        let icon = '☐';
-
-                        if (isCompleted) {
-                            textStyle = [styles.todoText, styles.completedText];
-                            icon = '☑';
-                        } else if (isInProgress) {
-                            textStyle = [styles.todoText, styles.inProgressText];
-                            icon = '☐';
-                        } else if (isPending) {
-                            textStyle = [styles.todoText, styles.pendingText];
-                        }
-
-                        return (
-                            <View key={todo.id || `todo-${index}`} style={styles.todoItem}>
-                                <Text style={textStyle}>
-                                    {icon} {todo.content}
-                                </Text>
-                            </View>
-                        );
-                    })}
-                </View>
-            </ToolSectionView>
-        )
-    }
-
-    return null;
+    return <TodoItemsList items={todosList} />;
 });
 
 const styles = StyleSheet.create({

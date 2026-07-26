@@ -5,6 +5,7 @@ import { Message, ToolCall } from '@/sync/typesMessage';
 import { Metadata } from '@/sync/storageTypes';
 import { WriteView } from './WriteView';
 import { TodoView } from './TodoView';
+import { TaskListView } from './TaskListView';
 import { ExitPlanToolView } from './ExitPlanToolView';
 import { MultiEditView } from './MultiEditView';
 import { TaskView } from './TaskView';
@@ -39,6 +40,8 @@ export const toolViewRegistry: Record<string, ToolViewComponent> = {
     CodexDiff: CodexDiffView,
     Write: WriteView,
     TodoWrite: TodoView,
+    // Claude Code >= 2.1.170 emits TaskList instead of TodoWrite.
+    TaskList: TaskListView,
     ExitPlanMode: ExitPlanToolView,
     exit_plan_mode: ExitPlanToolView,
     MultiEdit: MultiEditView,
@@ -81,6 +84,7 @@ export { BashViewFull } from './BashViewFull';
 export { EditViewFull } from './EditViewFull';
 export { MultiEditViewFull } from './MultiEditViewFull';
 export { ExitPlanToolView } from './ExitPlanToolView';
+export { TaskListView } from './TaskListView';
 export { MultiEditView } from './MultiEditView';
 export { TaskView } from './TaskView';
 export { AskUserQuestionView } from './AskUserQuestionView';

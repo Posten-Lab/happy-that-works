@@ -568,6 +568,8 @@ export const en: TranslationStructure = {
             readNotebook: 'Read Notebook',
             editNotebook: 'Edit Notebook',
             todoList: 'Todo List',
+            taskAdd: 'Add Task',
+            taskUpdate: 'Update Task',
             webSearch: 'Web Search',
             reasoning: 'Reasoning',
             applyChanges: 'Update file',

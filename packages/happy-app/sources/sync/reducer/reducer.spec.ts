@@ -3045,6 +3045,100 @@ describe('reducer', () => {
         });
     });
 
+    describe('Task* latestTodos handling (Claude Code >= 2.1.170)', () => {
+        // TaskCreate/TaskUpdate/TaskList replaced TodoWrite and report plain
+        // text. Payloads below are verbatim from session ba91de6b.
+        const taskCall = (id: string, at: number, name: string, input: unknown): NormalizedMessage => ({
+            id: `call-${id}`,
+            localId: null,
+            createdAt: at,
+            role: 'agent',
+            isSidechain: false,
+            content: [{
+                type: 'tool-call',
+                id,
+                name,
+                input: input as any,
+                description: null,
+                uuid: `uuid-${id}`,
+                parentUUID: null
+            }]
+        });
+        const taskResult = (id: string, at: number, content: string): NormalizedMessage => ({
+            id: `res-${id}`,
+            localId: null,
+            createdAt: at,
+            role: 'agent',
+            isSidechain: false,
+            content: [{
+                type: 'tool-result',
+                tool_use_id: id,
+                content: content as any,
+                is_error: false,
+                uuid: `uuid-${id}`,
+                parentUUID: null
+            }]
+        });
+
+        it('builds todos from TaskCreate + TaskUpdate without any TaskList call', () => {
+            const state = createReducer();
+            const result = reducer(state, [
+                taskCall('t1', 1000, 'TaskCreate', { subject: 'Phase 0 — Plan' }),
+                taskResult('t1', 1010, 'Task #1 created successfully: Phase 0 — Plan'),
+                taskCall('t2', 1020, 'TaskCreate', { subject: 'Phase 1 — Execute' }),
+                taskResult('t2', 1030, 'Task #2 created successfully: Phase 1 — Execute'),
+                taskCall('t3', 1040, 'TaskUpdate', { taskId: '1', status: 'completed' }),
+                taskResult('t3', 1050, 'Updated task #1 status'),
+            ]);
+
+            expect(result.todos).toEqual([
+                { id: '1', content: 'Phase 0 — Plan', status: 'completed' },
+                { id: '2', content: 'Phase 1 — Execute', status: 'pending' },
+            ]);
+        });
+
+        it('lets a TaskList result replace the list and keeps concurrent in_progress items', () => {
+            const state = createReducer();
+            const result = reducer(state, [
+                taskCall('t1', 1000, 'TaskList', {}),
+                taskResult('t1', 1010, [
+                    '#1 [completed] Phase 0 — Plan + design spec + approval',
+                    '#4 [in_progress] Phase 3 — UI review panel',
+                    '#5 [in_progress] Phase 4 — Correctness review',
+                    '#6 [pending] Phase 5 — open both PRs [blocked by #4, #5]',
+                ].join('\n')),
+            ]);
+
+            expect(result.todos).toHaveLength(4);
+            expect(result.todos?.filter((t) => t.status === 'in_progress')).toHaveLength(2);
+            expect(result.todos?.[3].content).toContain('[blocked by #4, #5]');
+        });
+
+        it('ignores errored Task* results', () => {
+            const state = createReducer();
+            const result = reducer(state, [
+                taskCall('t1', 1000, 'TaskCreate', { subject: 'nope' }),
+                {
+                    id: 'res-err',
+                    localId: null,
+                    createdAt: 1010,
+                    role: 'agent',
+                    isSidechain: false,
+                    content: [{
+                        type: 'tool-result',
+                        tool_use_id: 't1',
+                        content: 'Task #1 created successfully: nope' as any,
+                        is_error: true,
+                        uuid: 'uuid-t1',
+                        parentUUID: null
+                    }]
+                }
+            ]);
+
+            expect(result.todos).toBeUndefined();
+        });
+    });
+
     describe('TodoWrite latestTodos handling', () => {
         it('does not update todos from a running TodoWrite input', () => {
             const state = createReducer();

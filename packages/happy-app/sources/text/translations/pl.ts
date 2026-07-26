@@ -570,6 +570,8 @@ export const pl: TranslationStructure = {
             readNotebook: 'Czytaj notatnik',
             editNotebook: 'Edytuj notatnik',
             todoList: 'Lista zadań',
+            taskAdd: 'Dodaj zadanie',
+            taskUpdate: 'Zaktualizuj zadanie',
             webSearch: 'Wyszukiwanie w sieci',
             reasoning: 'Rozumowanie',
             applyChanges: 'Zaktualizuj plik',

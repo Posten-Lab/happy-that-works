@@ -562,6 +562,8 @@ export const ja: TranslationStructure = {
             readNotebook: 'ノートブック読み取り',
             editNotebook: 'ノートブック編集',
             todoList: 'Todoリスト',
+            taskAdd: 'タスクを追加',
+            taskUpdate: 'タスクを更新',
             webSearch: 'Web検索',
             reasoning: '推論',
             applyChanges: 'ファイルを更新',

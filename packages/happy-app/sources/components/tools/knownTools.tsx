@@ -410,6 +410,50 @@ export const knownTools = {
             return t('tools.names.todoList');
         },
     },
+    // Claude Code >= 2.1.170 replaced TodoWrite with TaskCreate/TaskUpdate/TaskList.
+    // These report plain text, so descriptions are built from the input instead
+    // of a parsed result; TaskList renders the checklist via TaskListView.
+    'TaskCreate': {
+        title: t('tools.names.taskAdd'),
+        icon: ICON_TODO,
+        noStatus: true,
+        minimal: true,
+        input: z.object({
+            subject: z.string().describe('Short task title'),
+            description: z.string().describe('Longer task detail'),
+            activeForm: z.string().describe('Present-tense label shown while active'),
+        }).partial().passthrough(),
+        extractDescription: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            if (typeof opts.tool.input?.subject === 'string' && opts.tool.input.subject) {
+                return opts.tool.input.subject;
+            }
+            return t('tools.names.taskAdd');
+        },
+    },
+    'TaskUpdate': {
+        title: t('tools.names.taskUpdate'),
+        icon: ICON_TODO,
+        noStatus: true,
+        minimal: true,
+        input: z.object({
+            taskId: z.union([z.string(), z.number()]).describe('Task id being updated'),
+            status: z.string().describe('pending | in_progress | completed'),
+            subject: z.string().describe('Optional replacement title'),
+        }).partial().passthrough(),
+        extractDescription: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            const id = opts.tool.input?.taskId;
+            const status = opts.tool.input?.status;
+            if ((typeof id === 'string' || typeof id === 'number') && typeof status === 'string') {
+                return `#${id} → ${status}`;
+            }
+            return t('tools.names.taskUpdate');
+        },
+    },
+    'TaskList': {
+        title: t('tools.names.todoList'),
+        icon: ICON_TODO,
+        noStatus: true,
+    },
     'WebSearch': {
         title: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
             if (typeof opts.tool.input.query === 'string') {

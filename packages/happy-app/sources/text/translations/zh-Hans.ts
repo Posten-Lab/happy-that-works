@@ -555,6 +555,8 @@ export const zhHans: TranslationStructure = {
             readNotebook: '读取 Notebook',
             editNotebook: '编辑 Notebook',
             todoList: '待办列表',
+            taskAdd: '添加任务',
+            taskUpdate: '更新任务',
             webSearch: 'Web 搜索',
             reasoning: '推理',
             applyChanges: '更新文件',
