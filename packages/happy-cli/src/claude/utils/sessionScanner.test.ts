@@ -42,6 +42,25 @@ describe('sessionScanner', () => {
     }
   })
   
+  it('hands existing entries to onExistingEntries when constructed with a session id (resume path)', async () => {
+    const sessionId = 'resumed-session'
+    await writeFile(join(projectDir, `${sessionId}.jsonl`),
+      JSON.stringify({ type: 'assistant', uuid: 'u1', message: { role: 'assistant', content: [{ type: 'text', text: 'hi' }] } }) + '\n')
+
+    const seen: RawJSONLines[] = []
+    scanner = await createSessionScanner({
+      sessionId,
+      workingDirectory: testDir,
+      onMessage: (m) => { collectedMessages.push(m) },
+      onExistingEntries: (messages) => { seen.push(...messages) },
+    })
+
+    // A resumed session is constructed with its id, which sets currentSessionId,
+    // so the later onNewSession for the same id returns early. If the entries
+    // are not handed over here, the task list can never be rebuilt.
+    expect(seen.length).toBeGreaterThan(0)
+  })
+
   it('should process initial session and resumed session correctly', async () => {
     // TEST SCENARIO:
     // Phase 1: User says "lol" → Assistant responds "lol" → Session closes

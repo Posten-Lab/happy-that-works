@@ -67,6 +67,16 @@ export async function createSessionScanner(opts: {
         for (let entry of entries) {
             processedEntryKeys.add(entry.key);
         }
+        // A resumed session lands here, not in onNewSession — the scanner is
+        // constructed with the known session id, which also sets
+        // currentSessionId below, so the later onNewSession call for the same
+        // id returns early. Hand the entries over here too, or resuming a
+        // session would never rebuild its task list.
+        opts.onExistingEntries?.(
+            entries
+                .filter((entry): entry is Extract<SessionLogEntry, { kind: 'message' }> => entry.kind === 'message')
+                .map((entry) => entry.message),
+        );
         // IMPORTANT: Also start watching the initial session file because Claude Code
         // may continue writing to it even after creating a new session with --resume
         // (agent tasks and other updates can still write to the original session file)
