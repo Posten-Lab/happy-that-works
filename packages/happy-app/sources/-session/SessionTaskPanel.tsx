@@ -66,7 +66,7 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
                         return (
                             <View key={todo.id ?? `task-${index}`} style={styles.row}>
                                 <Text style={[styles.rowIcon, isInProgress && styles.rowIconActive]}>
-                                    {isCompleted ? '☑' : isInProgress ? '◐' : '☐'}
+                                    {isCompleted ? '☑' : isInProgress ? '●' : '☐'}
                                 </Text>
                                 <Text
                                     style={[
@@ -130,7 +130,9 @@ const styles = StyleSheet.create((theme) => ({
         color: theme.colors.textSecondary,
     },
     rowIconActive: {
-        color: theme.colors.text,
+        // Blue reads as "active" and is distinct from the green of done and the
+        // grey of pending; a plain white glyph did not signal anything.
+        color: theme.colors.radio.active,
     },
     rowText: {
         flex: 1,
@@ -139,7 +141,7 @@ const styles = StyleSheet.create((theme) => ({
     },
     rowTextActive: {
         color: theme.colors.text,
-        fontWeight: '500',
+        fontWeight: '600',
     },
     more: {
         fontSize: 12,
