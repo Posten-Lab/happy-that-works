@@ -405,6 +405,13 @@ function pickTurnEndStatus(message: Record<string, unknown>, type: unknown): Tur
     return 'completed';
 }
 
+/** Codex plan statuses are camelCase; the todo model uses snake_case. */
+function codexPlanStatus(status: unknown): 'pending' | 'in_progress' | 'completed' {
+    if (status === 'completed') return 'completed';
+    if (status === 'inProgress' || status === 'in_progress') return 'in_progress';
+    return 'pending';
+}
+
 export function mapCodexMcpMessageToSessionEnvelopes(message: Record<string, unknown>, state: CodexTurnState): CodexMapperResult {
     const type = message.type;
     const startedSubagents = getStartedSubagents(state);
@@ -466,6 +473,63 @@ export function mapCodexMcpMessageToSessionEnvelopes(message: Record<string, unk
 
     const subagent = resolveSessionSubagent(message, providerSubagentToSessionSubagent);
     const opts = buildEnvelopeOptions(state.currentTurnId, subagent);
+
+    if (type === 'plan_updated') {
+        // Codex's plan tool. Unlike Claude's Task* family this arrives whole on
+        // every change — every step with an explicit status — so there is no id
+        // to join and no partial state to reconcile.
+        //
+        // Publish it as a TodoWrite-shaped call: clients already render that
+        // (inline checklist) and already fold it into the session todo list, so
+        // Codex plans light up the same UI as Claude's without client changes.
+        const plan = Array.isArray((message as { plan?: unknown }).plan)
+            ? (message as { plan: unknown[] }).plan
+            : [];
+        const todos = plan
+            .map((entry) => {
+                const step = (entry as { step?: unknown })?.step;
+                if (typeof step !== 'string' || step.length === 0) {
+                    return null;
+                }
+                return { content: step, status: codexPlanStatus((entry as { status?: unknown })?.status) };
+            })
+            .filter(Boolean) as Array<{ content: string; status: string }>;
+
+        if (todos.length === 0) {
+            return {
+                currentTurnId: state.currentTurnId,
+                startedSubagents,
+                activeSubagents,
+                providerSubagentToSessionSubagent,
+                envelopes: [],
+            };
+        }
+
+        const call = createId();
+        return {
+            currentTurnId: state.currentTurnId,
+            startedSubagents,
+            activeSubagents,
+            providerSubagentToSessionSubagent,
+            envelopes: [
+                createEnvelope('agent', {
+                    t: 'tool-call-start',
+                    call,
+                    name: 'TodoWrite',
+                    title: 'Todo List',
+                    description: typeof (message as { explanation?: unknown }).explanation === 'string'
+                        ? (message as { explanation: string }).explanation
+                        : '',
+                    args: { todos },
+                }, opts),
+                createEnvelope('agent', {
+                    t: 'tool-call-end',
+                    call,
+                    result: { oldTodos: [], newTodos: todos },
+                }, opts),
+            ],
+        };
+    }
 
     if (type === 'agent_message') {
         if (typeof message.message !== 'string') {

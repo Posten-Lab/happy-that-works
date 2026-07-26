@@ -108,6 +108,14 @@ export default React.memo(function TaskPanelPreview() {
                 { id: '1', content: 'Re-capture every brief-bearing state against the current build including the signed-out variant and the empty-portfolio case', status: 'in_progress' },
             ])} /></View>
 
+            <Text style={styles.caption}>codex plan (live app-server payload) — same panel</Text>
+            <View style={styles.frame}><SessionTaskPanel session={fakeSession([
+                { id: '1', content: 'Review the folder contents and identify clutter', status: 'completed' },
+                { id: '2', content: 'Group related files into a clear structure', status: 'completed' },
+                { id: '3', content: 'Remove or archive obsolete items', status: 'in_progress' },
+                { id: '4', content: 'Verify the folder is tidy and consistently organized', status: 'pending' },
+            ])} /></View>
+
             <Text style={styles.caption}>{`raw: client=${clientOrder.length} chronological=${chronological.length} placeholders=${placeholdersOnly.length}`}</Text>
         </ScrollView>
     );

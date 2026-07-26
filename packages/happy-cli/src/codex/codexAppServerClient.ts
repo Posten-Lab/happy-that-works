@@ -273,6 +273,10 @@ export class CodexAppServerClient {
             || method === 'thread/goal/cleared'
             || method === 'turn/started'
             || method === 'turn/completed'
+            // Codex's plan/todo list. It is not an item — it arrives as its own
+            // notification carrying the whole plan — so without this it was
+            // dropped here and never reached the client.
+            || method === 'turn/plan/updated'
             || method === 'thread/status/changed'
             || method === 'thread/tokenUsage/updated'
             || method.startsWith('item/');
@@ -343,6 +347,20 @@ export class CodexAppServerClient {
                 type: 'task_started',
                 ...(turnId ? { turn_id: turnId } : {}),
             });
+            return true;
+        }
+
+        if (method === 'turn/plan/updated') {
+            // Codex sends the whole plan on every change:
+            //   { plan: [{ step, status: 'pending'|'inProgress'|'completed' }] }
+            const plan = Array.isArray(params?.plan) ? params.plan : null;
+            if (plan) {
+                this.eventHandler?.({
+                    type: 'plan_updated',
+                    plan,
+                    ...(typeof params?.explanation === 'string' ? { explanation: params.explanation } : {}),
+                });
+            }
             return true;
         }
 
