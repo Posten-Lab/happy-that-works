@@ -114,7 +114,7 @@ import { Message, ToolCall } from "../typesMessage";
 import { AgentEvent, NormalizedMessage, UsageData } from "../typesRaw";
 import { createTracer, traceMessages, TracerState } from "./reducerTracer";
 import { AgentState, TodoItem, TodoItemsSchema } from "../storageTypes";
-import { foldTaskTool, isTaskTool, toResultText } from "./taskTools";
+import { foldTaskTool, isTaskTool } from "./taskTools";
 import { MessageMeta } from "../typesMessageMeta";
 import { parseMessageAsEvent } from "./messageToEvent";
 
@@ -885,7 +885,7 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                             state.taskItems ?? [],
                             message.tool.name,
                             message.tool.input,
-                            toResultText(message.tool.result),
+                            message.tool.result,
                         );
                         if (nextTasks) {
                             state.taskItems = nextTasks;

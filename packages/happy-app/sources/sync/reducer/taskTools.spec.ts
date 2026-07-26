@@ -100,3 +100,46 @@ describe('taskTools', () => {
         expect(retried).toHaveLength(1);
     });
 });
+
+// Claude Code reports these results twice: readable text, and a structured
+// `toolUseResult` that the wire normalizer prefers — so the structured shape is
+// what actually reaches the reducer. Payloads verbatim from session ba91de6b.
+describe('taskTools — structured toolUseResult (what the reducer actually sees)', () => {
+    it('folds a structured TaskCreate result', () => {
+        const next = foldTaskTool([], 'TaskCreate', { subject: 'x' }, {
+            task: { id: '1', subject: 'Phase 0 — Plan + design spec + approval' },
+        })!;
+        expect(next).toEqual([
+            { id: '1', content: 'Phase 0 — Plan + design spec + approval', status: 'pending' },
+        ]);
+    });
+
+    it('folds a structured TaskUpdate result, preferring statusChange.to', () => {
+        const seeded = foldTaskTool([], 'TaskCreate', {}, { task: { id: '1', subject: 'first' } })!;
+        const next = foldTaskTool(seeded, 'TaskUpdate', {}, {
+            success: true, taskId: '1', updatedFields: ['status'],
+            statusChange: { from: 'pending', to: 'completed' },
+        })!;
+        expect(next[0].status).toBe('completed');
+    });
+
+    it('folds a structured TaskList result and renders blockedBy edges', () => {
+        const next = foldTaskTool([], 'TaskList', {}, {
+            tasks: [
+                { id: '1', subject: 'Phase 0', status: 'completed', blockedBy: [] },
+                { id: '4', subject: 'Phase 3', status: 'in_progress', blockedBy: [] },
+                { id: '6', subject: 'Phase 5', status: 'pending', blockedBy: ['4', '5'] },
+            ],
+        })!;
+        expect(next).toEqual([
+            { id: '1', content: 'Phase 0', status: 'completed' },
+            { id: '4', content: 'Phase 3', status: 'in_progress' },
+            { id: '6', content: 'Phase 5 [blocked by #4, #5]', status: 'pending' },
+        ]);
+    });
+
+    it('still falls back to text parsing when no structured result is present', () => {
+        const next = foldTaskTool([], 'TaskCreate', {}, 'Task #2 created successfully: legacy')!;
+        expect(next).toEqual([{ id: '2', content: 'legacy', status: 'pending' }]);
+    });
+});

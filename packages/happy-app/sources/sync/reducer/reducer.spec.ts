@@ -3064,7 +3064,7 @@ describe('reducer', () => {
                 parentUUID: null
             }]
         });
-        const taskResult = (id: string, at: number, content: string): NormalizedMessage => ({
+        const taskResult = (id: string, at: number, content: unknown): NormalizedMessage => ({
             id: `res-${id}`,
             localId: null,
             createdAt: at,
@@ -3084,11 +3084,11 @@ describe('reducer', () => {
             const state = createReducer();
             const result = reducer(state, [
                 taskCall('t1', 1000, 'TaskCreate', { subject: 'Phase 0 — Plan' }),
-                taskResult('t1', 1010, 'Task #1 created successfully: Phase 0 — Plan'),
+                taskResult('t1', 1010, { task: { id: '1', subject: 'Phase 0 — Plan' } }),
                 taskCall('t2', 1020, 'TaskCreate', { subject: 'Phase 1 — Execute' }),
-                taskResult('t2', 1030, 'Task #2 created successfully: Phase 1 — Execute'),
+                taskResult('t2', 1030, { task: { id: '2', subject: 'Phase 1 — Execute' } }),
                 taskCall('t3', 1040, 'TaskUpdate', { taskId: '1', status: 'completed' }),
-                taskResult('t3', 1050, 'Updated task #1 status'),
+                taskResult('t3', 1050, { taskId: '1', statusChange: { from: 'pending', to: 'completed' } }),
             ]);
 
             expect(result.todos).toEqual([
@@ -3101,12 +3101,12 @@ describe('reducer', () => {
             const state = createReducer();
             const result = reducer(state, [
                 taskCall('t1', 1000, 'TaskList', {}),
-                taskResult('t1', 1010, [
-                    '#1 [completed] Phase 0 — Plan + design spec + approval',
-                    '#4 [in_progress] Phase 3 — UI review panel',
-                    '#5 [in_progress] Phase 4 — Correctness review',
-                    '#6 [pending] Phase 5 — open both PRs [blocked by #4, #5]',
-                ].join('\n')),
+                taskResult('t1', 1010, { tasks: [
+                    { id: '1', subject: 'Phase 0 — Plan + design spec + approval', status: 'completed', blockedBy: [] },
+                    { id: '4', subject: 'Phase 3 — UI review panel', status: 'in_progress', blockedBy: [] },
+                    { id: '5', subject: 'Phase 4 — Correctness review', status: 'in_progress', blockedBy: [] },
+                    { id: '6', subject: 'Phase 5 — open both PRs', status: 'pending', blockedBy: ['4', '5'] },
+                ] }),
             ]);
 
             expect(result.todos).toHaveLength(4);
@@ -3122,11 +3122,11 @@ describe('reducer', () => {
             const state = createReducer();
             const result = reducer(state, [
                 taskCall('t1', 1000, 'TaskCreate', { subject: 'first' }),
-                taskResult('t1', 1010, 'Task #1 created successfully: first'),
+                taskResult('t1', 1010, { task: { id: '1', subject: 'first' } }),
                 taskCall('t2', 1020, 'TaskCreate', { subject: 'second' }),
-                taskResult('t2', 1030, 'Task #2 created successfully: second'),
+                taskResult('t2', 1030, { task: { id: '2', subject: 'second' } }),
                 taskCall('t3', 1040, 'TaskUpdate', { taskId: '1', status: 'in_progress' }),
-                taskResult('t3', 1050, 'Updated task #1 status'),
+                taskResult('t3', 1050, { taskId: '1', statusChange: { from: 'pending', to: 'in_progress' } }),
             ]);
 
             const snapshots = result.messages
@@ -3155,7 +3155,7 @@ describe('reducer', () => {
                     content: [{
                         type: 'tool-result',
                         tool_use_id: 't1',
-                        content: 'Task #1 created successfully: nope' as any,
+                        content: { task: { id: '1', subject: 'nope' } } as any,
                         is_error: true,
                         uuid: 'uuid-t1',
                         parentUUID: null
