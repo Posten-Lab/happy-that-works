@@ -40,9 +40,13 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
     }
 
     // Collapsed shows what is being worked on. With nothing active, fall back to
-    // the next pending item so the panel always says what comes next.
+    // the next pending item so the panel always says what comes next. Cap it so
+    // a session with many parallel tasks cannot swallow the chat.
+    const COLLAPSED_MAX = 3;
     const upNext = todos.filter((todo) => todo.status === 'pending').slice(0, 1);
-    const visible = expanded ? todos : (active.length > 0 ? active : upNext);
+    const collapsedSource = active.length > 0 ? active : upNext;
+    const visible = expanded ? todos : collapsedSource.slice(0, COLLAPSED_MAX);
+    const hiddenCount = expanded ? 0 : collapsedSource.length - visible.length;
 
     return (
         <Pressable style={styles.container} onPress={() => setExpanded((v) => !v)}>
@@ -70,13 +74,16 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
                                         isCompleted && styles.rowTextCompleted,
                                         isInProgress && styles.rowTextActive,
                                     ]}
-                                    numberOfLines={expanded ? 3 : 1}
+                                    numberOfLines={2}
                                 >
                                     {todo.content}
                                 </Text>
                             </View>
                         );
                     })}
+                    {hiddenCount > 0 && (
+                        <Text style={styles.more}>{`+${hiddenCount} more`}</Text>
+                    )}
                 </View>
             )}
         </Pressable>
@@ -133,6 +140,11 @@ const styles = StyleSheet.create((theme) => ({
     rowTextActive: {
         color: theme.colors.text,
         fontWeight: '500',
+    },
+    more: {
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        marginLeft: 19,
     },
     rowTextCompleted: {
         color: theme.colors.success,
