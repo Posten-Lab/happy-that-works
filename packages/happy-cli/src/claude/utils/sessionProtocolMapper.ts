@@ -420,6 +420,33 @@ function toToolArgs(input: unknown): Record<string, unknown> {
     return { input };
 }
 
+/**
+ * The output to publish for a finished tool call.
+ *
+ * Claude Code emits the result twice: `toolUseResult` (structured, and the only
+ * place some tools report ids) and the human-readable `content` block. Prefer
+ * the structured one, fall back to the content, and return undefined when the
+ * tool genuinely produced nothing so the field stays absent on the wire.
+ */
+function toolResultPayload(message: any, block: any): unknown {
+    const structured = message?.toolUseResult;
+    if (structured !== undefined && structured !== null) {
+        return structured;
+    }
+    const content = block?.content;
+    if (typeof content === 'string') {
+        return content.length > 0 ? content : undefined;
+    }
+    if (Array.isArray(content)) {
+        const text = content
+            .map((c: any) => (typeof c?.text === 'string' ? c.text : ''))
+            .filter(Boolean)
+            .join('\n');
+        return text.length > 0 ? text : undefined;
+    }
+    return content ?? undefined;
+}
+
 export function closeClaudeTurnWithStatus(
     state: ClaudeSessionProtocolState,
     status: SessionTurnEndStatus,
@@ -621,6 +648,14 @@ function mapClaudeLogMessageToSessionEnvelopesInternal(
                 envelopes.push(createEnvelope('agent', {
                     t: 'tool-call-end',
                     call: block.tool_use_id,
+                    // Forward the tool's output. Claude Code also writes a
+                    // structured `toolUseResult` alongside the human-readable
+                    // content; prefer it, since some tools (TaskCreate) report
+                    // the id only there.
+                    ...(toolResultPayload(message, block) !== undefined
+                        ? { result: toolResultPayload(message, block) }
+                        : {}),
+                    ...(block.is_error === true ? { isError: true } : {}),
                 }, { turn: turnId, subagent }));
                 continue;
             }

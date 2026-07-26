@@ -104,7 +104,9 @@ describe('mapClaudeLogMessageToSessionEnvelopes', () => {
         expect(ended.envelopes).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    ev: { t: 'tool-call-end', call: 'tool-1' },
+                    // The result is forwarded now: dropping it meant clients
+                    // saw every tool finish with no output at all.
+                    ev: { t: 'tool-call-end', call: 'tool-1', result: 'ok' },
                 }),
             ]),
         );
@@ -391,5 +393,44 @@ describe('closeClaudeTurnWithStatus', () => {
         expect(result.currentTurnId).toBeNull();
         expect(result.envelopes).toHaveLength(1);
         expect(result.envelopes[0].ev).toEqual({ t: 'turn-end', status: 'cancelled' });
+    });
+});
+
+describe('tool-call-end carries the tool result', () => {
+    it('prefers the structured toolUseResult over the readable content', () => {
+        const started = mapClaudeLogMessageToSessionEnvelopes({
+            type: 'assistant',
+            message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'TaskCreate', input: { subject: 's' } }] },
+        } as any, { currentTurnId: null });
+        const ended = mapClaudeLogMessageToSessionEnvelopes({
+            type: 'user',
+            toolUseResult: { task: { id: '7', subject: 's' } },
+            message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'Task #7 created successfully: s' }] },
+        } as any, { currentTurnId: started.currentTurnId });
+
+        const end = ended.envelopes.find((e) => e.ev.t === 'tool-call-end');
+        expect((end!.ev as any).result).toEqual({ task: { id: '7', subject: 's' } });
+    });
+
+    it('falls back to text content, and omits the field when there is no output', () => {
+        const started = mapClaudeLogMessageToSessionEnvelopes({
+            type: 'assistant',
+            message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c2', name: 'Bash', input: {} }] },
+        } as any, { currentTurnId: null });
+        const withText = mapClaudeLogMessageToSessionEnvelopes({
+            type: 'user',
+            message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c2', content: [{ type: 'text', text: 'hello' }] }] },
+        } as any, { currentTurnId: started.currentTurnId });
+        expect((withText.envelopes.find((e) => e.ev.t === 'tool-call-end')!.ev as any).result).toBe('hello');
+
+        const started2 = mapClaudeLogMessageToSessionEnvelopes({
+            type: 'assistant',
+            message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c3', name: 'Bash', input: {} }] },
+        } as any, { currentTurnId: null });
+        const empty = mapClaudeLogMessageToSessionEnvelopes({
+            type: 'user',
+            message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c3', content: '' }] },
+        } as any, { currentTurnId: started2.currentTurnId });
+        expect((empty.envelopes.find((e) => e.ev.t === 'tool-call-end')!.ev as any).result).toBeUndefined();
     });
 });

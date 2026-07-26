@@ -41,6 +41,12 @@ export const sessionToolCallStartEventSchema = z.object({
 export const sessionToolCallEndEventSchema = z.object({
   t: z.literal('tool-call-end'),
   call: z.string(),
+  // The tool's own output. Optional for back-compat: older CLIs send only
+  // `call`, and clients must keep treating a missing result as "no output".
+  // Without this the protocol drops every result — which silently broke the
+  // todo panel, since TaskCreate reports the task id only in its result.
+  result: z.unknown().optional(),
+  isError: z.boolean().optional(),
 });
 
 export const sessionFileEventSchema = z.object({

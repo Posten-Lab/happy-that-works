@@ -54,6 +54,10 @@ const sessionToolCallStartEventSchema = z.object({
 const sessionToolCallEndEventSchema = z.object({
     t: z.literal('tool-call-end'),
     call: z.string(),
+    // Tool output, added after this event was found to be dropping every
+    // result. Optional: sessions recorded by older CLIs have no result at all.
+    result: z.unknown().optional(),
+    isError: z.boolean().optional(),
 });
 
 const sessionFileEventSchema = z.object({
@@ -698,8 +702,10 @@ function normalizeSessionEnvelope(
             content: [{
                 type: 'tool-result',
                 tool_use_id: envelope.ev.call,
-                content: null,
-                is_error: false,
+                // Older CLIs omit `result` — the event carried no output at all,
+                // which is why tool results used to arrive empty.
+                content: envelope.ev.result ?? null,
+                is_error: envelope.ev.isError === true,
                 uuid: contentUUID,
                 parentUUID
             }],
