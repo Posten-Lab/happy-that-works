@@ -16,7 +16,7 @@ importers:
   packages/codium:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.143
+        specifier: 0.3.220
         version: 0.3.220(@anthropic-ai/sdk@0.96.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
       '@anthropic-ai/claude-code':
         specifier: 2.1.143
@@ -910,7 +910,7 @@ importers:
         specifier: ^0.14.1
         version: 0.14.1(zod@4.4.3)
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.220
+        specifier: 0.3.220
         version: 0.3.220(@anthropic-ai/sdk@0.96.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
       '@anthropic-ai/sandbox-runtime':
         specifier: ^0.0.37

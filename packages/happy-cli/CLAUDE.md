@@ -135,6 +135,25 @@ User interface components.
 - Validation: Zod
 - Testing: Vitest 
 
+### `@anthropic-ai/claude-agent-sdk` is pinned EXACTLY — do not add a caret
+
+The SDK is not just a library: `0.3.X` bundles Claude Code `2.1.X`, and that
+bundled binary is the engine every remote (phone/web) session runs on. Bumping
+the SDK therefore silently bumps Claude Code, tool surface included.
+
+That has already broken the app once. A floating `^0.3.179` meant a routine
+CLI reinstall on 2026-07-15 jumped the engine to 2.1.210, where Claude Code had
+replaced the `TodoWrite` tool with `TaskCreate`/`TaskUpdate`/`TaskList`. Nothing
+errored — the mobile app just silently stopped rendering todos, because it keys
+its renderer off tool name (see `happy-app/sources/sync/reducer/taskTools.ts`).
+
+So: pin the exact version, and treat a bump as an engine upgrade. When bumping,
+diff the tool surface first:
+
+    grep -rhoaE "TodoWrite|Task(Create|Update|List)" node_modules/@anthropic-ai/claude-agent-sdk | sort -u
+
+and check that `happy-app`'s `knownTools` registry covers whatever is emitted.
+
 
 # Running the Daemon
 
