@@ -14,6 +14,7 @@ import {
 import { getSuggestions } from '@/components/autocomplete/suggestions';
 import { ChatHeaderView } from '@/components/ChatHeaderView';
 import { ChatList } from '@/components/ChatList';
+import { SessionTaskPanel } from '@/-session/SessionTaskPanel';
 import { Deferred } from '@/components/Deferred';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { Avatar } from '@/components/Avatar';
@@ -685,6 +686,7 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
 
     let content = (
         <>
+            <SessionTaskPanel session={session} />
             <Deferred>
                 {messages.length > 0 && (
                     <ChatList session={session} />
