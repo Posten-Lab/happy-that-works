@@ -219,6 +219,9 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
                         void session.sendClaudeSessionMessageFromLocalTranscript(msg);
                     },
                     onTranscriptEvent: updateClaudeGoalState,
+                    onExistingEntries: (messages) => {
+                        session.seedClaudeTaskListFromTranscript(messages);
+                    },
                 });
                 if (offlineSessionId) scanner.onNewSession(offlineSessionId);
                 return { session, scanner };
@@ -432,6 +435,11 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     const remoteScanner = await createSessionScanner({
         sessionId: initialScannerSessionId,
         workingDirectory,
+        // Recover the task list from a transcript that already exists, so a
+        // resumed session shows its todos immediately.
+        onExistingEntries: (messages) => {
+            session.seedClaudeTaskListFromTranscript(messages);
+        },
         onMessage: (raw) => {
             if (currentRunMode !== 'remote') return;
             // Only user-typed prompts. SDK pipeline owns assistant and

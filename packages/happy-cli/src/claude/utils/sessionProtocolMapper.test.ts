@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { createId, isCuid } from '@paralleldrive/cuid2';
 import {
     closeClaudeTurnWithStatus,
+    seedClaudeTaskList,
     mapClaudeLogMessageToSessionEnvelopes,
 } from './sessionProtocolMapper';
 
@@ -503,5 +504,58 @@ describe('claude Task* -> folded TodoWrite', () => {
         const ended = mapClaudeLogMessageToSessionEnvelopes(result('c1', 'Task #1 created successfully: x'), state);
         expect(ended.envelopes.every((e: any) => e.ev.name !== 'TaskCreate')).toBe(true);
         expect(ended.envelopes.some((e: any) => e.ev.name === 'TodoWrite')).toBe(true);
+    });
+});
+
+describe('seedClaudeTaskList — recovering an existing session', () => {
+    const create = (id: string, subject: string) => ({
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'tool_use', id, name: 'TaskCreate', input: { subject } }] },
+    } as any);
+    const update = (id: string, taskId: string, status: string) => ({
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'tool_use', id, name: 'TaskUpdate', input: { taskId, status } }] },
+    } as any);
+    const res = (id: string, content: string) => ({
+        type: 'user',
+        message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content }] },
+    } as any);
+
+    it('rebuilds the list from a transcript and publishes it once', () => {
+        const state: any = { currentTurnId: 'turn-1' };
+        const envs = seedClaudeTaskList(state, [
+            create('a', 'alpha'), res('a', 'Task #1 created successfully: alpha'),
+            create('b', 'beta'), res('b', 'Task #2 created successfully: beta'),
+            update('c', '1', 'completed'), res('c', 'Updated task #1 status'),
+        ]);
+        const end = envs.find((e: any) => e.ev.t === 'tool-call-end') as any;
+        expect(envs.filter((e: any) => e.ev.t === 'tool-call-start')).toHaveLength(1);
+        expect(end.ev.result.newTodos).toEqual([
+            { content: 'alpha', status: 'completed' },
+            { content: 'beta', status: 'pending' },
+        ]);
+    });
+
+    it('leaves the state usable, so the next live update republishes the whole list', () => {
+        const state: any = { currentTurnId: 'turn-1' };
+        seedClaudeTaskList(state, [
+            create('a', 'alpha'), res('a', 'Task #1 created successfully: alpha'),
+            create('b', 'beta'), res('b', 'Task #2 created successfully: beta'),
+        ]);
+        // a later live update must not shrink the list to just the touched task
+        const started = mapClaudeLogMessageToSessionEnvelopes(update('c', '2', 'in_progress'), state);
+        state.currentTurnId = started.currentTurnId;
+        const ended = mapClaudeLogMessageToSessionEnvelopes(res('c', 'Updated task #2 status'), state);
+        const end = ended.envelopes.find((e: any) => e.ev.t === 'tool-call-end') as any;
+        expect(end.ev.result.newTodos).toEqual([
+            { content: 'alpha', status: 'pending' },
+            { content: 'beta', status: 'in_progress' },
+        ]);
+    });
+
+    it('emits nothing when the transcript has no task calls', () => {
+        expect(seedClaudeTaskList({ currentTurnId: null } as any, [
+            { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'hi' }] } } as any,
+        ])).toEqual([]);
     });
 });

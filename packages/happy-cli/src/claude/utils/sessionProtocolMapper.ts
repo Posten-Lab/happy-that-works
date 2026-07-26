@@ -569,6 +569,62 @@ function foldClaudeTaskCall(
     return false;
 }
 
+/**
+ * Rebuild the task list from an existing transcript.
+ *
+ * A restarted session starts with an empty fold, so the next TaskUpdate would
+ * otherwise republish a list containing only the task it touched. Replaying the
+ * transcript's Task* calls here recovers the real list, and returns a single
+ * TodoWrite so the client shows it immediately rather than waiting for the
+ * agent to touch tasks again.
+ *
+ * Only Task* calls are folded — nothing else is emitted, so this cannot
+ * duplicate transcript content that the client already has.
+ */
+export function seedClaudeTaskList(
+    state: ClaudeSessionProtocolState,
+    messages: RawJSONLines[],
+): SessionEnvelope[] {
+    const pending = new Map<string, { name: string; input: Record<string, unknown> }>();
+    let folded = false;
+
+    for (const message of messages) {
+        const blocks = (message as any)?.message?.content;
+        if (!Array.isArray(blocks)) continue;
+        for (const block of blocks) {
+            if (block?.type === 'tool_use' && typeof block.name === 'string' && TASK_TOOLS.has(block.name)) {
+                pending.set(String(block.id), { name: block.name, input: (block.input ?? {}) as Record<string, unknown> });
+                continue;
+            }
+            if (block?.type === 'tool_result' && typeof block.tool_use_id === 'string') {
+                const call = pending.get(block.tool_use_id);
+                if (!call) continue;
+                pending.delete(block.tool_use_id);
+                if (foldClaudeTaskCall(state, call, message, block)) {
+                    folded = true;
+                }
+            }
+        }
+    }
+
+    const list = getTaskList(state);
+    if (!folded || list.length === 0) {
+        return [];
+    }
+
+    const todos = list.map((t) => ({ content: t.content, status: t.status }));
+    const call = createId();
+    const turnId = state.currentTurnId ?? undefined;
+    return [
+        createEnvelope('agent', {
+            t: 'tool-call-start', call, name: 'TodoWrite', title: 'Todo List', description: '', args: { todos },
+        }, turnId ? { turn: turnId } : {}),
+        createEnvelope('agent', {
+            t: 'tool-call-end', call, result: { oldTodos: [], newTodos: todos },
+        }, turnId ? { turn: turnId } : {}),
+    ];
+}
+
 export function closeClaudeTurnWithStatus(
     state: ClaudeSessionProtocolState,
     status: SessionTurnEndStatus,

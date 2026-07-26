@@ -14,6 +14,9 @@ export async function claudeLocalLauncher(session: Session): Promise<LauncherRes
     const scanner = await createSessionScanner({
         sessionId: session.sessionId,
         workingDirectory: session.path,
+        onExistingEntries: (messages) => {
+            session.client.seedClaudeTaskListFromTranscript(messages);
+        },
         onMessage: (message) => { 
             // Block SDK summary messages - we generate our own
             if (message.type !== 'summary') {

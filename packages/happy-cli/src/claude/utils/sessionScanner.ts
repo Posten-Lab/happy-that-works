@@ -30,6 +30,13 @@ export async function createSessionScanner(opts: {
     onMessage: (message: RawJSONLines) => void
     onTranscriptEvent?: (event: ScannerTranscriptEvent) => void
     /**
+     * Called with the transcript entries that were pre-marked as processed on
+     * attach. They are deliberately not replayed as chat messages, but the
+     * caller may still need them — the task list is rebuilt from them so a
+     * resumed session shows its todos instead of starting empty.
+     */
+    onExistingEntries?: (messages: RawJSONLines[]) => void
+    /**
      * How long a session transcript may stay absent before its watcher gives
      * up and the session is dropped. Defaults to the startFileWatcher default
      * (60s). Exposed mainly so tests can exercise the drop path quickly.
@@ -195,6 +202,11 @@ export async function createSessionScanner(opts: {
                 for (const entry of existing) {
                     processedEntryKeys.add(entry.key);
                 }
+                opts.onExistingEntries?.(
+                    existing
+                        .filter((entry): entry is Extract<SessionLogEntry, { kind: 'message' }> => entry.kind === 'message')
+                        .map((entry) => entry.message),
+                );
             }
             if (currentSessionId) {
                 pendingSessions.add(currentSessionId);

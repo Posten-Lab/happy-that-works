@@ -17,6 +17,7 @@ import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope, type 
 import {
     closeClaudeTurnWithStatus,
     mapClaudeLogMessageToSessionEnvelopes,
+    seedClaudeTaskList,
     type ClaudeSessionProtocolState,
 } from '@/claude/utils/sessionProtocolMapper';
 import { InvalidateSync } from '@/utils/sync';
@@ -715,6 +716,19 @@ export class ApiSessionClient extends EventEmitter {
      * Send message to session
      * @param body - Message body (can be MessageContent or raw content for agent messages)
      */
+    /**
+     * Rebuild the task list from a transcript that is already on disk (a
+     * resumed session). Publishes the recovered list once so the client shows
+     * todos immediately instead of waiting for the next task change — and so
+     * that change republishes the full list rather than a fragment.
+     */
+    seedClaudeTaskListFromTranscript(messages: RawJSONLines[]): void {
+        const envelopes = seedClaudeTaskList(this.claudeSessionProtocolState, messages);
+        if (envelopes.length > 0) {
+            this.enqueueSessionProtocolEnvelopes(envelopes);
+        }
+    }
+
     sendClaudeSessionMessage(body: RawJSONLines) {
         const mapped = mapClaudeLogMessageToSessionEnvelopes(body, this.claudeSessionProtocolState);
         this.claudeSessionProtocolState.currentTurnId = mapped.currentTurnId;
