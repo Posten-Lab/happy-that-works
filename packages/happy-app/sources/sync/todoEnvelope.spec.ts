@@ -9,12 +9,12 @@ import { createReducer, reducer } from '@/sync/reducer/reducer';
  */
 const todos = (s: string[]) => s.map((status, i) => ({ content: `step ${i + 1}`, status }));
 
-function run(events: any[]) {
+function run(events: any[], withTurn = true) {
     const normalized: any[] = [];
     events.forEach((ev, i) => {
         const parsed = RawRecordSchema.safeParse({
             role: 'session',
-            content: { type: 'session', data: { id: `e${i}`, time: 1000 + i, role: 'agent', turn: 't1', ev } },
+            content: { type: 'session', data: { id: `e${i}`, time: 1000 + i, role: 'agent', ...(withTurn ? { turn: 't1' } : {}), ev } },
         });
         if (!parsed.success) throw new Error('wire rejected: ' + JSON.stringify(parsed.error.issues[0]));
         const n = normalizeRawMessage(String(i), null, 1000 + i, parsed.data as any);
@@ -52,5 +52,18 @@ describe('folded TodoWrite envelope -> session todos', () => {
             { t: 'tool-call-end', call: 'c1', result: { oldTodos: [], newTodos: list } },
         ]);
         expect(r.todos?.filter((t) => t.status === 'in_progress')).toHaveLength(2);
+    });
+
+    it('drops agent envelopes with no turn — the CLI must always send one', () => {
+        // typesRaw: "Session protocol requires turn id on all agent-originated
+        // envelopes". Resume seeding runs before any turn exists, so it mints
+        // one; without that the recovered list is silently discarded and a
+        // resumed session shows nothing. This locks the contract.
+        const list = todos(['completed', 'in_progress', 'pending']);
+        const r = run([
+            { t: 'tool-call-start', call: 'c1', name: 'TodoWrite', title: 'Todo List', description: '', args: { todos: list } },
+            { t: 'tool-call-end', call: 'c1', result: { oldTodos: [], newTodos: list } },
+        ], false);
+        expect(r.todos).toBeUndefined();
     });
 });

@@ -614,14 +614,19 @@ export function seedClaudeTaskList(
 
     const todos = list.map((t) => ({ content: t.content, status: t.status }));
     const call = createId();
-    const turnId = state.currentTurnId ?? undefined;
+    // Agent envelopes without a turn are dropped by the client
+    // (typesRaw: "Session protocol requires turn id on all agent-originated
+    // envelopes"). Seeding runs at scanner construction, before any turn
+    // exists, so mint one — otherwise the recovered list is silently discarded
+    // and a resumed session shows nothing.
+    const turnId = state.currentTurnId ?? createId();
     return [
         createEnvelope('agent', {
             t: 'tool-call-start', call, name: 'TodoWrite', title: 'Todo List', description: '', args: { todos },
-        }, turnId ? { turn: turnId } : {}),
+        }, { turn: turnId }),
         createEnvelope('agent', {
             t: 'tool-call-end', call, result: { oldTodos: [], newTodos: todos },
-        }, turnId ? { turn: turnId } : {}),
+        }, { turn: turnId }),
     ];
 }
 

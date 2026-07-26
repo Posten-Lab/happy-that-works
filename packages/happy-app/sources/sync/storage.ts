@@ -1657,3 +1657,7 @@ export function useRequestedFriends() {
         return Object.values(state.friends).filter(friend => friend.status === 'requested');
     }));
 }
+
+if (typeof __DEV__ !== 'undefined' && __DEV__ && typeof window !== 'undefined') {
+    (window as any).__happyStorage = storage; // __TMP__
+}
