@@ -15,9 +15,20 @@ import { t } from '@/text';
  *
  * Collapsed it shows the in-progress items; expanded it shows the whole list.
  */
+/**
+ * A task the reducer knows only by id — created by a TaskUpdate whose TaskCreate
+ * has not been back-filled yet. Rendering "#4" with no subject tells the user
+ * nothing, so these are held back until the real subject arrives.
+ */
+const PLACEHOLDER_SUBJECT = /^#\d+$/;
+
 export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) => {
     const [expanded, setExpanded] = React.useState(false);
-    const todos = session.todos ?? [];
+
+    const todos = React.useMemo(
+        () => (session.todos ?? []).filter((todo) => !PLACEHOLDER_SUBJECT.test(todo.content.trim())),
+        [session.todos],
+    );
 
     const { done, active } = React.useMemo(() => ({
         done: todos.filter((todo) => todo.status === 'completed').length,
@@ -28,9 +39,10 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
         return null;
     }
 
-    // Collapsed shows what is being worked on; if nothing is active, the panel
-    // is just the progress header until tapped.
-    const visible = expanded ? todos : active;
+    // Collapsed shows what is being worked on. With nothing active, fall back to
+    // the next pending item so the panel always says what comes next.
+    const upNext = todos.filter((todo) => todo.status === 'pending').slice(0, 1);
+    const visible = expanded ? todos : (active.length > 0 ? active : upNext);
 
     return (
         <Pressable style={styles.container} onPress={() => setExpanded((v) => !v)}>
@@ -49,7 +61,9 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
                         const isInProgress = todo.status === 'in_progress';
                         return (
                             <View key={todo.id ?? `task-${index}`} style={styles.row}>
-                                <Text style={styles.rowIcon}>{isCompleted ? '☑' : '☐'}</Text>
+                                <Text style={[styles.rowIcon, isInProgress && styles.rowIconActive]}>
+                                    {isCompleted ? '☑' : isInProgress ? '◐' : '☐'}
+                                </Text>
                                 <Text
                                     style={[
                                         styles.rowText,
@@ -107,6 +121,9 @@ const styles = StyleSheet.create((theme) => ({
     rowIcon: {
         fontSize: 13,
         color: theme.colors.textSecondary,
+    },
+    rowIconActive: {
+        color: theme.colors.text,
     },
     rowText: {
         flex: 1,
