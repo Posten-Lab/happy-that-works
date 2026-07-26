@@ -686,12 +686,19 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
 
     let content = (
         <>
-            <SessionTaskPanel session={session} />
             <Deferred>
                 {messages.length > 0 && (
                     <ChatList session={session} />
                 )}
             </Deferred>
+            {/*
+              * Sits at the end of the content area, directly above the input —
+              * where the TodoWrite checklist used to appear. TodoWrite fired on
+              * every change, so the newest list was always next to the latest
+              * message; Task* only fires on change, so the list is pinned here
+              * instead of being buried wherever the last task call landed.
+              */}
+            <SessionTaskPanel session={session} />
         </>
     );
     const placeholder = messages.length === 0 ? (

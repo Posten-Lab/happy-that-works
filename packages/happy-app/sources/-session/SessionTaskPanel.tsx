@@ -6,13 +6,12 @@ import { Session } from '@/sync/storageTypes';
 import { t } from '@/text';
 
 /**
- * Persistent task checklist for the session.
+ * Persistent task checklist, pinned at the end of the session above the input.
  *
- * The inline tool views only appear where a task call sits in the transcript,
- * which used to be everywhere (TodoWrite fired on every change) but is now
- * sparse — Claude Code 2.1.170+ calls TaskCreate/TaskUpdate only when something
- * actually changes. This panel keeps the current list visible regardless of
- * scroll position, which is the "what is being worked on" indicator.
+ * TodoWrite used to carry the whole list on every call, so a checklist was
+ * always sitting next to the newest message. Claude Code 2.1.170+ only calls
+ * TaskCreate/TaskUpdate when something changes, so the last one can be hundreds
+ * of messages back — this keeps the current state where the old one used to be.
  *
  * Collapsed it shows the in-progress items; expanded it shows the whole list.
  */
@@ -73,8 +72,8 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
 const styles = StyleSheet.create((theme) => ({
     container: {
         backgroundColor: theme.colors.surfaceHigh,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: theme.colors.divider,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.colors.divider,
         paddingHorizontal: 12,
         paddingVertical: 8,
     },
