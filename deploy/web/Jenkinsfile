@@ -71,7 +71,12 @@ spec:
         script {
           def scmVars = checkout([$class: 'GitSCM',
             branches: [[name: '*/main']],
-            userRemoteConfigs: [[url: 'https://github.com/Ahmadposten/happy-that-works.git']]])
+            // Repo was transferred Ahmadposten -> Posten-Lab. The old URL still
+            // clones via GitHub's 301 redirect, but Jenkins' webhook trigger
+            // matching compares literal repo URLs and does NOT follow redirects,
+            // so pushes to Posten-Lab stopped triggering this job. Use the
+            // current name so trigger-matching works (mirrors deploy/server).
+            userRemoteConfigs: [[url: 'https://github.com/Posten-Lab/happy-that-works.git']]])
           env.GIT_COMMIT = scmVars.GIT_COMMIT
         }
       }
