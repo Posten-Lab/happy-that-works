@@ -60,6 +60,21 @@ type PendingRequest = {
 
 type LegacyPatchChanges = Record<string, Record<string, unknown>>;
 
+/**
+ * Additive instructions for every Codex thread (baseInstructions would REPLACE
+ * Codex's own system prompt, so never use that field for this).
+ *
+ * Mirrors the Claude-side system prompt: the human follows progress on a phone
+ * through the plan, which Happy folds into a pinned todo list — so Codex must
+ * keep its plan tool current rather than using it at its own discretion.
+ */
+const HAPPY_DEVELOPER_INSTRUCTIONS = [
+    'Always track your work with your plan tool for any request that takes more than a couple of steps:',
+    'create the plan up front, mark a step in_progress before working on it, and mark it completed as soon',
+    'as it is done. The human follows your progress on a phone through this plan - it is pinned on their',
+    'screen - so keep it current for the whole session. Skip it only for trivial one-step answers.',
+].join(' ');
+
 export type ApprovalHandler = (params: {
     type: 'exec' | 'patch' | 'mcp';
     callId: string;
@@ -720,7 +735,7 @@ export class CodexAppServerClient {
             sandbox: opts.sandbox ?? null,
             config: this.buildThreadConfig(opts.mcpServers),
             baseInstructions: null,
-            developerInstructions: null,
+            developerInstructions: HAPPY_DEVELOPER_INSTRUCTIONS,
             compactPrompt: null,
             includeApplyPatchTool: null,
             experimentalRawEvents: false,
@@ -758,7 +773,7 @@ export class CodexAppServerClient {
             sandbox: opts?.sandbox ?? defaults.sandbox ?? null,
             config: this.buildThreadConfig(opts?.mcpServers ?? defaults.mcpServers),
             baseInstructions: null,
-            developerInstructions: null,
+            developerInstructions: HAPPY_DEVELOPER_INSTRUCTIONS,
             persistExtendedHistory: true,
         };
 
@@ -794,7 +809,7 @@ export class CodexAppServerClient {
             sandbox: opts.sandbox ?? defaults.sandbox ?? null,
             config: this.buildThreadConfig(opts.mcpServers ?? defaults.mcpServers),
             baseInstructions: null,
-            developerInstructions: null,
+            developerInstructions: HAPPY_DEVELOPER_INSTRUCTIONS,
             ephemeral: false,
             threadSource: null,
         };
