@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { Session } from '@/sync/storageTypes';
-import { TodoItemsList } from '@/components/tools/views/TodoView';
+import { TodoChecklistRows } from '@/components/tools/views/TodoChecklistRows';
 import { t } from '@/text';
 
 /**
@@ -13,9 +13,9 @@ import { t } from '@/text';
  * TaskList, Codex's plan) into one whole-list TodoWrite, so this only ever
  * renders a finished list — no agent-specific logic here.
  *
- * It reuses TodoView's rows so the pinned list looks exactly like the inline
- * checklist always did; the inline copy is hidden because republishing on every
- * change reprinted the whole list down the transcript.
+ * Renders TodoChecklistRows — the same rows the inline checklist used, kept in
+ * a dependency-free module because importing them via TodoView pulled the whole
+ * tool-view registry into a require cycle that blanked the rows on device.
  */
 export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) => {
     const [expanded, setExpanded] = React.useState(false);
@@ -46,7 +46,7 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
                 <Text style={styles.headerCount}>{`${done}/${todos.length}`}</Text>
                 <Ionicons name={expanded ? 'chevron-down' : 'chevron-up'} size={14} style={styles.headerIcon} />
             </Pressable>
-            <TodoItemsList items={visible} />
+            <TodoChecklistRows items={visible} />
             {hidden > 0 && (
                 <Pressable onPress={() => setExpanded(true)} hitSlop={8}>
                     <Text style={styles.more}>{`+${hidden} more`}</Text>
