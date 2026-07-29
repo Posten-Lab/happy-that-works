@@ -6,6 +6,8 @@ import { shouldIncludeCoAuthoredBy } from "./claudeSettings";
  */
 const BASE_SYSTEM_PROMPT = (() => trimIdent(`
     ALWAYS when you start a new chat - you must call a tool "mcp__happy__change_title" to set a chat title. When you think chat title is not relevant anymore - call the tool again to change it. When chat name is too generic and you have a change to make it more specific - call the tool again to change it. This title is needed to easily find the chat in the future. Help human.
+
+    ALWAYS track your work with the task tools (TaskCreate / TaskUpdate) for any request that takes more than a couple of steps: create the tasks up front, mark one in_progress before working on it, and mark it completed as soon as it is done. The human follows your progress on a phone through this task list — it is pinned on their screen — so keep it current for the whole session; do not stop updating it as the conversation gets long. Skip it only for trivial one-step answers.
 `))();
 
 /**
