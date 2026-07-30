@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { Session } from '@/sync/storageTypes';
@@ -46,7 +46,15 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
                 <Text style={styles.headerCount}>{`${done}/${todos.length}`}</Text>
                 <Ionicons name={expanded ? 'chevron-down' : 'chevron-up'} size={14} style={styles.headerIcon} />
             </Pressable>
-            <TodoChecklistRows items={visible} />
+            {/* A long expanded list must scroll inside the panel, not swallow
+              * the screen and collide with the input. */}
+            <ScrollView
+                style={expanded ? styles.listExpanded : undefined}
+                scrollEnabled={expanded}
+                showsVerticalScrollIndicator={expanded}
+            >
+                <TodoChecklistRows items={visible} />
+            </ScrollView>
             {hidden > 0 && (
                 <Pressable onPress={() => setExpanded(true)} hitSlop={8}>
                     <Text style={styles.more}>{`+${hidden} more`}</Text>
@@ -56,7 +64,12 @@ export const SessionTaskPanel = React.memo<{ session: Session }>(({ session }) =
     );
 });
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, runtime) => ({
+    listExpanded: {
+        // Cap the expanded list to well under half the screen so the chat and
+        // input always stay visible; the list scrolls within.
+        maxHeight: Math.min(360, runtime.screen.height * 0.4),
+    },
     container: {
         backgroundColor: theme.colors.surfaceHigh,
         borderTopWidth: StyleSheet.hairlineWidth,

@@ -51,6 +51,19 @@ export default React.memo(function TaskPanelPreview() {
             <Text style={styles.caption}>empty — must render nothing</Text>
             <View style={styles.frame}><SessionTaskPanel session={fakeSession([])} /></View>
 
+            <Text style={styles.caption}>19 items expanded — must scroll inside the panel, not overflow</Text>
+            <View style={styles.frame}><SessionTaskPanel session={fakeSession(
+                Array.from({ length: 19 }, (_, i) => ({
+                    id: String(i + 1),
+                    content: i < 8
+                        ? `Completed step ${i + 1} with a reasonably long description of the work`
+                        : i === 8
+                            ? 'Run UI review iteration 4 across editorial, interaction, and accessibility lenses'
+                            : `Pending step ${i + 1} with enough text to wrap across lines on a phone`,
+                    status: i < 8 ? 'completed' as const : i === 8 ? 'in_progress' as const : 'pending' as const,
+                }))
+            )} /></View>
+
             <Text style={styles.caption}>very long title — must wrap</Text>
             <View style={styles.frame}><SessionTaskPanel session={fakeSession([
                 { id: '1', content: 'Re-capture every brief-bearing state against the current build including the signed-out variant and the empty-portfolio case', status: 'in_progress' },
