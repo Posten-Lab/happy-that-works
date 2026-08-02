@@ -86,9 +86,10 @@ type PickerType = 'machine' | 'path' | 'worktree' | 'agent' | 'model' | 'effort'
 type PermissionStyle = { color: string; icon: 'play-forward' | 'pause' };
 
 const COMPOSER_INPUT_VERTICAL_PADDING = Platform.OS === 'web' ? 10 : 8;
-// Taller composer on web/desktop where vertical space is plentiful; keep the
-// compact cap on native mobile so the input doesn't dominate the screen.
-const COMPOSER_INPUT_MAX_HEIGHT = Platform.OS === 'web' ? 480 : 240;
+// Desktop has plentiful vertical space. On native, keep the composer compact
+// enough that its fixed action row remains visible above the software keyboard;
+// TextInput scrolls internally once it reaches this cap.
+const COMPOSER_INPUT_MAX_HEIGHT = Platform.OS === 'web' ? 480 : 120;
 const COMPOSER_SEND_BUTTON_SIZE = 32;
 const WORKTREE_PATH_DEBOUNCE_MS = 300;
 
