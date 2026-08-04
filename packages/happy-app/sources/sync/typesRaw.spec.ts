@@ -1972,6 +1972,89 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
             expect(normalized).toBeNull();
         });
 
+        it('recovers valid turnless TodoWrite plan envelopes from stored Codex sessions', () => {
+            const todos = [
+                { content: 'Inspect delivery', status: 'completed' as const },
+                { content: 'Repair mobile reconstruction', status: 'in_progress' as const },
+                { content: 'Deploy the fix', status: 'pending' as const },
+            ];
+            const start = normalizeRawMessage('db-plan-start', null, 1, {
+                ...base,
+                content: {
+                    type: 'session',
+                    data: {
+                        id: 'env-plan-start',
+                        time: 1,
+                        role: 'agent',
+                        ev: {
+                            t: 'tool-call-start',
+                            call: 'plan-call',
+                            name: 'TodoWrite',
+                            title: 'Todo List',
+                            description: 'Current plan',
+                            args: { todos },
+                        },
+                    },
+                },
+            });
+            const end = normalizeRawMessage('db-plan-end', null, 2, {
+                ...base,
+                content: {
+                    type: 'session',
+                    data: {
+                        id: 'env-plan-end',
+                        time: 2,
+                        role: 'agent',
+                        ev: {
+                            t: 'tool-call-end',
+                            call: 'plan-call',
+                            result: { oldTodos: [], newTodos: todos },
+                        },
+                    },
+                },
+            });
+
+            expect(start?.role).toBe('agent');
+            expect(end?.role).toBe('agent');
+            if (start?.role === 'agent' && end?.role === 'agent') {
+                expect(start.content[0]).toMatchObject({
+                    type: 'tool-call',
+                    id: 'plan-call',
+                    name: 'TodoWrite',
+                    input: { todos },
+                });
+                expect(end.content[0]).toMatchObject({
+                    type: 'tool-result',
+                    tool_use_id: 'plan-call',
+                    content: { newTodos: todos },
+                });
+            }
+        });
+
+        it('still rejects malformed turnless TodoWrite-shaped envelopes', () => {
+            const malformed = normalizeRawMessage('db-bad-plan', null, 1, {
+                ...base,
+                content: {
+                    type: 'session',
+                    data: {
+                        id: 'env-bad-plan',
+                        time: 1,
+                        role: 'agent',
+                        ev: {
+                            t: 'tool-call-start',
+                            call: 'bad-plan-call',
+                            name: 'TodoWrite',
+                            title: 'Todo List',
+                            description: '',
+                            args: { todos: [{ content: 'Broken', status: 'unknown' }] },
+                        },
+                    },
+                },
+            });
+
+            expect(malformed).toBeNull();
+        });
+
         it('returns null for turn-end session events without status', () => {
             const normalized = normalizeRawMessage('db-10', null, 1, {
                 ...base,

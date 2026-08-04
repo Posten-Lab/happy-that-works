@@ -506,6 +506,14 @@ export function mapCodexMcpMessageToSessionEnvelopes(message: Record<string, unk
         }
 
         const call = createId();
+        // Codex can publish a plan update after task_complete has cleared the
+        // active turn. Agent envelopes without a turn are invalid and clients
+        // correctly drop them, so give this state-only pair a shared synthetic
+        // protocol turn when there is no live conversational turn to attach.
+        const planOpts = {
+            ...opts,
+            turn: state.currentTurnId ?? createId(),
+        } satisfies CreateEnvelopeOptions;
         return {
             currentTurnId: state.currentTurnId,
             startedSubagents,
@@ -521,12 +529,12 @@ export function mapCodexMcpMessageToSessionEnvelopes(message: Record<string, unk
                         ? (message as { explanation: string }).explanation
                         : '',
                     args: { todos },
-                }, opts),
+                }, planOpts),
                 createEnvelope('agent', {
                     t: 'tool-call-end',
                     call,
                     result: { oldTodos: [], newTodos: todos },
-                }, opts),
+                }, planOpts),
             ],
         };
     }

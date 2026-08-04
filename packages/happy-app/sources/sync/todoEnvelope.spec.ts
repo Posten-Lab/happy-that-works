@@ -54,16 +54,15 @@ describe('folded TodoWrite envelope -> session todos', () => {
         expect(r.todos?.filter((t) => t.status === 'in_progress')).toHaveLength(2);
     });
 
-    it('drops agent envelopes with no turn — the CLI must always send one', () => {
-        // typesRaw: "Session protocol requires turn id on all agent-originated
-        // envelopes". Resume seeding runs before any turn exists, so it mints
-        // one; without that the recovered list is silently discarded and a
-        // resumed session shows nothing. This locks the contract.
+    it('recovers a valid stored TodoWrite pair that an older CLI sent without a turn', () => {
+        // Older Codex sessions could publish plan_updated just after the active
+        // turn was cleared. The durable pair is still trustworthy and complete,
+        // so mobile must fold it back into the pinned task panel on reload.
         const list = todos(['completed', 'in_progress', 'pending']);
         const r = run([
             { t: 'tool-call-start', call: 'c1', name: 'TodoWrite', title: 'Todo List', description: '', args: { todos: list } },
             { t: 'tool-call-end', call: 'c1', result: { oldTodos: [], newTodos: list } },
         ], false);
-        expect(r.todos).toBeUndefined();
+        expect(r.todos).toEqual(list);
     });
 });

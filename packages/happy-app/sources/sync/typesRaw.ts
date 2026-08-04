@@ -1,6 +1,7 @@
 import * as z from 'zod';
 import { isCuid } from '@paralleldrive/cuid2';
 import { MessageMetaSchema, MessageMeta } from './typesMessageMeta';
+import { TodoItemsSchema } from './storageTypes';
 
 //
 // Raw types
@@ -165,6 +166,26 @@ const sessionEnvelopeSchema = z.object({
     }
 });
 type SessionEnvelope = z.infer<typeof sessionEnvelopeSchema>;
+
+function isRecoverableTurnlessTodoEnvelope(envelope: SessionEnvelope): boolean {
+    if (envelope.role !== 'agent') {
+        return false;
+    }
+
+    if (envelope.ev.t === 'tool-call-start') {
+        return envelope.ev.name === 'TodoWrite'
+            && TodoItemsSchema.safeParse(envelope.ev.args.todos).success;
+    }
+
+    if (envelope.ev.t === 'tool-call-end' && envelope.ev.isError !== true) {
+        const result = envelope.ev.result;
+        return typeof result === 'object'
+            && result !== null
+            && TodoItemsSchema.safeParse((result as { newTodos?: unknown }).newTodos).success;
+    }
+
+    return false;
+}
 
 const rawTextContentSchema = z.object({
     type: z.literal('text'),
@@ -576,8 +597,12 @@ function normalizeSessionEnvelope(
     meta: MessageMeta | undefined,
 ): NormalizedMessage | null {
     // Session protocol requires turn id on all agent-originated envelopes.
-    // Drop malformed agent events without turn to avoid attaching stray messages.
-    if (envelope.role === 'agent' && !envelope.turn) {
+    // Older Codex plan updates could arrive just after the active turn was
+    // cleared, so the CLI persisted an otherwise valid TodoWrite pair without
+    // a turn. Recover that exact state-bearing shape so existing transcripts
+    // can repopulate the pinned task panel, while continuing to reject every
+    // other stray agent message.
+    if (envelope.role === 'agent' && !envelope.turn && !isRecoverableTurnlessTodoEnvelope(envelope)) {
         return null;
     }
 

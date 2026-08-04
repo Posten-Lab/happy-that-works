@@ -37,6 +37,18 @@ describe('codex plan -> todo list', () => {
         ]);
     });
 
+    it('assigns one synthetic protocol turn when a plan arrives after the active turn cleared', () => {
+        const out = mapCodexMcpMessageToSessionEnvelopes(
+            { type: 'plan_updated', plan: REAL_PLAN } as any,
+            { ...state(), currentTurnId: null },
+        );
+
+        expect(out.currentTurnId).toBeNull();
+        expect(out.envelopes).toHaveLength(2);
+        expect(out.envelopes[0].turn).toBeTruthy();
+        expect(out.envelopes[1].turn).toBe(out.envelopes[0].turn);
+    });
+
     it('translates camelCase inProgress and treats unknown statuses as pending', () => {
         const out = mapCodexMcpMessageToSessionEnvelopes(
             { type: 'plan_updated', plan: [
