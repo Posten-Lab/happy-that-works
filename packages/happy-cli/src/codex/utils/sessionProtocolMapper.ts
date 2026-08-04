@@ -550,9 +550,15 @@ export function mapCodexMcpMessageToSessionEnvelopes(message: Record<string, unk
             };
         }
 
+        // Raw app-server ordering can deliver the final agent message after
+        // turn/completed. Keep that user-visible response protocol-valid even
+        // though it does not reopen the conversational turn state.
+        const messageOpts = state.currentTurnId
+            ? opts
+            : { ...opts, turn: createId() } satisfies CreateEnvelopeOptions;
         const envelopes: SessionEnvelope[] = [];
-        maybeEmitSubagentStart(subagent, opts, startedSubagents, activeSubagents, envelopes);
-        envelopes.push(createEnvelope('agent', { t: 'text', text: message.message }, opts));
+        maybeEmitSubagentStart(subagent, messageOpts, startedSubagents, activeSubagents, envelopes);
+        envelopes.push(createEnvelope('agent', { t: 'text', text: message.message }, messageOpts));
         return {
             currentTurnId: state.currentTurnId,
             startedSubagents,

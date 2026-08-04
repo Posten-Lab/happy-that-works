@@ -49,6 +49,21 @@ describe('codex plan -> todo list', () => {
         expect(out.envelopes[1].turn).toBe(out.envelopes[0].turn);
     });
 
+    it('assigns a synthetic protocol turn when the final response arrives after completion', () => {
+        const out = mapCodexMcpMessageToSessionEnvelopes(
+            { type: 'agent_message', message: 'Approve the reviewed plan?\n\n<options>...</options>' } as any,
+            { ...state(), currentTurnId: null },
+        );
+
+        expect(out.currentTurnId).toBeNull();
+        expect(out.envelopes).toHaveLength(1);
+        expect(out.envelopes[0]).toMatchObject({
+            role: 'agent',
+            turn: expect.any(String),
+            ev: { t: 'text', text: expect.stringContaining('Approve the reviewed plan?') },
+        });
+    });
+
     it('translates camelCase inProgress and treats unknown statuses as pending', () => {
         const out = mapCodexMcpMessageToSessionEnvelopes(
             { type: 'plan_updated', plan: [

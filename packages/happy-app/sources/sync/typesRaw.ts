@@ -167,9 +167,24 @@ const sessionEnvelopeSchema = z.object({
 });
 type SessionEnvelope = z.infer<typeof sessionEnvelopeSchema>;
 
-function isRecoverableTurnlessTodoEnvelope(envelope: SessionEnvelope): boolean {
+function isRecoverableTurnlessAgentEnvelope(
+    envelope: SessionEnvelope,
+    meta: MessageMeta | undefined,
+): boolean {
     if (envelope.role !== 'agent') {
         return false;
+    }
+
+    // Codex can persist its final root response after the app-server has
+    // already completed and cleared the active turn. These are authenticated,
+    // session-encrypted CLI messages; recover only non-thinking root text so
+    // approval prompts and other final answers remain visible without opening
+    // the door to orphaned subagent or reasoning output.
+    if (envelope.ev.t === 'text') {
+        return meta?.sentFrom === 'cli'
+            && envelope.subagent === undefined
+            && envelope.ev.thinking !== true
+            && envelope.ev.text.trim().length > 0;
     }
 
     if (envelope.ev.t === 'tool-call-start') {
@@ -597,12 +612,11 @@ function normalizeSessionEnvelope(
     meta: MessageMeta | undefined,
 ): NormalizedMessage | null {
     // Session protocol requires turn id on all agent-originated envelopes.
-    // Older Codex plan updates could arrive just after the active turn was
-    // cleared, so the CLI persisted an otherwise valid TodoWrite pair without
-    // a turn. Recover that exact state-bearing shape so existing transcripts
-    // can repopulate the pinned task panel, while continuing to reject every
-    // other stray agent message.
-    if (envelope.role === 'agent' && !envelope.turn && !isRecoverableTurnlessTodoEnvelope(envelope)) {
+    // Older Codex output could arrive just after the active turn was cleared,
+    // leaving valid final root text or a TodoWrite plan pair without a turn.
+    // Recover only those authenticated CLI shapes while continuing to reject
+    // every other stray agent message.
+    if (envelope.role === 'agent' && !envelope.turn && !isRecoverableTurnlessAgentEnvelope(envelope, meta)) {
         return null;
     }
 

@@ -1972,6 +1972,64 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
             expect(normalized).toBeNull();
         });
 
+        it('recovers a non-empty root CLI approval prompt without a turn', () => {
+            const prompt = normalizeRawMessage('db-approval-prompt', null, 1, {
+                role: 'session',
+                content: {
+                    type: 'session',
+                    data: {
+                        id: 'env-approval-prompt',
+                        time: 1,
+                        role: 'agent',
+                        ev: {
+                            t: 'text',
+                            text: 'Explicit approval is required.\n\n<options>\n<option>Approve</option>\n</options>',
+                        },
+                    },
+                },
+                meta: { sentFrom: 'cli' },
+            });
+
+            expect(prompt?.role).toBe('agent');
+            if (prompt?.role === 'agent') {
+                expect(prompt.content[0]).toMatchObject({
+                    type: 'text',
+                    text: expect.stringContaining('<option>Approve</option>'),
+                    parentUUID: null,
+                });
+            }
+        });
+
+        it('does not recover turnless thinking, subagent, or non-CLI text', () => {
+            const makeText = (
+                eventOverrides: Record<string, unknown>,
+                envelopeOverrides: Record<string, unknown> = {},
+                meta?: { sentFrom?: string },
+            ) => normalizeRawMessage(
+                `db-rejected-${JSON.stringify({ eventOverrides, envelopeOverrides })}`,
+                null,
+                1,
+                {
+                    role: 'session',
+                    content: {
+                        type: 'session',
+                        data: {
+                            id: 'env-rejected-text',
+                            time: 1,
+                            role: 'agent',
+                            ...envelopeOverrides,
+                            ev: { t: 'text', text: 'Do not recover', ...eventOverrides },
+                        },
+                    },
+                    ...(meta ? { meta } : {}),
+                } as any,
+            );
+
+            expect(makeText({ thinking: true }, {}, { sentFrom: 'cli' })).toBeNull();
+            expect(makeText({}, { subagent: createId() }, { sentFrom: 'cli' })).toBeNull();
+            expect(makeText({}, {}, { sentFrom: 'server' })).toBeNull();
+        });
+
         it('recovers valid turnless TodoWrite plan envelopes from stored Codex sessions', () => {
             const todos = [
                 { content: 'Inspect delivery', status: 'completed' as const },
