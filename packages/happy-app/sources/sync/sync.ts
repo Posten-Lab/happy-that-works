@@ -56,6 +56,7 @@ import { fetchFeed } from './apiFeed';
 import { FeedItem } from './feedTypes';
 import { UserProfile } from './friendTypes';
 import { resolveMessageModeMeta } from './messageMeta';
+import { replayTrackedMessageStreams } from './messageDeliveryReplay';
 import type { AttachmentPreview, UploadedAttachment } from './attachmentTypes';
 import { requestAttachmentUpload, uploadEncryptedBlob } from './apiAttachments';
 import { encryptBlob } from '@/encryption/blob';
@@ -188,6 +189,7 @@ class Sync {
                 this.machinesSync.invalidate();
                 this.pushTokenSync.invalidate();
                 this.sessionsSync.invalidate();
+                replayTrackedMessageStreams(this.messagesSync.values());
                 this.nativeUpdateSync.invalidate();
                 log.log('📱 App became active: Invalidating artifacts sync');
                 this.artifactsSync.invalidate();
@@ -206,7 +208,11 @@ class Sync {
         // the user is actually looking at this client.
         if (Platform.OS === 'web' && typeof document !== 'undefined') {
             const broadcast = () => {
-                apiSocket.sendAppState(getCurrentAppState());
+                const currentAppState = getCurrentAppState();
+                apiSocket.sendAppState(currentAppState);
+                if (currentAppState === 'active') {
+                    replayTrackedMessageStreams(this.messagesSync.values());
+                }
             };
             document.addEventListener('visibilitychange', broadcast);
             window.addEventListener('focus', broadcast);
@@ -2167,9 +2173,10 @@ class Sync {
             this.friendsSync.invalidate();
             this.friendRequestsSync.invalidate();
             this.feedSync.invalidate();
-            // Messages are fetched lazily per-session via onSessionVisible (called by SessionView
-            // when realtimeStatus changes). Session metadata + agentState (including permission
-            // requests) are already refreshed by sessionsSync.invalidate() above.
+            // Socket events are only a wake-up signal. Durable messages are the
+            // source of truth, so replay every opened stream from its last seq
+            // instead of relying on SessionView to observe a status transition.
+            replayTrackedMessageStreams(this.messagesSync.values());
             for (const sync of this.sendSync.values()) {
                 sync.invalidate();
             }
