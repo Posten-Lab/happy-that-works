@@ -20,12 +20,33 @@ const path = require('path');
 const PACKAGE_DIR = path.resolve(__dirname, '..');
 const IS_WINDOWS = process.platform === 'win32';
 
-function run(cmd, args, { allowFailure = false } = {}) {
+function sanitizeLifecyclePath(pathValue) {
+    if (!pathValue) return pathValue;
+
+    return pathValue
+        .split(path.delimiter)
+        .filter((entry) => {
+            const normalized = entry.replace(/\\/g, '/').replace(/\/+$/, '');
+            return !normalized.endsWith('/node_modules/.bin')
+                && !normalized.endsWith('/node-gyp-bin');
+        })
+        .join(path.delimiter);
+}
+
+function daemonEnvironment(source = process.env) {
+    const env = { ...source };
+    const pathKey = Object.keys(env).find((key) => key.toLowerCase() === 'path') || 'PATH';
+    env[pathKey] = sanitizeLifecyclePath(env[pathKey]);
+    return env;
+}
+
+function run(cmd, args, { allowFailure = false, env = process.env } = {}) {
     const label = [cmd, ...args].join(' ');
     console.log(`\n▶ ${label}`);
     const result = spawnSync(cmd, args, {
         cwd: PACKAGE_DIR,
         stdio: 'inherit',
+        env,
         // shell: true resolves `.cmd` shims on Windows so `pnpm` / `npm` / `happy` are found.
         shell: IS_WINDOWS,
     });
@@ -42,11 +63,24 @@ function run(cmd, args, { allowFailure = false } = {}) {
     return status;
 }
 
-run('pnpm', ['run', 'build']);
-run('happy', ['daemon', 'stop'], { allowFailure: true });
-run('npm', ['link']);
-run('happy', ['daemon', 'start']);
-run('happy', ['--version']);
+function main() {
+    const cleanDaemonEnv = daemonEnvironment();
 
-console.log(`\n✓ Installed from ${PACKAGE_DIR}`);
-console.log('  To undo: npm unlink -g happy && npm i -g happy@latest');
+    run('pnpm', ['run', 'build']);
+    run('happy', ['daemon', 'stop'], { allowFailure: true, env: cleanDaemonEnv });
+    run('npm', ['link']);
+    run('happy', ['daemon', 'start'], { env: cleanDaemonEnv });
+    run('happy', ['--version'], { env: cleanDaemonEnv });
+
+    console.log(`\n✓ Installed from ${PACKAGE_DIR}`);
+    console.log('  To undo: npm unlink -g happy && npm i -g happy@latest');
+}
+
+if (require.main === module) {
+    main();
+}
+
+module.exports = {
+    daemonEnvironment,
+    sanitizeLifecyclePath,
+};
