@@ -281,20 +281,16 @@ class EventRouter {
     // === PRESENCE QUERIES ===
 
     /**
-     * Returns true if the user has any non-machine socket that hasn't
-     * reported `app-state: background`.  Old clients that never send
-     * `app-state` are treated as active (connected = present).
+     * Returns true if the user has any user-facing app socket that hasn't
+     * reported `app-state: background`. Agent session and daemon sockets are
+     * transport connections and never count as user presence. Old user clients
+     * that never send `app-state` are treated as active (connected = present).
      *
      * Uses fetchSockets() which works cross-replica via Redis streams adapter.
      */
-    async hasActiveNonMachineSocket(userId: string): Promise<boolean> {
+    async hasActiveUserSocket(userId: string): Promise<boolean> {
         const sockets = await this.io.in(`user:${userId}`).fetchSockets();
-        return sockets.some(s => {
-            if (s.data.clientType === 'machine-scoped') return false;
-            // No app-state yet → old client or just connected; assume active
-            const appState = s.data.appState as string | undefined;
-            return appState !== 'background';
-        });
+        return sockets.some(s => isActiveUserSocketData(s.data));
     }
 
     // === PRIVATE ROUTING LOGIC ===
@@ -329,6 +325,22 @@ class EventRouter {
             this.io.to(rooms).emit(params.eventName, params.payload);
         }
     }
+}
+
+export function isActiveUserSocketData(data: {
+    clientType?: string;
+    appState?: string;
+}): boolean {
+    // Agent and daemon sockets are transport connections, not user-visible
+    // clients. In particular, session-scoped CLI sockets do not report
+    // app-state and must not suppress the notification they just emitted.
+    if (data.clientType === 'machine-scoped' || data.clientType === 'session-scoped') {
+        return false;
+    }
+
+    // Missing clientType/appState is an older user client. Preserve the
+    // backwards-compatible connected-is-active behavior for those clients.
+    return data.appState !== 'background';
 }
 
 export const eventRouter = new EventRouter();

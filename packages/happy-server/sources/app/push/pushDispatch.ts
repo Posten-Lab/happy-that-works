@@ -10,9 +10,10 @@
  * Connected clients still receive the realtime message update over socket;
  * only the Expo push for "new message" went away.
  *
- * Suppression: if the user has ANY non-machine client that is active
+ * Suppression: if the user has ANY user-facing app client that is active
  * (connected + not backgrounded), suppress the push — they can see in-app
- * indicators (unread dots, tab title counter) instead.
+ * indicators (unread dots, tab title counter) instead. Agent session and
+ * daemon sockets never count as user presence.
  *
  * "Active" is determined by socket.data.appState:
  *   - Clients send `app-state: { state: 'active' | 'background' }` via socket.

@@ -46,7 +46,8 @@ describe('CodexPermissionHandler', () => {
 
     it('keeps non-safe tools pending for user approval', async () => {
         const { session, getState } = createSessionMock();
-        const handler = new CodexPermissionHandler(session as any);
+        const onPermissionRequest = vi.fn();
+        const handler = new CodexPermissionHandler(session as any, onPermissionRequest);
 
         const pending = handler.handleToolCall(
             'call_exec_123',
@@ -57,6 +58,11 @@ describe('CodexPermissionHandler', () => {
         expect(getState().requests.call_exec_123).toMatchObject({
             tool: 'Bash',
             arguments: { command: 'pwd' },
+        });
+        expect(onPermissionRequest).toHaveBeenCalledWith({
+            toolCallId: 'call_exec_123',
+            toolName: 'Bash',
+            input: { command: 'pwd' },
         });
 
         handler.abortAll();
@@ -96,7 +102,8 @@ describe('CodexPermissionHandler', () => {
 
     it('auto-approves change_title tool call by Gemini-style ID (change_title-<timestamp>)', async () => {
         const { session } = createSessionMock();
-        const handler = new CodexPermissionHandler(session as any);
+        const onPermissionRequest = vi.fn();
+        const handler = new CodexPermissionHandler(session as any, onPermissionRequest);
 
         const result = await handler.handleToolCall(
             'change_title-1765385846663',
@@ -105,5 +112,6 @@ describe('CodexPermissionHandler', () => {
         );
 
         expect(result).toEqual({ decision: 'approved' });
+        expect(onPermissionRequest).not.toHaveBeenCalled();
     });
 });
