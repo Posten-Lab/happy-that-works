@@ -30,6 +30,7 @@ import { getCurrentRealtimeSessionId, getVoiceSession } from '@/realtime/Realtim
 import { isMutableTool } from "@/components/tools/knownTools";
 import { DecryptedArtifact } from "./artifactTypes";
 import { FeedItem } from "./feedTypes";
+import { resolveSessionTodos } from "./sessionMerge";
 
 // Debounce timer for realtimeMode changes
 let realtimeModeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -434,6 +435,11 @@ export const storage = create<StorageState>()((set, get) => {
                 mergedSessions[session.id] = {
                     ...session,
                     presence,
+                    // Session-status payloads do not carry todos; those are
+                    // derived from the message reducer. Dropping them here
+                    // made the pinned panel disappear on every status update
+                    // and reappear when the next message was reduced.
+                    todos: resolveSessionTodos(session.todos, state.sessions[session.id]?.todos),
                     draft: existingDraft || savedDraft || session.draft || null,
                     permissionMode: resolvedPermissionMode,
                     modelMode: resolvedModelMode,
