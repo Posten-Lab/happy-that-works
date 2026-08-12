@@ -698,7 +698,9 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
               * message; Task* only fires on change, so the list is pinned here
               * instead of being buried wherever the last task call landed.
               */}
-            <SessionTaskPanel session={session} />
+            <CenteredInputWidth horizontalPadding={sessionInputHorizontalPadding}>
+                <SessionTaskPanel session={session} />
+            </CenteredInputWidth>
         </>
     );
     const placeholder = messages.length === 0 ? (
