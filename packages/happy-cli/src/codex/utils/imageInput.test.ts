@@ -80,6 +80,7 @@ describe('prepareCodexImageInputItems', () => {
         });
 
         expect(result.skipped).toBe(0);
+        expect(result.filePaths).toEqual([]);
         expect(result.inputItems).toHaveLength(1);
         expect(result.inputItems[0].type).toBe('localImage');
         if (result.inputItems[0].type === 'localImage') {
@@ -113,25 +114,26 @@ describe('prepareCodexImageInputItems', () => {
         expect((await stat(result.inputItems[0].path)).mode & 0o777).toBe(0o600);
     });
 
-    it('skips unsupported images without writing fallback files', async () => {
+    it('writes non-image attachments to local files Codex can read', async () => {
         const cacheRootDir = await makeTempDir();
-        const sensitiveName = 'https://upload.example.test/presigned?token=secret';
+        const csvBytes = new TextEncoder().encode('name,value\nalpha,1');
 
         const result = await prepareCodexImageInputItems([{
             ref: 'ref-notimg',
-            data: new TextEncoder().encode('not an image'),
-            mimeType: 'image/png',
-            name: sensitiveName,
+            data: csvBytes,
+            mimeType: 'text/csv',
+            name: '../../activity export.csv',
         }], {
             cacheRootDir,
             sessionId: 'session-2',
         });
 
-        expect(result).toEqual({
-            inputItems: [],
-            skipped: 1,
-        });
-        expect(JSON.stringify(vi.mocked(logger.debug).mock.calls)).not.toContain(sensitiveName);
+        expect(result.inputItems).toEqual([]);
+        expect(result.skipped).toBe(0);
+        expect(result.filePaths).toHaveLength(1);
+        expect(result.filePaths[0]).toMatch(/\.csv$/);
+        expect(result.filePaths[0]).not.toContain('activity export');
+        expect(new Uint8Array(await readFile(result.filePaths[0]))).toEqual(csvBytes);
     });
 
     it('skips images when cache writes fail', async () => {
@@ -152,6 +154,7 @@ describe('prepareCodexImageInputItems', () => {
 
         expect(result).toEqual({
             inputItems: [],
+            filePaths: [],
             skipped: 1,
         });
         expect(JSON.stringify(vi.mocked(logger.debug).mock.calls)).not.toContain(fileRoot);

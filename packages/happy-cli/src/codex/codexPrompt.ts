@@ -29,6 +29,8 @@ export function buildCodexTurnPrompt(opts: {
     mode: Pick<CodexEnhancedMode, 'appendSystemPrompt'>;
     includeAppendSystemPrompt: boolean;
     includeTitleInstruction: boolean;
+    /** Decrypted non-image attachments available to Codex through local tools. */
+    attachedFilePaths?: string[];
 }): string {
     const parts: string[] = [];
 
@@ -37,6 +39,13 @@ export function buildCodexTurnPrompt(opts: {
     }
 
     parts.push(opts.message);
+
+    if (opts.attachedFilePaths && opts.attachedFilePaths.length > 0) {
+        parts.push([
+            'Attached files are available at these local paths:',
+            ...opts.attachedFilePaths.map((filePath) => `- ${filePath}`),
+        ].join('\n'));
+    }
 
     if (opts.includeTitleInstruction) {
         parts.push(CHANGE_TITLE_INSTRUCTION, PRESENT_IMAGE_INSTRUCTION);

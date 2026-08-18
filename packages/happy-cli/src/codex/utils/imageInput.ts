@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { extname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import { configuration } from '@/configuration';
 import { logger } from '@/ui/logger';
@@ -15,6 +15,8 @@ export type SupportedImageType = {
 
 export type PreparedCodexImageInputs = {
     inputItems: InputItem[];
+    /** Non-image attachments written to disk for Codex tools to read. */
+    filePaths: string[];
     skipped: number;
 };
 
@@ -93,33 +95,37 @@ export async function prepareCodexImageInputItems(
     },
 ): Promise<PreparedCodexImageInputs> {
     if (!attachments || attachments.length === 0) {
-        return { inputItems: [], skipped: 0 };
+        return { inputItems: [], filePaths: [], skipped: 0 };
     }
 
     const cacheDir = resolveCodexImageCacheDir(opts);
     const inputItems: InputItem[] = [];
+    const filePaths: string[] = [];
     let skipped = 0;
 
     for (const attachment of attachments) {
         const detected = detectSupportedImageType(attachment.data);
-        if (!detected) {
-            logger.debug('[Codex] Skipping unsupported image attachment', {
-                mimeType: attachment.mimeType,
-                size: attachment.data.length,
-            });
-            skipped += 1;
-            continue;
-        }
 
         try {
             await mkdir(cacheDir, { recursive: true, mode: 0o700 });
             await chmod(cacheDir, 0o700);
-            const filePath = join(cacheDir, `${randomUUID()}.${detected.extension}`);
+            const originalExtension = extname(attachment.name).toLowerCase();
+            const safeExtension = /^\.[a-z0-9]{1,10}$/.test(originalExtension)
+                ? originalExtension
+                : '.bin';
+            const filePath = join(
+                cacheDir,
+                detected ? `${randomUUID()}.${detected.extension}` : `${randomUUID()}${safeExtension}`,
+            );
             await writeFile(filePath, Buffer.from(attachment.data), { mode: 0o600 });
-            inputItems.push({ type: 'localImage', path: filePath });
+            if (detected) {
+                inputItems.push({ type: 'localImage', path: filePath });
+            } else {
+                filePaths.push(filePath);
+            }
         } catch (error) {
-            logger.debug('[Codex] Failed to cache image attachment for localImage input', {
-                mimeType: detected.mimeType,
+            logger.debug('[Codex] Failed to cache attachment for turn input', {
+                mimeType: attachment.mimeType,
                 size: attachment.data.length,
                 errorName: error instanceof Error ? error.name : typeof error,
             });
@@ -127,5 +133,5 @@ export async function prepareCodexImageInputItems(
         }
     }
 
-    return { inputItems, skipped };
+    return { inputItems, filePaths, skipped };
 }

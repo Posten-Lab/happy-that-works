@@ -66,6 +66,22 @@ describe('buildCodexTurnPrompt', () => {
             'start fresh',
         );
     });
+
+    it('adds non-image attachment paths to the turn prompt', () => {
+        const prompt = buildCodexTurnPrompt({
+            message: 'Can you inspect this CSV?',
+            mode: {},
+            includeAppendSystemPrompt: false,
+            includeTitleInstruction: false,
+            attachedFilePaths: ['/tmp/happy/csv-file.csv'],
+        });
+
+        expect(prompt).toBe(
+            'Can you inspect this CSV?\n\n' +
+            'Attached files are available at these local paths:\n' +
+            '- /tmp/happy/csv-file.csv',
+        );
+    });
 });
 
 describe('hashCodexEnhancedMode', () => {

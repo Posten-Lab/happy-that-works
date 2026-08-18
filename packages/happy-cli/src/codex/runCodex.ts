@@ -993,20 +993,26 @@ export async function runCodex(opts: {
                 const includeAppendSystemPrompt = Boolean(
                     message.mode.appendSystemPrompt && !appendSystemPromptInjected,
                 );
-                const imageInputs = await prepareCodexImageInputItems(message.attachments, {
+                const attachmentInputs = await prepareCodexImageInputItems(message.attachments, {
                     sessionId: session.sessionId,
                 });
                 if ((message.attachments?.length ?? 0) > 0) {
-                    logger.debug('[Codex] Prepared image inputs for turn', {
-                        inputCount: imageInputs.inputItems.length,
-                        skippedCount: imageInputs.skipped,
+                    logger.debug('[Codex] Prepared attachment inputs for turn', {
+                        imageInputCount: attachmentInputs.inputItems.length,
+                        filePathCount: attachmentInputs.filePaths.length,
+                        skippedCount: attachmentInputs.skipped,
                     });
                 }
                 const hasUserText = message.message.trim().length > 0;
-                if ((message.attachments?.length ?? 0) > 0 && imageInputs.inputItems.length === 0 && !hasUserText) {
+                if (
+                    (message.attachments?.length ?? 0) > 0
+                    && attachmentInputs.inputItems.length === 0
+                    && attachmentInputs.filePaths.length === 0
+                    && !hasUserText
+                ) {
                     session.sendSessionEvent({
                         type: 'message',
-                        message: 'No supported images were available to send to Codex.',
+                        message: 'No attachments were available to send to Codex.',
                     });
                     continue;
                 }
@@ -1015,6 +1021,7 @@ export async function runCodex(opts: {
                     mode: message.mode,
                     includeAppendSystemPrompt,
                     includeTitleInstruction: first,
+                    attachedFilePaths: attachmentInputs.filePaths,
                 });
 
                 const result = await client.sendTurnAndWait(turnPrompt, {
@@ -1022,7 +1029,7 @@ export async function runCodex(opts: {
                     approvalPolicy: executionPolicy.approvalPolicy,
                     sandbox: executionPolicy.sandbox,
                     effort: message.mode.effort,
-                    extraInputItems: imageInputs.inputItems,
+                    extraInputItems: attachmentInputs.inputItems,
                 });
                 first = false;
                 if (includeAppendSystemPrompt) {
