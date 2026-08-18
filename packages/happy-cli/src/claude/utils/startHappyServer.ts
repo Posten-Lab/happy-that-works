@@ -14,8 +14,40 @@ import { z } from "zod";
 import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
 import { randomUUID } from "node:crypto";
+import { basename } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { detectSupportedImageType } from "@/codex/utils/imageInput";
 
-function createMcpServer(handler: (title: string) => Promise<{ success: boolean; error?: string }>): McpServer {
+const MAX_PUBLISHED_IMAGE_BYTES = 10 * 1024 * 1024;
+
+export async function publishLocalImage(client: ApiSessionClient, path: string, alt?: string) {
+    const fileStat = await stat(path);
+    if (!fileStat.isFile()) {
+        throw new Error('Image path is not a file');
+    }
+    if (fileStat.size > MAX_PUBLISHED_IMAGE_BYTES) {
+        throw new Error('Image exceeds the 10 MB attachment limit');
+    }
+
+    const data = new Uint8Array(await readFile(path));
+    const detected = detectSupportedImageType(data);
+    if (!detected) {
+        throw new Error('Only PNG, JPEG, GIF, and WebP images can be published');
+    }
+
+    const envelope = await client.uploadLocalImageAttachmentEnvelope({
+        data,
+        mimeType: detected.mimeType,
+        name: alt?.trim() || basename(path),
+    }, {}, 'agent');
+    client.sendSessionProtocolMessage(envelope);
+    return envelope;
+}
+
+function createMcpServer(
+    titleHandler: (title: string) => Promise<{ success: boolean; error?: string }>,
+    imageHandler: (path: string, alt?: string) => Promise<void>,
+): McpServer {
     const mcp = new McpServer({
         name: "Happy MCP",
         version: "1.0.0",
@@ -28,7 +60,7 @@ function createMcpServer(handler: (title: string) => Promise<{ success: boolean;
             title: z.string().describe('The new title for the chat session'),
         },
     }, async (args) => {
-        const response = await handler(args.title);
+        const response = await titleHandler(args.title);
         logger.debug('[happyMCP] Response:', response);
 
         if (response.success) {
@@ -54,13 +86,35 @@ function createMcpServer(handler: (title: string) => Promise<{ success: boolean;
         }
     });
 
+    mcp.registerTool('present_image', {
+        description: 'Publish a local image into the current Happy chat so remote clients can load it. Use this instead of Markdown image links for local files or private/authenticated URLs.',
+        title: 'Present Image',
+        inputSchema: {
+            path: z.string().describe('Absolute path to a local PNG, JPEG, GIF, or WebP image'),
+            alt: z.string().optional().describe('Optional accessible image label'),
+        },
+    }, async (args) => {
+        try {
+            await imageHandler(args.path, args.alt);
+            return {
+                content: [{ type: 'text', text: `Published image: ${args.alt?.trim() || basename(args.path)}` }],
+                isError: false,
+            };
+        } catch (error) {
+            return {
+                content: [{ type: 'text', text: `Failed to publish image: ${error instanceof Error ? error.message : String(error)}` }],
+                isError: true,
+            };
+        }
+    });
+
     return mcp;
 }
 
 export async function startHappyServer(client: ApiSessionClient) {
     logger.debug(`[happyMCP] server:start sessionId=${client.sessionId}`);
 
-    const handler = async (title: string) => {
+    const titleHandler = async (title: string) => {
         logger.debug('[happyMCP] Changing title to:', title);
         try {
             client.sendClaudeSessionMessage({
@@ -73,9 +127,12 @@ export async function startHappyServer(client: ApiSessionClient) {
             return { success: false, error: String(error) };
         }
     };
+    const imageHandler = async (path: string, alt?: string) => {
+        await publishLocalImage(client, path, alt);
+    };
 
     const server = createServer(async (req, res) => {
-        const mcp = createMcpServer(handler);
+        const mcp = createMcpServer(titleHandler, imageHandler);
         try {
             const transport = new StreamableHTTPServerTransport({
                 sessionIdGenerator: undefined
@@ -106,7 +163,7 @@ export async function startHappyServer(client: ApiSessionClient) {
 
     return {
         url: baseUrl.toString(),
-        toolNames: ['change_title'],
+        toolNames: ['change_title', 'present_image'],
         stop: () => {
             logger.debug(`[happyMCP] server:stop sessionId=${client.sessionId}`);
             server.close();

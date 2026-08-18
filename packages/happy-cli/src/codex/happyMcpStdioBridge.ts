@@ -1,7 +1,7 @@
 /**
  * Happy MCP STDIO Bridge
  *
- * Minimal STDIO MCP server exposing a single tool `change_title`.
+ * Minimal STDIO MCP server exposing Happy's session tools.
  * On invocation it forwards the tool call to an existing Happy HTTP MCP server
  * using the StreamableHTTPClientTransport.
  *
@@ -90,6 +90,31 @@ async function main() {
     }
   );
 
+  server.registerTool(
+    'present_image',
+    {
+      description: 'Publish a local image into the current Happy chat so remote clients can load it. Use this instead of Markdown image links for local files or private/authenticated URLs.',
+      title: 'Present Image',
+      inputSchema: {
+        path: z.string().describe('Absolute path to a local PNG, JPEG, GIF, or WebP image'),
+        alt: z.string().optional().describe('Optional accessible image label'),
+      },
+    },
+    async (args) => {
+      try {
+        const client = await ensureHttpClient();
+        return await client.callTool({ name: 'present_image', arguments: args }) as any;
+      } catch (error) {
+        return {
+          content: [
+            { type: 'text', text: `Failed to publish image: ${error instanceof Error ? error.message : String(error)}` },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
   // Start STDIO transport
   const stdio = new StdioServerTransport();
   await server.connect(stdio);
@@ -103,4 +128,3 @@ main().catch((err) => {
     process.exit(1);
   }
 });
-

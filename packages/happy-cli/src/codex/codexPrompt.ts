@@ -4,6 +4,8 @@ import { hashObject } from '@/utils/deterministicJson';
 
 import type { ReasoningEffort } from './codexAppServerTypes';
 
+export const PRESENT_IMAGE_INSTRUCTION = 'When showing an image in Happy, call mcp__happy__present_image with an absolute local image path. Do not embed local paths or private/authenticated URLs as Markdown images because remote clients cannot load them.';
+
 export interface CodexEnhancedMode {
     permissionMode: PermissionMode;
     model?: string;
@@ -37,7 +39,7 @@ export function buildCodexTurnPrompt(opts: {
     parts.push(opts.message);
 
     if (opts.includeTitleInstruction) {
-        parts.push(CHANGE_TITLE_INSTRUCTION);
+        parts.push(CHANGE_TITLE_INSTRUCTION, PRESENT_IMAGE_INSTRUCTION);
     }
 
     return parts.join('\n\n');
