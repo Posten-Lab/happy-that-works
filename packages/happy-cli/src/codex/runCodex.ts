@@ -239,6 +239,11 @@ export async function runCodex(opts: {
     }
 
     const messageQueue = new MessageQueue2<EnhancedMode>(hashCodexEnhancedMode);
+    const fallbackCodexEfforts = new Set<string>([
+        'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra',
+    ]);
+    const discoveredEffortsByModel = new Map<string, Set<string>>();
+    let discoveredDefaultModel: string | undefined;
 
     session.onFileEvent((fileEvent) => {
         const ev = fileEvent.content.data.ev;
@@ -280,10 +285,6 @@ export async function runCodex(opts: {
         'yolo',
     ];
 
-    const VALID_REMOTE_EFFORTS: readonly ReasoningEffort[] = [
-        'none', 'minimal', 'low', 'medium', 'high', 'xhigh',
-    ];
-
     const handleUserMessage = createSerialAsyncHandler<UserMessage>(async (message) => {
         const attachmentsForThisMessage = await session.drainAttachmentsForUserMessage();
 
@@ -322,10 +323,21 @@ export async function runCodex(opts: {
                 messageEffort = undefined;
                 currentEffort = undefined;
                 logger.debug(`[Codex] Effort reset to default`);
-            } else if (typeof incoming === 'string' && (VALID_REMOTE_EFFORTS as readonly string[]).includes(incoming)) {
-                messageEffort = incoming as ReasoningEffort;
-                currentEffort = messageEffort;
-                logger.debug(`[Codex] Effort updated from user message: ${messageEffort}`);
+            } else if (typeof incoming === 'string') {
+                const effortModel = messageModel ?? discoveredDefaultModel;
+                const advertisedEfforts = effortModel
+                    ? discoveredEffortsByModel.get(effortModel)
+                    : undefined;
+                const isValidEffort = advertisedEfforts
+                    ? advertisedEfforts.has(incoming)
+                    : fallbackCodexEfforts.has(incoming);
+                if (!isValidEffort) {
+                    logger.debug(`[Codex] Ignoring effort not advertised for ${effortModel ?? 'the provider default'}: ${incoming}`);
+                } else {
+                    messageEffort = incoming as ReasoningEffort;
+                    currentEffort = messageEffort;
+                    logger.debug(`[Codex] Effort updated from user message: ${messageEffort}`);
+                }
             } else {
                 logger.debug(`[Codex] Ignoring invalid effort from user message: ${String(incoming)}`);
             }
@@ -816,6 +828,36 @@ export async function runCodex(opts: {
         logger.debug('[codex]: client.connect begin');
         await client.connect();
         logger.debug('[codex]: client.connect done');
+
+        try {
+            const providerModels = await client.listModels();
+            discoveredEffortsByModel.clear();
+            discoveredDefaultModel = providerModels.find((model) => model.isDefault)?.model;
+            for (const model of providerModels) {
+                discoveredEffortsByModel.set(
+                    model.model,
+                    new Set((model.supportedReasoningEfforts ?? []).map((effort) => effort.reasoningEffort)),
+                );
+            }
+            session.updateMetadata((currentMetadata) => ({
+                ...currentMetadata,
+                models: providerModels.map((model) => ({
+                    code: model.model,
+                    value: model.displayName,
+                    description: model.description ?? null,
+                    supportedReasoningEfforts: (model.supportedReasoningEfforts ?? []).map((effort) => ({
+                        code: effort.reasoningEffort,
+                        value: effort.reasoningEffort,
+                        description: effort.description ?? null,
+                    })),
+                    defaultReasoningEffort: model.defaultReasoningEffort ?? null,
+                    isDefault: model.isDefault ?? false,
+                })),
+            }));
+            logger.debug(`[Codex] Published ${providerModels.length} provider-advertised models to session metadata`);
+        } catch (error) {
+            logger.warn('[Codex] Could not discover provider models; using bundled picker fallbacks', error);
+        }
 
         if (opts.resumeThreadId) {
             await resumeExistingThread({

@@ -9,6 +9,13 @@ export const MetadataSchema = z.object({
         code: z.string(),
         value: z.string(),
         description: z.string().nullish(),
+        supportedReasoningEfforts: z.array(z.object({
+            code: z.string(),
+            value: z.string(),
+            description: z.string().nullish(),
+        })).optional(),
+        defaultReasoningEffort: z.string().nullish(),
+        isDefault: z.boolean().optional(),
     })).optional(),
     currentModelCode: z.string().optional(),
     operatingModes: z.array(z.object({

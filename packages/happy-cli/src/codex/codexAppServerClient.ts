@@ -45,6 +45,8 @@ import type {
     SandboxMode,
     InputItem,
     ReasoningEffort,
+    CodexModelInfo,
+    ListModelsResponse,
     McpServerElicitationRequestResponse,
 } from './codexAppServerTypes';
 import type { SandboxConfig } from '@/persistence';
@@ -718,6 +720,26 @@ export class CodexAppServerClient {
     }
 
     // ─── Thread management ──────────────────────────────────────
+
+    async listModels(opts?: { includeHidden?: boolean; pageSize?: number }): Promise<CodexModelInfo[]> {
+        const models: CodexModelInfo[] = [];
+        let cursor: string | null | undefined;
+        const seenCursors = new Set<string>();
+
+        do {
+            const result = await this.request('model/list', {
+                includeHidden: opts?.includeHidden ?? false,
+                limit: opts?.pageSize ?? 100,
+                ...(cursor ? { cursor } : {}),
+            }) as ListModelsResponse;
+            models.push(...result.data);
+            cursor = result.nextCursor;
+            if (cursor && seenCursors.has(cursor)) break;
+            if (cursor) seenCursors.add(cursor);
+        } while (cursor);
+
+        return models;
+    }
 
     async startThread(opts: {
         model?: string;

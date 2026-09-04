@@ -8,6 +8,8 @@ import {
     getDefaultEffortKey,
     getDefaultModelKey,
     getDefaultPermissionModeKey,
+    getCodexEffortLevels,
+    getEffortLevelsForModel,
     mapMetadataOptions,
     resolveCurrentOption,
 } from './modelModeOptions';
@@ -90,6 +92,49 @@ describe('modelModeOptions', () => {
         expect(models).toEqual([
             { key: 'default', name: 'default model', description: null },
             { key: 'gpt-5.4', name: 'gpt-5.4', description: 'Latest' },
+        ]);
+    });
+
+    it('includes max and ultra in the Codex fallback effort list', () => {
+        expect(getCodexEffortLevels().map((effort) => effort.key)).toEqual([
+            'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra',
+        ]);
+    });
+
+    it('uses provider-advertised efforts for the selected Codex model', () => {
+        const metadata = {
+            models: [
+                {
+                    code: 'gpt-5.6-sol',
+                    value: 'GPT-5.6-Sol',
+                    isDefault: true,
+                    supportedReasoningEfforts: [
+                        { code: 'low', value: 'low', description: 'Fast' },
+                        { code: 'max', value: 'max', description: 'Deepest' },
+                        { code: 'ultra', value: 'ultra', description: 'Delegates work' },
+                    ],
+                },
+                {
+                    code: 'gpt-5.6-luna',
+                    value: 'GPT-5.6-Luna',
+                    supportedReasoningEfforts: [
+                        { code: 'low', value: 'low' },
+                        { code: 'high', value: 'high' },
+                    ],
+                },
+            ],
+        } as any;
+
+        expect(getEffortLevelsForModel('codex', 'gpt-5.6-sol', metadata)).toEqual([
+            { key: 'low', name: 'low', description: 'Fast' },
+            { key: 'max', name: 'max', description: 'Deepest' },
+            { key: 'ultra', name: 'ultra', description: 'Delegates work' },
+        ]);
+        expect(getEffortLevelsForModel('codex', 'gpt-5.6-luna', metadata).map((effort) => effort.key)).toEqual([
+            'low', 'high',
+        ]);
+        expect(getEffortLevelsForModel('codex', 'default', metadata).map((effort) => effort.key)).toEqual([
+            'low', 'max', 'ultra',
         ]);
     });
 
