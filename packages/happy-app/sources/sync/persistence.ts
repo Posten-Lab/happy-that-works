@@ -22,6 +22,7 @@ export interface NewSessionDraft {
     agentType: NewSessionAgentType;
     permissionMode: PermissionModeKey;
     modelMode: string;
+    effortLevel: string | null;
     sessionType: NewSessionSessionType;
     worktreeKey: string | null;
     updatedAt: number;
@@ -152,6 +153,7 @@ export function loadNewSessionDraft(): NewSessionDraft | null {
             ? parsed.permissionMode
             : 'default';
         const modelMode: string = typeof parsed.modelMode === 'string' ? parsed.modelMode : 'default';
+        const effortLevel = typeof parsed.effortLevel === 'string' ? parsed.effortLevel : null;
         const sessionType: NewSessionSessionType = parsed.sessionType === 'worktree' ? 'worktree' : 'simple';
         const worktreeKey = typeof parsed.worktreeKey === 'string' ? parsed.worktreeKey : null;
         const updatedAt = typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now();
@@ -163,6 +165,7 @@ export function loadNewSessionDraft(): NewSessionDraft | null {
             agentType,
             permissionMode,
             modelMode,
+            effortLevel,
             sessionType,
             worktreeKey,
             updatedAt,

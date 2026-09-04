@@ -588,6 +588,8 @@ function NewSessionScreen() {
         setPermissionMode: s.setPermissionMode,
         modelMode: s.modelMode,
         setModelMode: s.setModelMode,
+        effortLevel: s.effortLevel,
+        setEffortLevel: s.setEffortLevel,
         sessionType: s.sessionType,
         setSessionType: s.setSessionType,
         worktreeKey: s.worktreeKey,
@@ -779,14 +781,14 @@ function NewSessionScreen() {
 
     // Reset effort when model changes
     React.useEffect(() => {
-        const defaultEffort = effectiveAgentDefaults.effortLevel;
+        const defaultEffort = draft.effortLevel ?? effectiveAgentDefaults.effortLevel;
         if (defaultEffort && effortLevels.length > 0) {
             const idx = effortLevels.findIndex(e => e.key === defaultEffort);
             setEffortIndex(idx >= 0 ? idx : effortLevels.length - 1);
         } else {
             setEffortIndex(0);
         }
-    }, [effectiveAgentDefaults.effortLevel, currentModelKey, effortLevels]);
+    }, [draft.effortLevel, effectiveAgentDefaults.effortLevel, currentModelKey, effortLevels]);
 
     // Auto collapse config once when user starts typing (mobile only)
     // On desktop (web / Mac Catalyst) the panel stays expanded
@@ -894,6 +896,7 @@ function NewSessionScreen() {
                 const next = effortLevels.findIndex((level) => level.key === key);
                 if (next >= 0) {
                     setEffortIndex(next);
+                    draft.setEffortLevel(effortLevels[next]?.key ?? null);
                 }
                 break;
             }
@@ -912,6 +915,7 @@ function NewSessionScreen() {
         availableAgents,
         draft.setModelMode,
         draft.setPermissionMode,
+        draft.setEffortLevel,
         effortLevels,
         modelModes,
         permissionModes,
@@ -994,7 +998,15 @@ function NewSessionScreen() {
                     // Send initial message if provided
                     if (trimmedPrompt || attachments) {
                         clearImages();
-                        await sync.sendMessage(result.sessionId, trimmedPrompt, { source: 'new_session', attachments });
+                        await sync.sendMessage(result.sessionId, trimmedPrompt, {
+                            source: 'new_session',
+                            attachments,
+                            modeMeta: {
+                                permissionMode: currentPermission.key,
+                                model: currentModelKey === 'default' ? null : currentModelKey,
+                                effort: currentEffortKey,
+                            },
+                        });
                     }
 
                     router.back();

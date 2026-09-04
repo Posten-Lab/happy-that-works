@@ -34,3 +34,14 @@ export function resolveMessageModeMeta(
 
     return meta;
 }
+
+export function resolveSendMessageModeMeta(
+    session: Pick<Session, 'permissionMode' | 'modelMode' | 'metadata' | 'effortLevel'>,
+    settings?: Pick<Settings, 'agentDefaultOverrides'>,
+    snapshot?: MessageModeMeta,
+): MessageModeMeta {
+    return {
+        ...resolveMessageModeMeta(session, settings),
+        ...snapshot,
+    };
+}
