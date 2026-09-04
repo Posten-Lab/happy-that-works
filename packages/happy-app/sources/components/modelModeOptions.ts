@@ -6,6 +6,9 @@ export type ModeOption = {
     key: string;
     name: string;
     description?: string | null;
+    supportedReasoningEfforts?: EffortLevel[];
+    defaultReasoningEffort?: string | null;
+    isDefault?: boolean;
 };
 
 export type PermissionMode = ModeOption;
@@ -23,6 +26,9 @@ type MetadataOption = {
     code: string;
     value: string;
     description?: string | null;
+    supportedReasoningEfforts?: MetadataOption[];
+    defaultReasoningEffort?: string | null;
+    isDefault?: boolean;
 };
 
 const GEMINI_MODEL_FALLBACKS: ModelMode[] = [
@@ -43,6 +49,13 @@ export function mapMetadataOptions(options?: MetadataOption[] | null): ModeOptio
         key: option.code,
         name: option.value,
         description: option.description ?? null,
+        ...(option.supportedReasoningEfforts ? {
+            supportedReasoningEfforts: mapMetadataOptions(option.supportedReasoningEfforts),
+        } : {}),
+        ...(option.defaultReasoningEffort !== undefined ? {
+            defaultReasoningEffort: option.defaultReasoningEffort,
+        } : {}),
+        ...(option.isDefault !== undefined ? { isDefault: option.isDefault } : {}),
     }));
 }
 
@@ -219,10 +232,8 @@ export function getClaudeEffortLevels(): EffortLevel[] {
 }
 
 export function getCodexEffortLevels(): EffortLevel[] {
-    // Authoritative set from `codex --version 0.137.0` config parser:
-    // `expected one of 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'`.
-    // Wire-side validator in CLI (runCodex.ts VALID_REMOTE_EFFORTS) already
-    // accepts these, so the picker was the only stale layer.
+    // Fallback for sessions whose Codex version cannot advertise model metadata.
+    // Connected sessions use model/list's per-model supportedReasoningEfforts.
     return [
         { key: 'none', name: 'none' },
         { key: 'minimal', name: 'minimal' },
@@ -230,6 +241,8 @@ export function getCodexEffortLevels(): EffortLevel[] {
         { key: 'medium', name: 'medium' },
         { key: 'high', name: 'high' },
         { key: 'xhigh', name: 'xhigh' },
+        { key: 'max', name: 'max' },
+        { key: 'ultra', name: 'ultra' },
     ];
 }
 
@@ -244,7 +257,11 @@ export function getDefaultEffortKey(flavor: AgentFlavor): string | null {
 }
 
 // Per-model effort: returns effort levels for a specific model, or empty if the model has no effort
-export function getEffortLevelsForModel(flavor: AgentFlavor, _modelKey: string): EffortLevel[] {
+export function getEffortLevelsForModel(
+    flavor: AgentFlavor,
+    modelKey: string,
+    metadata?: Metadata | null,
+): EffortLevel[] {
     // Claude and Codex expose effort/thought levels regardless of which
     // specific model is picked — the same low/medium/high/max scale applies
     // to the whole flavor (mirrors how Codex already worked, which the user
@@ -253,6 +270,13 @@ export function getEffortLevelsForModel(flavor: AgentFlavor, _modelKey: string):
         return getClaudeEffortLevels();
     }
     if (flavor === 'codex') {
+        const metadataModels = mapMetadataOptions(metadata?.models);
+        const selectedModel = modelKey === 'default'
+            ? metadataModels.find((model) => model.isDefault)
+            : metadataModels.find((model) => model.key === modelKey);
+        if (selectedModel?.supportedReasoningEfforts) {
+            return selectedModel.supportedReasoningEfforts;
+        }
         return getCodexEffortLevels();
     }
     return [];

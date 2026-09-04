@@ -1,3 +1,7 @@
+# September 4 — Codex choices that stay current
+
+Choose any Codex model and reasoning effort available to you — Happy now keeps the in-session picker in sync automatically.
+
 # July 2 — Fable in Claude Code
 
 Fable is available from the Claude Code model picker.

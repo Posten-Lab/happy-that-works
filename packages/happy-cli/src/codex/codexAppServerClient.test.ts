@@ -138,6 +138,60 @@ describe('CodexAppServerClient sandbox integration', () => {
         expect(new CodexAppServerClient().supportsGoalActions()).toBe(false);
     });
 
+    it('discovers every provider model across model/list pages', async () => {
+        mockSpawn.mockImplementation(() => createMockProcess({
+            onRequest: (msg, stdout) => {
+                if (msg.method !== 'model/list' || msg.id == null) return;
+                const cursor = msg.params?.cursor;
+                if (!cursor) {
+                    pushJsonLine(stdout, {
+                        id: msg.id,
+                        result: {
+                            data: [{
+                                id: 'gpt-5.6-sol',
+                                model: 'gpt-5.6-sol',
+                                displayName: 'GPT-5.6-Sol',
+                                isDefault: true,
+                                supportedReasoningEfforts: [
+                                    { reasoningEffort: 'max', description: 'Deepest' },
+                                    { reasoningEffort: 'ultra', description: 'Delegates work' },
+                                ],
+                            }],
+                            nextCursor: 'page-2',
+                        },
+                    });
+                    return;
+                }
+                pushJsonLine(stdout, {
+                    id: msg.id,
+                    result: {
+                        data: [{
+                            id: 'future-model',
+                            model: 'future-model',
+                            displayName: 'Future Model',
+                            supportedReasoningEfforts: [
+                                { reasoningEffort: 'future-effort' },
+                            ],
+                        }],
+                        nextCursor: null,
+                    },
+                });
+            },
+        }));
+        const { CodexAppServerClient } = await import('./codexAppServerClient');
+        const client = new CodexAppServerClient();
+
+        await client.connect();
+        const models = await client.listModels({ pageSize: 1 });
+
+        expect(models.map((model) => model.model)).toEqual(['gpt-5.6-sol', 'future-model']);
+        expect(models[0].supportedReasoningEfforts?.map((effort) => effort.reasoningEffort)).toEqual([
+            'max', 'ultra',
+        ]);
+        expect(models[1].supportedReasoningEfforts?.[0].reasoningEffort).toBe('future-effort');
+        await client.disconnect();
+    });
+
     it('wraps transport when sandbox is enabled', async () => {
         // Dynamic import to ensure mocks are applied
         const { CodexAppServerClient } = await import('./codexAppServerClient');

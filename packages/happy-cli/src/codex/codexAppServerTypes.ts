@@ -247,7 +247,36 @@ export type ReviewDecision =
 
 export type ApprovalPolicy = "untrusted" | "on-failure" | "on-request" | "never";
 export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
-export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ReasoningEffort =
+    | "none"
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "xhigh"
+    | "max"
+    | "ultra"
+    // Codex may advertise new effort IDs before Happy ships a new release.
+    | (string & {});
+
+export type CodexModelInfo = {
+    id: string;
+    model: string;
+    displayName: string;
+    description?: string | null;
+    hidden?: boolean;
+    isDefault?: boolean;
+    defaultReasoningEffort?: ReasoningEffort | null;
+    supportedReasoningEfforts?: Array<{
+        reasoningEffort: ReasoningEffort;
+        description?: string | null;
+    }>;
+};
+
+export type ListModelsResponse = {
+    data: CodexModelInfo[];
+    nextCursor?: string | null;
+};
 export type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
 export type TurnAbortReason = "interrupted" | "replaced" | "review_ended";
 

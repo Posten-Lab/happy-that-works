@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "September 4 — Codex choices that stay current",
+      "summary": "Choose any Codex model and reasoning effort available to you — Happy now keeps the in-session picker in sync automatically.",
+      "markdown": ""
+    },
+    {
       "title": "July 2 — Fable in Claude Code",
       "summary": "Fable is available from the Claude Code model picker.",
       "markdown": ""
@@ -66,5 +71,5 @@
       "markdown": "- E2E encrypted sessions.\n- Voice assistant.\n- File manager with syntax highlighting.\n- Real-time sync across devices."
     }
   ],
-  "latestTitle": "July 2 — Fable in Claude Code"
+  "latestTitle": "September 4 — Codex choices that stay current"
 }
