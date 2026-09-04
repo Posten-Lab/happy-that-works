@@ -553,9 +553,17 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
             const attachments = expImageUpload ? selectedImages : undefined;
             composerHandleRef.current?.clearMessage();
             if (expImageUpload) clearImages();
-            sync.sendMessage(sessionId, liveMessage, { source: 'chat', attachments });
+            sync.sendMessage(sessionId, liveMessage, {
+                source: 'chat',
+                attachments,
+                modeMeta: {
+                    permissionMode: permissionMode?.key,
+                    model: modelMode?.key === 'default' ? null : modelMode?.key,
+                    effort: effortLevel?.key,
+                },
+            });
         }
-    }, [sessionId, expImageUpload, selectedImages, clearImages]);
+    }, [sessionId, expImageUpload, selectedImages, clearImages, permissionMode?.key, modelMode?.key, effortLevel?.key]);
 
     const handleAbort = React.useCallback(() => {
         storage.getState().resetSessionAgentOverrides(sessionId);

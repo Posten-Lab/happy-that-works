@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveMessageModeMeta } from './messageMeta';
+import { resolveMessageModeMeta, resolveSendMessageModeMeta } from './messageMeta';
 
 describe('resolveMessageModeMeta', () => {
     it('omits agent mode metadata when nothing was explicitly overridden', () => {
@@ -83,5 +83,26 @@ describe('resolveMessageModeMeta', () => {
         } as any);
 
         expect(meta).toEqual({ model: null });
+    });
+});
+
+describe('resolveSendMessageModeMeta', () => {
+    it('uses the composer snapshot when local session state is stale', () => {
+        const meta = resolveSendMessageModeMeta({
+            permissionMode: 'yolo',
+            modelMode: 'gpt-5.6-sol',
+            effortLevel: null,
+            metadata: undefined,
+        } as any, undefined, {
+            permissionMode: 'yolo',
+            model: 'gpt-5.6-sol',
+            effort: 'ultra',
+        });
+
+        expect(meta).toEqual({
+            permissionMode: 'yolo',
+            model: 'gpt-5.6-sol',
+            effort: 'ultra',
+        });
     });
 });

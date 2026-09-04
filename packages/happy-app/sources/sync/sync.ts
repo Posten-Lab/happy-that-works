@@ -55,7 +55,7 @@ import { getFriendsList, getUserProfile } from './apiFriends';
 import { fetchFeed } from './apiFeed';
 import { FeedItem } from './feedTypes';
 import { UserProfile } from './friendTypes';
-import { resolveMessageModeMeta } from './messageMeta';
+import { resolveSendMessageModeMeta, type MessageModeMeta } from './messageMeta';
 import { replayTrackedMessageStreams } from './messageDeliveryReplay';
 import type { AttachmentPreview, UploadedAttachment } from './attachmentTypes';
 import { requestAttachmentUpload, uploadEncryptedBlob } from './apiAttachments';
@@ -96,6 +96,12 @@ type SendMessageOptions = {
     source?: MessageSentSource;
     /** Optional image attachments to send before the text message. */
     attachments?: AttachmentPreview[];
+    /**
+     * Snapshot of the modes visible in the composer when Send was pressed.
+     * This avoids losing a just-selected mode while a newly-created session is
+     * still being inserted into local storage.
+     */
+    modeMeta?: MessageModeMeta;
 };
 
 class Sync {
@@ -598,7 +604,7 @@ class Sync {
             }
         }
 
-        const modeMeta = resolveMessageModeMeta(session, storage.getState().settings);
+        const modeMeta = resolveSendMessageModeMeta(session, storage.getState().settings, options?.modeMeta);
         const { displayText, source = 'chat', attachments } = options ?? {};
 
         const flavor = session.metadata?.flavor;
