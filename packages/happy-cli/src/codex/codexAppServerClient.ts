@@ -77,6 +77,16 @@ const HAPPY_DEVELOPER_INSTRUCTIONS = [
     'screen - so keep it current for the whole session. Skip it only for trivial one-step answers.',
 ].join(' ');
 
+// Codex 0.152.0 made update_plan opt-in. Happy renders its notifications as the
+// pinned task list, so every app-server we own must explicitly expose the tool.
+const CODEX_APP_SERVER_ARGS = [
+    'app-server',
+    '--listen',
+    'stdio://',
+    '-c',
+    'tools.update_plan.enabled=true',
+];
+
 export type ApprovalHandler = (params: {
     type: 'exec' | 'patch' | 'mcp';
     callId: string;
@@ -541,13 +551,13 @@ export class CodexAppServerClient {
         }
 
         let command = 'codex';
-        let args = ['app-server', '--listen', 'stdio://'];
+        let args = [...CODEX_APP_SERVER_ARGS];
         this.sandboxEnabled = false;
 
         if (this.sandboxConfig?.enabled && process.platform !== 'win32') {
             try {
                 this.sandboxCleanup = await initializeSandbox(this.sandboxConfig, process.cwd());
-                const wrapped = await wrapForMcpTransport('codex', ['app-server', '--listen', 'stdio://']);
+                const wrapped = await wrapForMcpTransport('codex', CODEX_APP_SERVER_ARGS);
                 command = wrapped.command;
                 args = wrapped.args;
                 this.sandboxEnabled = true;

@@ -200,7 +200,13 @@ describe('CodexAppServerClient sandbox integration', () => {
         await client.connect();
 
         expect(mockInitializeSandbox).toHaveBeenCalledWith(sandboxConfig, process.cwd());
-        expect(mockWrapForMcpTransport).toHaveBeenCalledWith('codex', ['app-server', '--listen', 'stdio://']);
+        expect(mockWrapForMcpTransport).toHaveBeenCalledWith('codex', [
+            'app-server',
+            '--listen',
+            'stdio://',
+            '-c',
+            'tools.update_plan.enabled=true',
+        ]);
         expect(mockSpawn).toHaveBeenCalledWith(
             'sh',
             ['-c', 'wrapped codex app-server'],
@@ -226,7 +232,13 @@ describe('CodexAppServerClient sandbox integration', () => {
         expect(mockWrapForMcpTransport).not.toHaveBeenCalled();
         expect(mockSpawn).toHaveBeenCalledWith(
             'codex',
-            ['app-server', '--listen', 'stdio://'],
+            [
+                'app-server',
+                '--listen',
+                'stdio://',
+                '-c',
+                'tools.update_plan.enabled=true',
+            ],
             expect.objectContaining({
                 env: expect.objectContaining({
                     RUST_LOG: expect.stringContaining('codex_core::rollout::list=off'),
