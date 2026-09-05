@@ -101,4 +101,44 @@ describe('codex fork ops', () => {
             }),
         );
     });
+
+    it('queries the selected machine for its live Codex models', async () => {
+        machineRPC.mockResolvedValue({
+            type: 'success',
+            models: [{
+                code: 'gpt-6-astra',
+                value: 'GPT-6-Astra',
+                isDefault: true,
+                supportedReasoningEfforts: [
+                    { code: 'max', value: 'max' },
+                    { code: 'ultra', value: 'ultra' },
+                ],
+            }],
+        });
+
+        const { codexListModels } = await import('./ops');
+        await expect(codexListModels('machine-1')).resolves.toEqual({
+            type: 'success',
+            models: [{
+                code: 'gpt-6-astra',
+                value: 'GPT-6-Astra',
+                isDefault: true,
+                supportedReasoningEfforts: [
+                    { code: 'max', value: 'max' },
+                    { code: 'ultra', value: 'ultra' },
+                ],
+            }],
+        });
+        expect(machineRPC).toHaveBeenCalledWith('machine-1', 'codex-list-models', {});
+    });
+
+    it('falls back cleanly when live Codex model discovery is unavailable', async () => {
+        machineRPC.mockRejectedValue(new Error('older daemon'));
+
+        const { codexListModels } = await import('./ops');
+        await expect(codexListModels('machine-1')).resolves.toEqual({
+            type: 'error',
+            errorMessage: 'older daemon',
+        });
+    });
 });

@@ -244,6 +244,7 @@ export async function runCodex(opts: {
     ]);
     const discoveredEffortsByModel = new Map<string, Set<string>>();
     let discoveredDefaultModel: string | undefined;
+    let refreshProviderModels: (() => Promise<void>) | null = null;
 
     session.onFileEvent((fileEvent) => {
         const ev = fileEvent.content.data.ev;
@@ -286,6 +287,13 @@ export async function runCodex(opts: {
     ];
 
     const handleUserMessage = createSerialAsyncHandler<UserMessage>(async (message) => {
+        // Refresh immediately before consuming model/effort overrides so a
+        // provider rollout becomes selectable without restarting Happy.
+        try {
+            await refreshProviderModels?.();
+        } catch (error) {
+            logger.warn('[Codex] Could not refresh provider models before message; keeping the last snapshot', error);
+        }
         const attachmentsForThisMessage = await session.drainAttachmentsForUserMessage();
 
         // Resolve permission mode (validate against Codex-native modes)
@@ -829,7 +837,7 @@ export async function runCodex(opts: {
         await client.connect();
         logger.debug('[codex]: client.connect done');
 
-        try {
+        refreshProviderModels = async () => {
             const providerModels = await client.listModels();
             discoveredEffortsByModel.clear();
             discoveredDefaultModel = providerModels.find((model) => model.isDefault)?.model;
@@ -855,6 +863,10 @@ export async function runCodex(opts: {
                 })),
             }));
             logger.debug(`[Codex] Published ${providerModels.length} provider-advertised models to session metadata`);
+        };
+
+        try {
+            await refreshProviderModels();
         } catch (error) {
             logger.warn('[Codex] Could not discover provider models; using bundled picker fallbacks', error);
         }

@@ -8,6 +8,7 @@ const { codexClientMethods } = vi.hoisted(() => ({
         readThread: vi.fn(),
         rollbackThread: vi.fn(),
         injectItems: vi.fn(),
+        listModels: vi.fn(),
     },
 }));
 
@@ -126,6 +127,48 @@ describe('ApiMachineClient Codex fork RPCs', () => {
             threadId: 'thread-source',
             includeTurns: true,
         });
+    });
+
+    it('lists live Codex models for app model pickers', async () => {
+        codexClientMethods.listModels.mockResolvedValue([{
+            model: 'gpt-6-astra',
+            displayName: 'GPT-6-Astra',
+            description: 'Fast agentic coding model',
+            isDefault: true,
+            defaultReasoningEffort: 'medium',
+            supportedReasoningEfforts: [
+                { reasoningEffort: 'max', description: 'Maximum reasoning' },
+                { reasoningEffort: 'ultra', description: 'Delegated reasoning' },
+            ],
+        }]);
+
+        const { ApiMachineClient } = await import('./apiMachine');
+        const client = new ApiMachineClient('token', machineClient());
+        client.setRPCHandlers({
+            spawnSession: vi.fn(),
+            stopSession: vi.fn(),
+            requestShutdown: vi.fn(),
+        });
+
+        const result = await handlersFrom(client).get('machine-1:codex-list-models')?.({});
+
+        expect(result).toEqual({
+            type: 'success',
+            models: [{
+                code: 'gpt-6-astra',
+                value: 'GPT-6-Astra',
+                description: 'Fast agentic coding model',
+                supportedReasoningEfforts: [
+                    { code: 'max', value: 'max', description: 'Maximum reasoning' },
+                    { code: 'ultra', value: 'ultra', description: 'Delegated reasoning' },
+                ],
+                defaultReasoningEffort: 'medium',
+                isDefault: true,
+            }],
+        });
+        expect(codexClientMethods.connect).toHaveBeenCalledOnce();
+        expect(codexClientMethods.listModels).toHaveBeenCalledOnce();
+        expect(codexClientMethods.disconnect).toHaveBeenCalledOnce();
     });
 
     it('duplicates a Codex thread by rolling back turns after the selected item', async () => {

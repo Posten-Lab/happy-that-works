@@ -36,7 +36,7 @@ import { useAllMachines, useLocalSetting, useSessions, useSetting, storage } fro
 import type { NewSessionAgentType } from '@/sync/persistence';
 import { sync } from '@/sync/sync';
 import { isMachineOnline } from '@/utils/machineUtils';
-import { machineSpawnNewSession } from '@/sync/ops';
+import { codexListModels, machineSpawnNewSession, type CodexProviderModel } from '@/sync/ops';
 import { createWorktree, listWorktrees } from '@/utils/worktree';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { formatPathRelativeToHome, formatLastSeen } from '@/utils/sessionUtils';
@@ -52,6 +52,7 @@ import type { Machine, Session } from '@/sync/storageTypes';
 import {
     getHardcodedPermissionModes,
     getHardcodedModelModes,
+    getAvailableModels,
     getEffortLevelsForModel,
     getSupportsWorktree,
     type PermissionMode,
@@ -747,17 +748,48 @@ function NewSessionScreen() {
         () => getHardcodedPermissionModes(selectedAgent, t),
         [selectedAgent],
     );
+    const [liveCodexModels, setLiveCodexModels] = React.useState<CodexProviderModel[] | null>(null);
+    const canDiscoverCodexModels = Boolean(selectedMachine && isMachineOnline(selectedMachine));
+
+    React.useEffect(() => {
+        if (selectedAgent !== 'codex' || !selectedMachineId || !canDiscoverCodexModels) {
+            setLiveCodexModels(null);
+            return;
+        }
+
+        setLiveCodexModels(null);
+        let cancelled = false;
+        const refresh = async () => {
+            const result = await codexListModels(selectedMachineId);
+            if (!cancelled && result.type === 'success' && result.models.length > 0) {
+                setLiveCodexModels(result.models);
+            }
+        };
+        void refresh();
+        const interval = setInterval(() => { void refresh(); }, 60_000);
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, [selectedAgent, selectedMachineId, canDiscoverCodexModels]);
+
     const modelModes = React.useMemo<ModelMode[]>(
-        () => getHardcodedModelModes(selectedAgent, t),
-        [selectedAgent],
+        () => liveCodexModels
+            ? getAvailableModels('codex', { models: liveCodexModels } as any, t)
+            : getHardcodedModelModes(selectedAgent, t),
+        [selectedAgent, liveCodexModels],
     );
 
     const currentModel = modelModes[modelIndex] ?? modelModes[0];
     const currentModelKey = currentModel?.key ?? 'default';
 
     const effortLevels = React.useMemo<EffortLevel[]>(
-        () => getEffortLevelsForModel(selectedAgent, currentModelKey),
-        [selectedAgent, currentModelKey],
+        () => getEffortLevelsForModel(
+            selectedAgent,
+            currentModelKey,
+            liveCodexModels ? { models: liveCodexModels } as any : undefined,
+        ),
+        [selectedAgent, currentModelKey, liveCodexModels],
     );
     const effectiveAgentDefaults = React.useMemo(() => (
         resolveAgentDefaultConfig(agentDefaultOverrides, selectedAgent)

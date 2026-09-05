@@ -203,6 +203,23 @@ export interface CodexRewindPoint {
     timestamp: number;
 }
 
+export interface CodexProviderModel {
+    code: string;
+    value: string;
+    description?: string | null;
+    supportedReasoningEfforts?: Array<{
+        code: string;
+        value: string;
+        description?: string | null;
+    }>;
+    defaultReasoningEffort?: string | null;
+    isDefault?: boolean;
+}
+
+export type CodexListModelsResult =
+    | { type: 'success'; models: CodexProviderModel[] }
+    | { type: 'error'; errorMessage: string };
+
 export type CodexListRewindPointsResult =
     | { type: 'success'; points: CodexRewindPoint[] }
     | { type: 'error'; errorMessage: string };
@@ -394,6 +411,22 @@ export async function codexListRewindPoints(
         return {
             type: 'error',
             errorMessage: error instanceof Error ? error.message : 'Failed to list Codex rewind points',
+        };
+    }
+}
+
+/** Query the selected machine's installed Codex provider for its live model list. */
+export async function codexListModels(machineId: string): Promise<CodexListModelsResult> {
+    try {
+        return await apiSocket.machineRPC<CodexListModelsResult, Record<string, never>>(
+            machineId,
+            'codex-list-models',
+            {},
+        );
+    } catch (error) {
+        return {
+            type: 'error',
+            errorMessage: error instanceof Error ? error.message : 'Failed to list Codex models',
         };
     }
 }

@@ -294,6 +294,27 @@ export class ApiMachineClient {
             });
         });
 
+        // Query the installed Codex provider directly instead of making the app
+        // guess from a bundled list. This is machine-scoped so the new-session
+        // composer can discover models before a Happy session exists.
+        this.rpcHandlerManager.registerHandler('codex-list-models', async () => {
+            return withCodexAppServerClient(async (client) => ({
+                type: 'success',
+                models: (await client.listModels()).map((model) => ({
+                    code: model.model,
+                    value: model.displayName,
+                    description: model.description ?? null,
+                    supportedReasoningEfforts: (model.supportedReasoningEfforts ?? []).map((effort) => ({
+                        code: effort.reasoningEffort,
+                        value: effort.reasoningEffort,
+                        description: effort.description ?? null,
+                    })),
+                    defaultReasoningEffort: model.defaultReasoningEffort ?? null,
+                    isDefault: model.isDefault ?? false,
+                })),
+            }));
+        });
+
         this.rpcHandlerManager.registerHandler('codex-duplicate-thread', async (params: any) => {
             const directory = requireNonEmptyString(params?.directory, 'directory');
             const codexThreadId = requireNonEmptyString(params?.codexThreadId, 'codexThreadId');
