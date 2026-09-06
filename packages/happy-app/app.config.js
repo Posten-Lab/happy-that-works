@@ -60,7 +60,7 @@ export default {
         name,
         slug: "happy-improved",
         version: "1.7.0",
-        runtimeVersion: "21",
+        runtimeVersion: { policy: "fingerprint" },
         orientation: "default",
         icon: "./sources/assets/images/icon.png",
         scheme: "happy",

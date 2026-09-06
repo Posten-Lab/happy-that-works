@@ -76,3 +76,10 @@ happy-workspaces/
 
 # third party tools
 .supervibe/
+
+# Mobile CI export and EAS delivery receipts
+packages/happy-app/dist-ci/
+packages/happy-app/build-result.json
+packages/happy-app/build-id.txt
+packages/happy-app/fingerprint-result.json
+packages/happy-app/compatible-builds.json

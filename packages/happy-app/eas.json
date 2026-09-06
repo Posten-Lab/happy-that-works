@@ -48,7 +48,8 @@
       "env": {
         "APP_ENV": "production",
         "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
-      }
+      },
+      "environment": "production"
     }
   },
   "submit": {
