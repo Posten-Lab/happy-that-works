@@ -1,18 +1,21 @@
 import copy
 import datetime
 import importlib.util
+import json
 import pathlib
 import plistlib
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import warnings
 import zipfile
 
 SPEC = importlib.util.spec_from_file_location('verify_ios_ipa', pathlib.Path(__file__).with_name('verify-ios-ipa.py'))
 checker = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(checker)
+import apple_signature_tools
 NOW = datetime.datetime(2026, 9, 6, tzinfo=datetime.timezone.utc)
 
 
@@ -23,6 +26,7 @@ class IpaGateTest(unittest.TestCase):
         self.info = {
             'CFBundleIdentifier': checker.BUNDLE_ID, 'CFBundleDisplayName': 'Talos',
             'CFBundleShortVersionString': '2.0.0', 'CFBundleVersion': '15',
+            'CFBundleExecutable': 'Talos',
             'CFBundleIcons': {'CFBundlePrimaryIcon': {'CFBundleIconFiles': ['AppIcon60x60']}},
         }
         self.expo = {'EXUpdatesRuntimeVersion': 'talos-1', 'EXUpdatesEnabled': True}
@@ -42,7 +46,8 @@ class IpaGateTest(unittest.TestCase):
 
     def write(self, extra=None, omit=None, profile_bytes=b'profile-fixture'):
         files = {'Info.plist': plistlib.dumps(self.info), 'Expo.plist': plistlib.dumps(self.expo),
-                 'embedded.mobileprovision': profile_bytes, 'AppIcon60x60@2x.png': b'\x89PNG\r\n\x1a\nfixture'}
+                 'embedded.mobileprovision': profile_bytes, 'AppIcon60x60@2x.png': b'\x89PNG\r\n\x1a\nfixture',
+                 'Talos': b'explicit synthetic executable placeholder'}
         with zipfile.ZipFile(self.path, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
             for name, content in files.items():
                 if name != omit:
@@ -54,7 +59,8 @@ class IpaGateTest(unittest.TestCase):
 
     def inspect(self, expected_version='2.0.0', expected_runtime='talos-1'):
         return checker.inspect_ipa(self.path, expected_version=expected_version, expected_runtime=expected_runtime,
-                                   profile_decoder=lambda _: self.profile, now=NOW)
+                                   profile_decoder=lambda _: self.profile,
+                                   signature_inspector=lambda path, tools: {'syntheticInspector': True}, now=NOW)
 
     def test_future_release_uses_reviewed_version_and_runtime(self):
         self.info['CFBundleShortVersionString'] = '2.1.0'
@@ -82,6 +88,7 @@ class IpaGateTest(unittest.TestCase):
         for flags in [[], ['--expected-version', '2.0.0'], ['--expected-runtime', 'talos-1']]:
             with self.subTest(flags=flags):
                 result = subprocess.run([sys.executable, str(pathlib.Path(checker.__file__)), str(self.path),
+                                         '--signature-tools', self.directory.name,
                                          '--output', str(pathlib.Path(self.directory.name) / 'report.json'), *flags],
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 2)
@@ -161,11 +168,99 @@ class IpaGateTest(unittest.TestCase):
                        capture_output=True, check=True, timeout=15)
         content = signed.read_bytes()
         self.write(profile_bytes=content)
-        self.assertTrue(checker.inspect_ipa(self.path, expected_version='2.0.0', expected_runtime='talos-1', now=NOW)['passed'])
+        self.assertTrue(checker.inspect_ipa(self.path, expected_version='2.0.0', expected_runtime='talos-1',
+                        signature_inspector=lambda path, tools: {'syntheticInspector': True}, now=NOW)['passed'])
         self.assertIn(checker.TEAM.encode(), content)
         tampered = content.replace(checker.TEAM.encode(), b'XXXXXXXXXX', 1)
         with self.assertRaisesRegex(ValueError, 'CMS integrity'):
             checker.decode_profile(tampered)
+
+
+class ExecutableSignatureGateTest(unittest.TestCase):
+    def setUp(self):
+        self.entities = json.loads(pathlib.Path(__file__).with_name('fixtures').joinpath('build14-executable-signature.json').read_text())
+        self.digest = self.entities[0]['file_sha256']
+
+    def validate(self):
+        return checker.validate_signature_report(self.entities, self.digest)
+
+    def test_actual_build14_signature_identity_passes_independently_of_old_brand(self):
+        result = self.validate()
+        self.assertEqual(result[0]['effectiveDefaultKeychainGroup'], checker.APP_ID)
+        self.assertTrue(result[0]['xmlAndDerEntitlementsMatch'])
+        self.assertTrue(result[0]['cmsSignaturesVerified'])
+
+    def test_each_slice_and_both_entitlement_encodings_are_enforced(self):
+        first = self.entities[0]
+        first['sub_path'] = 'macho-index:0'
+        self.entities.append(copy.deepcopy(first))
+        self.entities[1]['sub_path'] = 'macho-index:1'
+        self.assertEqual(len(self.validate()), 2)
+        second = self.entities[1]['entity']['mach_o']['signature']
+        second['code_directory']['team_name'] = 'OTHER'
+        with self.assertRaisesRegex(ValueError, 'code-directory team'): self.validate()
+        second['code_directory']['team_name'] = checker.TEAM
+        xml = plistlib.loads('\n'.join(second['entitlements_plist']).encode())
+        xml['keychain-access-groups'] = ['OTHER']
+        second['entitlements_der_plist'] = plistlib.dumps(xml).decode().splitlines()
+        with self.assertRaisesRegex(ValueError, 'XML and DER'): self.validate()
+
+    def test_refuses_effective_identity_or_keychain_drift_and_new_capabilities(self):
+        baseline = copy.deepcopy(self.entities)
+        for key, value in [('application-identifier', 'OTHER.' + checker.BUNDLE_ID),
+                           ('com.apple.developer.team-identifier', 'OTHER'),
+                           ('keychain-access-groups', ['OTHER']),
+                           ('keychain-access-groups', [checker.APP_ID, checker.TEAM + '.*']),
+                           ('keychain-access-groups', []), ('get-task-allow', True),
+                           ('aps-environment', 'development'),
+                           ('com.apple.developer.associated-domains', ['applinks:talosapp.ai'])]:
+            with self.subTest(entitlement=key, value=value):
+                self.entities = copy.deepcopy(baseline)
+                signature = self.entities[0]['entity']['mach_o']['signature']
+                ent = plistlib.loads('\n'.join(signature['entitlements_plist']).encode())
+                ent[key] = value
+                signature['entitlements_plist'] = plistlib.dumps(ent).decode().splitlines()
+                signature['entitlements_der_plist'] = signature['entitlements_plist']
+                with self.assertRaises(ValueError): self.validate()
+
+    def test_refuses_unsigned_unbound_or_unverified_executables(self):
+        baseline = copy.deepcopy(self.entities)
+        mutations = [lambda e: e[0].update(file_sha256='0' * 64),
+                     lambda e: e[0].update(sub_path='macho-index:2'),
+                     lambda e: e[0]['entity'].update(mach_o={}),
+                     lambda e: e[0]['entity']['mach_o']['signature']['code_directory'].update(identifier='wrong.app'),
+                     lambda e: e[0]['entity']['mach_o']['signature'].update(alternative_code_directories=[['sha1', {'identifier': checker.BUNDLE_ID, 'team_name': 'OTHER'}]]),
+                     lambda e: e[0]['entity']['mach_o']['signature'].pop('entitlements_der_plist'),
+                     lambda e: e[0]['entity']['mach_o']['signature']['cms']['signers'][0].update(signature_verifies=False),
+                     lambda e: e[0]['entity']['mach_o']['signature']['cms'].update(certificates=[])]
+        for mutate in mutations:
+            self.entities = copy.deepcopy(baseline)
+            mutate(self.entities)
+            with self.assertRaises(ValueError): self.validate()
+
+    def test_single_explicit_default_group_preserves_existing_keychain(self):
+        signature = self.entities[0]['entity']['mach_o']['signature']
+        ent = plistlib.loads('\n'.join(signature['entitlements_plist']).encode())
+        ent['keychain-access-groups'] = [checker.APP_ID]
+        signature['entitlements_plist'] = plistlib.dumps(ent).decode().splitlines()
+        signature['entitlements_der_plist'] = signature['entitlements_plist']
+        self.assertEqual(self.validate()[0]['effectiveDefaultKeychainGroup'], checker.APP_ID)
+
+
+class SignatureToolPinsTest(unittest.TestCase):
+    def test_download_refuses_bytes_that_do_not_match_committed_hash(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary) / 'download'
+            with mock.patch.object(apple_signature_tools.subprocess, 'run', side_effect=lambda *a, **kw: path.write_bytes(b'changed archive')):
+                with self.assertRaisesRegex(ValueError, 'committed pin'):
+                    apple_signature_tools.download('https://example.invalid/tool', path, apple_signature_tools.YAML_SHA256)
+
+    def test_existing_tool_directory_cannot_bypass_binary_verification(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary)
+            (path / 'rcodesign').write_bytes(b'unreviewed executable')
+            with self.assertRaisesRegex(ValueError, 'committed SHA256 pin'):
+                apple_signature_tools.install(path)
 
 
 if __name__ == '__main__':
