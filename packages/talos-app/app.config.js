@@ -1,4 +1,5 @@
 const { execFileSync } = require('node:child_process');
+const { productionStoreIdentity, applicationIdForVariant } = require('./store-identity.cjs');
 
 const variant = process.env.APP_ENV || 'development';
 const name = {
@@ -6,11 +7,7 @@ const name = {
     preview: "Talos (preview)",
     production: "Talos"
 }[variant];
-const bundleId = {
-    development: "com.ahposten.talos.dev",
-    preview: "com.ahposten.talos.preview",
-    production: "com.ahposten.talos"
-}[variant];
+const bundleId = applicationIdForVariant(variant);
 const productionElevenLabsAgentId = process.env.EXPO_PUBLIC_TALOS_VOICE_AGENT_ID;
 const elevenLabsAgentId = {
     development: productionElevenLabsAgentId,
@@ -53,7 +50,11 @@ function loadBuildMetadata() {
 }
 
 const buildMetadata = loadBuildMetadata();
-const easProjectId = process.env.TALOS_EAS_PROJECT_ID;
+const easProjectId = process.env.TALOS_EAS_PROJECT_ID || (variant === 'production' ? productionStoreIdentity.easProjectId : undefined);
+const expoOwner = process.env.TALOS_EXPO_OWNER || (variant === 'production' ? productionStoreIdentity.expoOwner : undefined);
+if (variant === 'production' && (easProjectId !== productionStoreIdentity.easProjectId || expoOwner !== productionStoreIdentity.expoOwner)) {
+    throw new Error('Production updates must use the existing owned store project and Expo owner.');
+}
 const webappUrl = process.env.EXPO_PUBLIC_TALOS_WEBAPP_URL;
 const webappHost = webappUrl ? new URL(webappUrl).hostname : undefined;
 const googleServicesFile = process.env.TALOS_GOOGLE_SERVICES_FILE;
@@ -62,16 +63,17 @@ const googleServicesFile = process.env.TALOS_GOOGLE_SERVICES_FILE;
 export default {
     expo: {
         name,
-        slug: "talos",
-        version: "1.0.0",
+        slug: easProjectId === productionStoreIdentity.easProjectId ? productionStoreIdentity.easSlug : 'talos',
+        version: "2.0.0",
         runtimeVersion: "talos-1",
         orientation: "default",
         icon: "./sources/assets/images/icon.png",
-        scheme: "talos",
+        scheme: variant === 'production' ? ['talos', productionStoreIdentity.legacyScheme] : 'talos',
         userInterfaceStyle: "automatic",
         ios: {
             supportsTablet: true,
             bundleIdentifier: bundleId,
+            ...(variant === 'production' ? { appleTeamId: productionStoreIdentity.appleTeamId } : {}),
             config: {
                 usesNonExemptEncryption: false
             },
@@ -237,6 +239,6 @@ export default {
                 buildCommitTimestamp: buildMetadata.commitTimestamp,
             }
         },
-        ...(process.env.TALOS_EXPO_OWNER ? { owner: process.env.TALOS_EXPO_OWNER } : {})
+        ...(expoOwner ? { owner: expoOwner } : {})
     }
 };

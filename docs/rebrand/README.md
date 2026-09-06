@@ -9,21 +9,21 @@ Use the supplied Talos artwork without redrawing it. Bronze accents, charcoal su
 ## Safety boundaries
 
 - Work in `codex/talos-rebrand`, based on the local checkpoint of pre-existing work. The original checkout and its uncommitted files remain untouched.
-- Install Talos alongside the previous product by default. Use new application identifiers, `talos://` links, `.talos` state, and separate daemon identities.
+- Production mobile updates the user's existing store app in place, retaining its hidden native identifiers and installed credentials. Development, preview, desktop, and CLI retain separate Talos identities and `.talos` state. See the [store upgrade requirements](store-upgrade.md).
 - Never silently copy credentials, change encryption contexts, rewrite stored conversation content, or stop another product's daemon. Existing accounts can be linked or restored explicitly.
 - Preserve encryption derivation constants and accept stored metadata from earlier clients. Changes to brand identity must not change account keys or make attachments unreadable.
 - Keep upstream copyright notices intact. Historical research and license notices are not product branding.
-- Production endpoints, store listings, Firebase configuration, signing, and OTA identity must belong to Talos. Do not ship another product's credentials or redirect to its services.
+- Production endpoints and service credentials must belong to Talos. The owned mobile store listing, signing identity, and EAS project are retained for in-place updates; runtime `talos-1` separates new OTA bundles from older native binaries.
 - Until production configuration is supplied, validate an isolated local installation. Package publication and deployment require a configured Talos release, rather than invented service addresses.
 
 ## Acceptance checks
 
-1. No previous brand in product labels, translations, CLI help, generated app metadata, first-party runtime asset names, or distribution commands.
+1. No previous brand in product labels, translations, CLI help, visible app metadata, first-party runtime asset names, or distribution commands. Hidden native identifiers and supported legacy URL schemes preserve installed-app compatibility.
 2. All launcher, splash, header, browser, notification, and desktop icons derive from the supplied bundle; old logotypes are removed.
 3. Builds resolve renamed workspaces and entry points from a frozen lockfile.
 4. Encryption compatibility, metadata compatibility, isolated state, login links, daemon spawning, and server configuration have meaningful regression checks.
 5. App, CLI, agent, wire, and server suites and type checks pass. Web and native exports succeed; browser checks cover light/dark desktop and mobile widths, navigation, and account setup against an isolated relay.
-6. Release configuration cannot accidentally target the previous product's stores, update project, or hosted services.
+6. Release configuration requires the existing owned production store identity and isolated Talos OTA runtime, while rejecting unrelated projects and previous public service domains.
 
 ## Reviewed rebrand checkpoint — 6 September 2026
 

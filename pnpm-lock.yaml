@@ -556,6 +556,9 @@ importers:
       babel-plugin-transform-remove-console:
         specifier: ^6.9.4
         version: 6.9.4
+      babel-preset-expo:
+        specifier: 55.0.12
+        version: 55.0.12(@babel/core@7.28.6)(@babel/runtime@7.29.2)(expo@55.0.8)(react-refresh@0.14.2)
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0

@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { decodeBase64 } from '@/encryption/base64';
 import { encryptBox } from '@/encryption/libsodium';
 import { authApprove } from '@/auth/authApprove';
+import { parseTerminalLink } from '@/auth/terminalLink';
 import { useCheckScannerPermissions } from '@/hooks/useCheckCameraPermissions';
 import { Modal } from '@/modal';
 import { t } from '@/text';
@@ -21,15 +22,14 @@ export function useConnectTerminal(options?: UseConnectTerminalOptions) {
     const checkScannerPermissions = useCheckScannerPermissions();
 
     const processAuthUrl = React.useCallback(async (url: string) => {
-        if (!url.startsWith('talos://terminal?')) {
+        const publicKey = parseTerminalLink(url);
+        if (!publicKey) {
             Modal.alert(t('common.error'), t('modals.invalidAuthUrl'), [{ text: t('common.ok') }]);
             return false;
         }
         
         setIsLoading(true);
         try {
-            const tail = url.slice('talos://terminal?'.length);
-            const publicKey = decodeBase64(tail, 'base64url');
             const responseV1 = encryptBox(decodeBase64(auth.credentials!.secret, 'base64url'), publicKey);
             let responseV2Bundle = new Uint8Array(sync.encryption.contentDataKey.length + 1);
             responseV2Bundle[0] = 0;
@@ -75,7 +75,7 @@ export function useConnectTerminal(options?: UseConnectTerminalOptions) {
         if (CameraView.isModernBarcodeScannerAvailable) {
             const subscription = CameraView.onModernBarcodeScanned(async (event) => {
                 if (isProcessingRef.current) return;
-                if (event.data.startsWith('talos://terminal?')) {
+                if (parseTerminalLink(event.data)) {
                     isProcessingRef.current = true;
                     try {
                         if (Platform.OS === 'ios') {
