@@ -110,15 +110,19 @@ spec:
       when { expression { return !params.VALIDATE_ONLY } }
       options { timeout(time: 40, unit: 'MINUTES') }
       steps {
-        container('kaniko') {
-          sh '''
-            /kaniko/executor \
-              --context="dir://$WORKSPACE" \
-              --dockerfile=deploy/web/Dockerfile.package \
-              --destination="ahmadposten/talos-web:git-$GIT_COMMIT-$BUILD_NUMBER" \
-              --digest-file="$WORKSPACE/image-digest.txt" \
-              --snapshot-mode=redo --push-retry=2
-          '''
+        container(name: 'kaniko', shell: '/busybox/sh') {
+          // Jenkins's durable launcher also needs Kaniko's BusyBox utilities.
+          withEnv(['PATH+KANIKO=/busybox']) {
+            sh '''#!/busybox/sh
+              set -eu
+              /kaniko/executor \
+                --context="dir://$WORKSPACE" \
+                --dockerfile=deploy/web/Dockerfile.package \
+                --destination="ahmadposten/talos-web:git-$GIT_COMMIT-$BUILD_NUMBER" \
+                --digest-file="$WORKSPACE/image-digest.txt" \
+                --snapshot-mode=redo --push-retry=2
+            '''
+          }
         }
       }
     }
