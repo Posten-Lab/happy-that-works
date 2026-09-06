@@ -1,0 +1,9 @@
+dist-ci/**
+build-result.json
+build-id.txt
+fingerprint-result.json
+compatible-builds.json
+runtime-config.json
+ipa-expected-config.json
+artifact-download.json
+ipa-verification.json

@@ -88,3 +88,6 @@ packages/talos-app/build-id.txt
 packages/talos-app/fingerprint-result.json
 packages/talos-app/compatible-builds.json
 packages/talos-app/runtime-config.json
+packages/talos-app/ipa-expected-config.json
+packages/talos-app/artifact-download.json
+packages/talos-app/ipa-verification.json

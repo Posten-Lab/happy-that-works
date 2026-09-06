@@ -97,6 +97,10 @@ pipeline {
     stage('Release selector tests') {
       steps {
         sh 'node --test deploy/mobile/release-plan.test.mjs deploy/mobile/download-ios-artifact.test.cjs'
+        script {
+          env.SIGNATURE_TOOLS_ROOT = sh(script: 'mktemp -d /tmp/talos-signature-tools.XXXXXX', returnStdout: true).trim()
+        }
+        sh 'python3 deploy/mobile/apple_signature_tools.py --output-dir "$SIGNATURE_TOOLS_ROOT/tools"'
         sh "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/mobile -p 'test_ios_ipa.py' -v"
       }
     }
@@ -211,7 +215,8 @@ pipeline {
               IPA_DIR=$(mktemp -d /tmp/talos-ios-artifact.XXXXXX)
               node ../../deploy/mobile/download-ios-artifact.cjs build-result.json "$IPA_DIR/verified.ipa" > artifact-download.json
               python3 ../../deploy/mobile/verify-ios-ipa.py "$IPA_DIR/verified.ipa" \
-                --expected-version "$IPA_VERSION" --expected-runtime "$IPA_RUNTIME" --output ipa-verification.json
+                --expected-version "$IPA_VERSION" --expected-runtime "$IPA_RUNTIME" \
+                --signature-tools "$SIGNATURE_TOOLS_ROOT/tools" --output ipa-verification.json
               eas submit -p ios --profile production --id "$(cat build-id.txt)" --non-interactive --wait
             '''
           }
@@ -233,6 +238,11 @@ pipeline {
   post {
     always {
       archiveArtifacts artifacts: 'packages/talos-app/build-id.txt,packages/talos-app/artifact-download.json,packages/talos-app/ipa-verification.json', allowEmptyArchive: true
+      sh '''
+        case "${SIGNATURE_TOOLS_ROOT:-}" in
+          /tmp/talos-signature-tools.*) rm -rf -- "$SIGNATURE_TOOLS_ROOT" ;;
+        esac
+      '''
       cleanWs()
     }
   }
