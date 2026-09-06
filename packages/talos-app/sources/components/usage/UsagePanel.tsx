@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator, ScrollView, Pressable } from 'react-native';
+import { View, ActivityIndicator, Pressable } from 'react-native';
 import { Text } from '@/components/StyledText';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useAuth } from '@/auth/AuthContext';
@@ -32,7 +32,7 @@ const styles = StyleSheet.create((theme) => ({
         alignItems: 'center',
     },
     periodButtonActive: {
-        backgroundColor: '#007AFF',
+        backgroundColor: theme.colors.accent,
     },
     periodText: {
         fontSize: 14,
@@ -40,7 +40,7 @@ const styles = StyleSheet.create((theme) => ({
         fontWeight: '500',
     },
     periodTextActive: {
-        color: '#FFFFFF',
+        color: theme.colors.button.primary.tint,
     },
     statsContainer: {
         padding: 16,
@@ -101,7 +101,7 @@ const styles = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.divider,
     },
     metricButtonActive: {
-        backgroundColor: '#007AFF',
+        backgroundColor: theme.colors.accent,
     },
     metricText: {
         fontSize: 14,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create((theme) => ({
         fontWeight: '500',
     },
     metricTextActive: {
-        color: '#FFFFFF',
+        color: theme.colors.button.primary.tint,
     }
 }));
 
@@ -179,7 +179,7 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" color={theme.colors.accent} />
             </View>
         );
     }
@@ -201,12 +201,14 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
     const maxModelTokens = Math.max(...Object.values(totals.tokensByModel), 1);
     
     return (
-        <ScrollView style={styles.container}>
+        <View style={styles.container}>
             {/* Period Selector */}
             <View style={styles.periodSelector}>
                 {(['today', '7days', '30days'] as TimePeriod[]).map((p) => (
                     <Pressable
                         key={p}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: period === p }}
                         style={[styles.periodButton, period === p && styles.periodButtonActive]}
                         onPress={() => setPeriod(p)}
                     >
@@ -224,7 +226,7 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
                     <Text style={styles.statValue}>{formatTokens(totals.totalTokens)}</Text>
                 </View>
                 <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>{t('usage.totalCost')}</Text>
+                    <Text style={styles.statLabel}>Estimated API cost</Text>
                     <Text style={styles.statValue}>{formatCost(totals.totalCost)}</Text>
                 </View>
             </View>
@@ -237,6 +239,8 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
                     {/* Metric Toggle */}
                     <View style={styles.metricToggle}>
                         <Pressable
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: chartMetric === 'tokens' }}
                             style={[styles.metricButton, chartMetric === 'tokens' && styles.metricButtonActive]}
                             onPress={() => setChartMetric('tokens')}
                         >
@@ -245,6 +249,8 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
                             </Text>
                         </Pressable>
                         <Pressable
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: chartMetric === 'cost' }}
                             style={[styles.metricButton, chartMetric === 'cost' && styles.metricButtonActive]}
                             onPress={() => setChartMetric('cost')}
                         >
@@ -272,12 +278,12 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
                                 label={model}
                                 value={tokens}
                                 maxValue={maxModelTokens}
-                                color="#007AFF"
+                                color={theme.colors.accent}
                             />
                         ))}
                     </View>
                 </ItemGroup>
             )}
-        </ScrollView>
+        </View>
     );
 };
