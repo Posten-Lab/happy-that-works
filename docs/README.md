@@ -1,8 +1,9 @@
-# Happy Docs
+# Talos Docs
 
-This folder documents how Happy works internally, with a focus on protocol, backend architecture, deployment, and the CLI tool. Start here.
+This folder documents how Talos works internally, with a focus on protocol, backend architecture, deployment, and the CLI tool. Start here.
 
 ## Index
+- architecture/index.html: Visual, source-backed system atlas covering runtime surfaces, core flows, trust boundaries, storage, packages, and deployment modes.
 - protocol.md: Wire protocol (WebSocket), payload formats, sequencing, and concurrency rules.
 - realtime-sync-and-rpc.md: High-level overview of realtime socket management and RPC control flow.
 - api.md: HTTP endpoints and authentication flows.
@@ -16,12 +17,12 @@ This folder documents how Happy works internally, with a focus on protocol, back
 - session-protocol-claude.md: Claude-specific session-protocol flow (local vs remote launchers, dedupe/restarts).
 - plans/provider-envelope-redesign.md: Proposed replacement for the current provider/session envelope design.
 - permission-resolution.md: State-based permission mode resolution across app and CLI (including sandbox behavior).
-- happy-wire.md: Shared wire schemas/types package and migration notes.
+- talos-wire.md: Shared wire schemas/types package and migration notes.
 - voice-architecture.md: ElevenLabs voice assistant integration, session routing, context batching, and VAD detection.
 - research/: general research notes and exploratory writeups.
 - competition/: competitor research, protocol analysis, and comparison notes.
 - competition/AGENTS.md: structure and rules for storing competitor research results without committing raw checkouts.
 
 ## Conventions
-- Paths and field names reflect the current implementation in `packages/happy-server`.
+- Paths and field names reflect the current implementation in `packages/talos-server`.
 - Examples are illustrative; the canonical source is the code.

@@ -1,0 +1,18 @@
+{
+  "appStoreAppId": "6787151946",
+  "listingTitle": "Talos — AI Coding Agents",
+  "subtitle": "Your coding agents, everywhere",
+  "locale": "en-GB",
+  "installedDisplayName": "Talos",
+  "existingBundleIdentifierPreserved": true,
+  "existingTeamPreserved": true,
+  "previousValidTestFlightBuild": "14",
+  "plannedVersion": "2.0.0",
+  "publicListingState": "PREPARE_FOR_SUBMISSION",
+  "nextDelivery": "existing TestFlight installation",
+  "nameUpdateVerified": true,
+  "exactShortNameRejectedAsUnavailable": true,
+  "testFlightDescriptionUpdated": true,
+  "testFlightMarketingUrl": "https://talosapp.ai",
+  "existingInternalGroupAutomaticallyReceivesBuilds": true
+}

@@ -10,8 +10,8 @@ web-build/
 expo-env.d.ts
 /ios
 /android
-/packages/happy-app/ios
-/packages/happy-app/android
+/packages/talos-app/ios
+/packages/talos-app/android
 
 # Native
 .kotlin/
@@ -68,18 +68,26 @@ docs/competition/opencode/traces/
 
 # scratch tooling
 .cdp-scripts/
-happy-workspaces/
+talos-workspaces/
 
-# local HAPPY_HOME_DIR for self-host testing
-.happy-fully-local/
-.happy-dev/
+# local TALOS_HOME_DIR for self-host testing
+.talos-fully-local/
+.talos-dev/
 
 # third party tools
 .supervibe/
 
+# Local Talos verification and rendered deployment manifests
+.talos-local/
+deploy/rendered/
+
 # Mobile CI export and EAS delivery receipts
-packages/happy-app/dist-ci/
-packages/happy-app/build-result.json
-packages/happy-app/build-id.txt
-packages/happy-app/fingerprint-result.json
-packages/happy-app/compatible-builds.json
+packages/talos-app/dist-ci/
+packages/talos-app/build-result.json
+packages/talos-app/build-id.txt
+packages/talos-app/fingerprint-result.json
+packages/talos-app/compatible-builds.json
+packages/talos-app/runtime-config.json
+packages/talos-app/ipa-expected-config.json
+packages/talos-app/artifact-download.json
+packages/talos-app/ipa-verification.json

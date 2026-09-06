@@ -1,0 +1,75 @@
+[
+  {
+    "file_size": 36904800,
+    "file_sha256": "3e89616085955fee474b6432a1aab912d947d9fe2a886683bbbb8d6784984177",
+    "entity": {
+      "mach_o": {
+        "signature": {
+          "code_directory": {
+            "identifier": "com.ahposten.happyimproved",
+            "team_name": "H2XR8XWZXW"
+          },
+          "entitlements_plist": [
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+            "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">",
+            "<plist version=\"1.0\">",
+            "<dict>",
+            "  <key>application-identifier</key>",
+            "  <string>H2XR8XWZXW.com.ahposten.happyimproved</string>",
+            "  <key>aps-environment</key>",
+            "  <string>production</string>",
+            "  <key>beta-reports-active</key>",
+            "  <true/>",
+            "  <key>com.apple.developer.team-identifier</key>",
+            "  <string>H2XR8XWZXW</string>",
+            "  <key>get-task-allow</key>",
+            "  <false/>",
+            "</dict>",
+            "</plist>"
+          ],
+          "entitlements_der_plist": [
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+            "<plist version=\"1.0\">",
+            "  <dict>",
+            "    <key>application-identifier</key>",
+            "    <string>H2XR8XWZXW.com.ahposten.happyimproved</string>",
+            "    <key>aps-environment</key>",
+            "    <string>production</string>",
+            "    <key>beta-reports-active</key>",
+            "    <true />",
+            "    <key>com.apple.developer.team-identifier</key>",
+            "    <string>H2XR8XWZXW</string>",
+            "    <key>get-task-allow</key>",
+            "    <false />",
+            "  </dict>",
+            "</plist>"
+          ],
+          "cms": {
+            "signers": [
+              {
+                "signature_verifies": true
+              }
+            ],
+            "certificates": [
+              {
+                "apple_team_id": "G3",
+                "chains_to_apple_root_ca": true
+              },
+              {
+                "apple_team_id": "Apple Certification Authority",
+                "chains_to_apple_root_ca": true
+              },
+              {
+                "apple_team_id": "H2XR8XWZXW",
+                "chains_to_apple_root_ca": true,
+                "apple_code_signing_extensions": [
+                  "Apple Developer Certificate (Submission)"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+]

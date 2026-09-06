@@ -1,0 +1,134 @@
+{
+  "date": "2026-09-06",
+  "suites": {
+    "app": 742,
+    "cli": 797,
+    "agent": 230,
+    "wire": 29,
+    "server": 101,
+    "desktop": 102,
+    "releaseScripts": 66,
+    "iosArtifactGate": 14
+  },
+  "totalTests": 2081,
+  "nativeBuilds": {
+    "iosSimulatorRelease": "passed, ad-hoc signed",
+    "androidArm64Release": "passed",
+    "tauriMacOSBundle": "passed",
+    "iosInstallOverExisting": "passed: retained account/history/preferences, same-session message persisted and decrypted after native restart; simulator ad hoc signing",
+    "existingDistributionExecutable": "Build14 actual executable passed both Mac and Linux signed-identity checks; XML/DER match Apple codesign; altered copy rejected"
+  },
+  "publicActivation": {
+    "dns": "verified INSYNC; ordinary DNS and trusted HTTPS passed",
+    "web": "https://talosapp.ai",
+    "api": "https://api.talosapp.ai",
+    "files": "https://files.talosapp.ai",
+    "npm": "blocked by registry publishing authentication; no package published",
+    "jenkins": "Three canonical jobs renamed with history retained; web66/server58/mobile21 validation passed; final executable-gate mobile validation running",
+    "native": "In-place simulator upgrade passed; final EAS/TestFlight binary delivery follows PR merge"
+  },
+  "preservation": {
+    "originalUserFilesUnchanged": 26,
+    "originalProductionPodsUnchanged": 7,
+    "originalCredentialsAndSettingsUnchanged": true,
+    "originalDaemonAlive": true
+  },
+  "accountMigration": {
+    "credentialsIdentical": true,
+    "sourceFilesPreserved": true,
+    "separateMachineIdentity": true,
+    "originalDaemonAlive": true,
+    "authenticatedSessionList": true,
+    "returnedSessions": 150
+  },
+  "sessionKeys": {
+    "importedKeys": 40,
+    "matchingAccountSessions": 40,
+    "decryptedSessionMetadata": 40,
+    "providerResumeMetadata": 28,
+    "actualResolverSucceeded": true,
+    "noSessionControlRequests": true
+  },
+  "liveRpc": {
+    "talosApiConnectedToExistingDaemon": true,
+    "encryptedRpcRoundTrip": true,
+    "readOnlyMethod": "listDirectory",
+    "existingDaemonPathPolicyEnforced": true,
+    "originalDaemonAlive": true,
+    "sessionControlRequests": 0
+  },
+  "packages": [
+    {
+      "name": "@ahmadposten/talos-agent",
+      "version": "0.1.0",
+      "tarballBytes": 24040,
+      "sha256": "082e041da22a3315b0e56880fbead58749b82f39a8ec7c0964a74758d20dadca",
+      "fileCount": 8,
+      "wireDependency": "0.1.0",
+      "peerDependencies": {},
+      "licenseIncluded": true,
+      "runtimePrismaClientIncluded": false
+    },
+    {
+      "name": "@ahmadposten/talos-server",
+      "version": "1.0.0",
+      "tarballBytes": 24302705,
+      "sha256": "e05265800c36d4107101bd28357df229a11f0e06d25021fe7e29f12a41463855",
+      "fileCount": 977,
+      "wireDependency": "0.1.0",
+      "peerDependencies": {},
+      "licenseIncluded": true,
+      "runtimePrismaClientIncluded": true
+    },
+    {
+      "name": "@ahmadposten/talos-wire",
+      "version": "0.1.0",
+      "tarballBytes": 18294,
+      "sha256": "b4a0fc654c208beb64f014e7b4fd55e7d65d4f24177717f854b226a38f792be2",
+      "fileCount": 7,
+      "wireDependency": null,
+      "peerDependencies": {},
+      "licenseIncluded": true,
+      "runtimePrismaClientIncluded": false
+    },
+    {
+      "name": "talosapp",
+      "version": "1.0.0",
+      "tarballBytes": 104964613,
+      "sha256": "1d0e522a4000f5ad3de4206ff127af0f3f42068fc59b32b29ecac956d78bb1d9",
+      "fileCount": 65,
+      "wireDependency": "0.1.0",
+      "peerDependencies": {
+        "@ahmadposten/talos-server": "^1.0.0"
+      },
+      "licenseIncluded": true,
+      "runtimePrismaClientIncluded": false
+    }
+  ],
+  "validationScope": {
+    "integratedCommit": "0acc3656",
+    "rerunSuites": [
+      "app",
+      "cli",
+      "server",
+      "wire",
+      "releaseScripts"
+    ],
+    "unchangedPreviouslyPassedSuites": [
+      "agent",
+      "desktop"
+    ],
+    "packagedInstallScenarios": [
+      "isolated-cli-only",
+      "hoisted-cli-only",
+      "isolated",
+      "hoisted",
+      "hoisted-cached"
+    ],
+    "registryPublicationPerformed": false,
+    "hostedChecks": "All four Linux/Windows Node20/24 packaging jobs passed at c418582d; final mobile gate checks also passed in the actual EAS Linux image.",
+    "targetedCliLauncherChecks": 11
+  },
+  "recordScope": "Initial cutover and pre-release validation; final production receipts and access status are maintained in PR12 and archived Jenkins release evidence.",
+  "releaseRecord": "https://github.com/Posten-Lab/happy-that-works/pull/12"
+}

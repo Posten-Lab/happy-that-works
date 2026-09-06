@@ -1,0 +1,21 @@
+{
+  "git": {
+    "commitMessage": "Release talos-agent ${version}",
+    "tagName": "talos-agent-v${version}",
+    "commit": false,
+    "tag": false,
+    "push": false,
+    "requireCleanWorkingDir": true,
+    "requireBranch": "main",
+    "addUntrackedFiles": false
+  },
+  "github": {
+    "release": false,
+    "releaseName": "talos-agent-v${version}",
+    "releaseNotes": "node .release-it.notes.js ${version}"
+  },
+  "npm": {
+    "publish": false
+  },
+  "hooks": {}
+}

@@ -1,25 +1,19 @@
-# NodePort Service exposing the Happy-Improved web frontend to the edge nginx
-# VM (35.179.90.95). The edge upstream `happy_frontend`
-# (deploy/web/nginx/happy-upstreams.conf) targets nodeIP:30082 across the
-# public cluster nodes.
-#
-# 30082 is the next free port in the frontend 300xx convention
-# (30080 quietplan, 30081 benjamins, 30088 jenkins are taken).
+# Talos NodePort; allocate a free port and render this template before applying it.
 apiVersion: v1
 kind: Service
 metadata:
-  name: happy-web
-  namespace: happy
+  name: talos-web
+  namespace: talos
   labels:
-    app: happy-web
+    app: talos-web
     tier: frontend
 spec:
   type: NodePort
   selector:
-    app: happy-web
+    app: talos-web
   ports:
     - name: http
       port: 80
       targetPort: 80
-      nodePort: 30082
+      nodePort: ${TALOS_WEB_NODE_PORT}
       protocol: TCP

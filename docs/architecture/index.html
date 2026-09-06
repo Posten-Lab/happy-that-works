@@ -1,0 +1,1070 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A source-backed architecture atlas for the Talos monorepo.">
+  <title>Talos Architecture Atlas</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1d2521;
+      --muted: #59645e;
+      --paper: #f4f1e8;
+      --paper-2: #ebe6d8;
+      --card: rgba(255, 253, 246, 0.82);
+      --line: rgba(29, 37, 33, 0.14);
+      --line-strong: rgba(29, 37, 33, 0.26);
+      --green: #0d7652;
+      --green-soft: #dcecdf;
+      --orange: #d56a35;
+      --orange-soft: #f4dfd1;
+      --blue: #2f638f;
+      --blue-soft: #dce7ef;
+      --violet: #67558e;
+      --violet-soft: #e4deee;
+      --yellow: #dcae36;
+      --yellow-soft: #f4e9bd;
+      --shadow: 0 18px 55px rgba(45, 50, 42, 0.1);
+      --mono: "SFMono-Regular", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --serif: Iowan Old Style, "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --ink: #edf2ed;
+      --muted: #aab5ae;
+      --paper: #111714;
+      --paper-2: #18201c;
+      --card: rgba(29, 38, 33, 0.82);
+      --line: rgba(235, 242, 237, 0.12);
+      --line-strong: rgba(235, 242, 237, 0.24);
+      --green: #79d5ac;
+      --green-soft: #203e31;
+      --orange: #f19a67;
+      --orange-soft: #452e24;
+      --blue: #8ebee8;
+      --blue-soft: #233846;
+      --violet: #c3abea;
+      --violet-soft: #362d48;
+      --yellow: #efca68;
+      --yellow-soft: #443b21;
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--green-soft), transparent 28%), transparent 34rem),
+        radial-gradient(circle at 92% 9%, color-mix(in srgb, var(--orange-soft), transparent 35%), transparent 28rem),
+        var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+
+    button, input { font: inherit; }
+    a { color: inherit; }
+    code {
+      font-family: var(--mono);
+      font-size: 0.89em;
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: 0.35rem;
+      padding: 0.08rem 0.32rem;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 17rem minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      border-right: 1px solid var(--line);
+      background: color-mix(in srgb, var(--paper) 84%, transparent);
+      backdrop-filter: blur(18px);
+      padding: 1.3rem 1rem;
+      z-index: 10;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.35rem 0.45rem 1.1rem;
+    }
+    .brand-mark {
+      width: 2.3rem;
+      height: 2.3rem;
+      display: grid;
+      place-items: center;
+      border-radius: 0.75rem;
+      background: var(--green);
+      color: var(--paper);
+      font: 700 1rem/1 var(--mono);
+      transform: rotate(-4deg);
+      box-shadow: 0 8px 24px color-mix(in srgb, var(--green), transparent 64%);
+    }
+    .brand strong { display: block; letter-spacing: -0.02em; }
+    .brand small { display: block; color: var(--muted); font-size: 0.71rem; }
+
+    .search {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      border-radius: 0.65rem;
+      padding: 0.68rem 0.75rem;
+      outline: none;
+      margin-bottom: 0.8rem;
+    }
+    .search:focus { border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green), transparent 82%); }
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: 0.55rem;
+      padding: 0.48rem 0.65rem;
+      margin: 0.08rem 0;
+      font-size: 0.85rem;
+      transition: 140ms ease;
+    }
+    nav a:hover, nav a.active {
+      color: var(--ink);
+      background: var(--paper-2);
+      transform: translateX(2px);
+    }
+    nav a.active { box-shadow: inset 3px 0 var(--green); }
+
+    .aside-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+    }
+    .icon-button {
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 0.55rem;
+      color: var(--muted);
+      background: var(--card);
+      padding: 0.5rem;
+      cursor: pointer;
+    }
+    .icon-button:hover { color: var(--ink); border-color: var(--line-strong); }
+
+    main {
+      min-width: 0;
+      padding: 0 4vw 6rem;
+    }
+    .content {
+      width: min(76rem, 100%);
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: 88vh;
+      display: grid;
+      align-content: center;
+      padding: 5rem 0 3rem;
+      position: relative;
+    }
+    .eyebrow {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--green);
+      font: 650 0.74rem/1 var(--mono);
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      margin-bottom: 1.2rem;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 1.8rem;
+      height: 2px;
+      background: currentColor;
+    }
+    h1 {
+      max-width: 13ch;
+      font: 600 clamp(3.6rem, 8vw, 7.8rem)/0.87 var(--serif);
+      letter-spacing: -0.065em;
+      margin: 0;
+    }
+    .hero .lede {
+      max-width: 46rem;
+      font-size: clamp(1.05rem, 2vw, 1.35rem);
+      color: var(--muted);
+      margin: 2rem 0 2.4rem;
+    }
+    .hero .lede strong { color: var(--ink); font-weight: 620; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--card);
+      padding: 0.42rem 0.72rem;
+      font: 550 0.75rem/1.2 var(--mono);
+      color: var(--muted);
+    }
+    .pill::before { content: ""; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--green); }
+
+    section {
+      scroll-margin-top: 1.5rem;
+      margin: 0 0 8rem;
+    }
+    .section-head {
+      display: grid;
+      grid-template-columns: 11rem 1fr;
+      gap: 2rem;
+      align-items: start;
+      margin-bottom: 2.1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line-strong);
+    }
+    .section-number {
+      color: var(--muted);
+      font: 0.72rem/1.3 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      padding-top: 0.5rem;
+    }
+    h2 {
+      font: 600 clamp(2.2rem, 5vw, 4.2rem)/0.98 var(--serif);
+      letter-spacing: -0.045em;
+      margin: 0 0 0.75rem;
+    }
+    h3 {
+      font-size: 1.05rem;
+      line-height: 1.3;
+      margin: 0 0 0.65rem;
+      letter-spacing: -0.015em;
+    }
+    .section-intro { max-width: 48rem; color: var(--muted); margin: 0; font-size: 1.02rem; }
+
+    .thesis {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 1.2rem;
+    }
+    .statement {
+      border-radius: 1.2rem;
+      background: var(--green);
+      color: #f6fff9;
+      padding: clamp(1.7rem, 4vw, 3.2rem);
+      min-height: 23rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--shadow);
+    }
+    .statement blockquote {
+      font: 500 clamp(2rem, 4vw, 3.55rem)/1.02 var(--serif);
+      letter-spacing: -0.045em;
+      margin: 0;
+    }
+    .statement footer { font: 0.75rem/1.5 var(--mono); opacity: 0.94; max-width: 36rem; }
+
+    .stacked-notes { display: grid; gap: 1.2rem; }
+    .note, .card {
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      background: var(--card);
+      box-shadow: 0 8px 30px rgba(35, 42, 37, 0.04);
+      padding: 1.35rem;
+    }
+    .note p, .card p { color: var(--muted); margin: 0; }
+    .note .kicker {
+      display: block;
+      font: 650 0.69rem/1 var(--mono);
+      color: var(--orange);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 0.8rem;
+    }
+
+    .topology {
+      border: 1px solid var(--line);
+      border-radius: 1.2rem;
+      background:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px),
+        var(--card);
+      background-size: 28px 28px;
+      padding: clamp(1rem, 4vw, 2.4rem);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .topology-grid {
+      display: grid;
+      grid-template-columns: 1fr 4rem 1fr 4rem 0.9fr;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .topo-group { display: grid; gap: 0.7rem; }
+    .topo-label {
+      font: 650 0.68rem/1 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin: 0 0 0.25rem 0.2rem;
+    }
+    .node {
+      border: 1px solid var(--line-strong);
+      border-radius: 0.78rem;
+      background: var(--paper);
+      padding: 0.9rem;
+      min-height: 4.65rem;
+    }
+    .node strong { display: block; font-size: 0.87rem; }
+    .node small { display: block; color: var(--muted); font: 0.67rem/1.45 var(--mono); margin-top: 0.25rem; }
+    .node.client { border-left: 4px solid var(--blue); }
+    .node.compute { border-left: 4px solid var(--orange); }
+    .node.server { border-left: 4px solid var(--green); }
+    .node.storage { border-left: 4px solid var(--violet); }
+    .connector {
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font: 0.66rem/1.4 var(--mono);
+      text-align: center;
+    }
+    .connector::before {
+      content: "⟷";
+      display: block;
+      color: var(--green);
+      font-size: 1.7rem;
+    }
+    .topology-caption { color: var(--muted); font-size: 0.78rem; margin: 1.3rem 0 0; text-align: center; }
+
+    .grid { display: grid; gap: 1rem; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card { position: relative; overflow: hidden; }
+    .card::after {
+      content: "";
+      position: absolute;
+      width: 5rem;
+      height: 5rem;
+      border-radius: 50%;
+      right: -2.5rem;
+      top: -2.5rem;
+      background: var(--accent, var(--green-soft));
+      opacity: 0.85;
+    }
+    .card .tag {
+      display: inline-block;
+      font: 650 0.65rem/1 var(--mono);
+      color: var(--tone, var(--green));
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    .card ul {
+      margin: 1rem 0 0;
+      padding-left: 1.05rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .card li + li { margin-top: 0.35rem; }
+    .accent-blue { --accent: var(--blue-soft); --tone: var(--blue); }
+    .accent-orange { --accent: var(--orange-soft); --tone: var(--orange); }
+    .accent-violet { --accent: var(--violet-soft); --tone: var(--violet); }
+    .accent-yellow { --accent: var(--yellow-soft); --tone: #997315; }
+
+    .flow {
+      border-radius: 1rem;
+      border: 1px solid var(--line);
+      background: #151c18;
+      color: #dce7df;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .flow-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 0.7rem 1rem;
+      color: #91a098;
+      font: 0.68rem/1 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    pre {
+      margin: 0;
+      padding: 1.3rem;
+      overflow: auto;
+      font: 0.75rem/1.65 var(--mono);
+      tab-size: 2;
+    }
+    pre .hi { color: #8fd5b5; }
+
+    .lane {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(8.5rem, 1fr));
+      gap: 0.7rem;
+      overflow-x: auto;
+      padding: 0.25rem 0.1rem 1rem;
+    }
+    .lane-step {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 0.8rem;
+      background: var(--card);
+      padding: 1rem;
+      min-height: 10.5rem;
+    }
+    .lane-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 50%;
+      right: -0.66rem;
+      z-index: 2;
+      width: 1.25rem;
+      height: 1.25rem;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--paper);
+      color: var(--green);
+      font-weight: 800;
+    }
+    .lane-step b { display: block; font: 650 0.68rem/1 var(--mono); color: var(--green); margin-bottom: 0.65rem; }
+    .lane-step p { color: var(--muted); margin: 0; font-size: 0.82rem; }
+
+    .boundary {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+    .boundary-side {
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      background: var(--card);
+      padding: 1.5rem;
+    }
+    .boundary-side.trusted { box-shadow: inset 0 4px var(--green); }
+    .boundary-side.blind { box-shadow: inset 0 4px var(--violet); }
+    .boundary-rule {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      display: grid;
+      place-items: center;
+      font: 650 0.66rem/1 var(--mono);
+      letter-spacing: 0.11em;
+      color: var(--orange);
+      text-transform: uppercase;
+      padding: 0.3rem;
+    }
+    .boundary ul { color: var(--muted); padding-left: 1.1rem; margin: 1rem 0 0; font-size: 0.88rem; }
+
+    .table-wrap {
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      overflow-x: auto;
+      background: var(--card);
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 48rem; }
+    th, td { padding: 0.9rem 1rem; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font: 650 0.68rem/1 var(--mono); text-transform: uppercase; letter-spacing: 0.07em; }
+    td { font-size: 0.85rem; }
+    td:first-child { font-family: var(--mono); color: var(--green); font-size: 0.78rem; }
+    tr:last-child td { border-bottom: 0; }
+
+    .callout {
+      margin-top: 1rem;
+      padding: 1rem 1.2rem;
+      border-left: 4px solid var(--orange);
+      background: var(--orange-soft);
+      border-radius: 0 0.7rem 0.7rem 0;
+      color: color-mix(in srgb, var(--ink), var(--orange) 14%);
+      font-size: 0.88rem;
+    }
+
+    .observations { counter-reset: obs; }
+    .observation {
+      display: grid;
+      grid-template-columns: 3.5rem 1fr;
+      gap: 1rem;
+      padding: 1.3rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .observation::before {
+      counter-increment: obs;
+      content: "0" counter(obs);
+      color: var(--orange);
+      font: 600 0.76rem/1.5 var(--mono);
+    }
+    .observation p { color: var(--muted); margin: 0.4rem 0 0; }
+
+    .source-list {
+      columns: 2;
+      column-gap: 2rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .source-list li {
+      break-inside: avoid;
+      border-bottom: 1px solid var(--line);
+      padding: 0.65rem 0;
+      font: 0.76rem/1.45 var(--mono);
+      color: var(--muted);
+    }
+    .source-list strong { display: block; color: var(--ink); font-family: var(--sans); font-size: 0.82rem; }
+
+    .search-hidden { display: none !important; }
+    .no-results {
+      display: none;
+      border: 1px dashed var(--line-strong);
+      border-radius: 1rem;
+      padding: 2rem;
+      color: var(--muted);
+      text-align: center;
+      margin: 2rem 0;
+    }
+    .no-results.visible { display: block; }
+
+    .footer {
+      padding: 2rem 0 4rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font: 0.72rem/1.6 var(--mono);
+      display: flex;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1020px) {
+      .shell { grid-template-columns: 1fr; }
+      aside {
+        height: auto;
+        padding: 0.7rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand { padding: 0; white-space: nowrap; }
+      .brand small { display: none; }
+      .search { max-width: 15rem; margin: 0; margin-left: auto; }
+      nav { display: none; }
+      .aside-actions { margin: 0; padding: 0; border: 0; }
+      .icon-button { width: 2.5rem; }
+      main { padding-inline: 1.2rem; }
+      .hero { min-height: 76vh; }
+      .topology-grid { grid-template-columns: 1fr; }
+      .connector { min-height: 2.4rem; }
+      .connector::before { content: "↕"; }
+    }
+
+    @media (max-width: 760px) {
+      aside { flex-wrap: wrap; }
+      .search { order: 3; max-width: none; flex-basis: 100%; }
+      h1 { font-size: clamp(3.2rem, 18vw, 5.4rem); }
+      .hero { padding-top: 3.5rem; }
+      .section-head, .thesis, .grid.two, .grid.three, .grid.four { grid-template-columns: 1fr; }
+      .section-number { padding: 0; }
+      .boundary { grid-template-columns: 1fr; }
+      .boundary-rule { writing-mode: horizontal-tb; min-height: 2rem; }
+      .source-list { columns: 1; }
+      .footer { flex-direction: column; }
+    }
+
+    @media print {
+      aside { display: none; }
+      .shell { display: block; }
+      main { padding: 0; }
+      .hero { min-height: auto; page-break-after: always; }
+      section { break-inside: avoid; margin-bottom: 4rem; }
+      body { background: white; }
+      .card, .topology, .statement, .flow { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside aria-label="Document navigation">
+      <div class="brand">
+        <div class="brand-mark">H</div>
+        <div><strong>Architecture Atlas</strong><small>Talos monorepo · source-backed</small></div>
+      </div>
+      <input id="search" class="search" type="search" placeholder="Filter sections…" aria-label="Filter architecture sections">
+      <nav id="nav">
+        <a href="#model">01 · Mental model</a>
+        <a href="#topology">02 · System topology</a>
+        <a href="#surfaces">03 · Runtime surfaces</a>
+        <a href="#turn-flow">04 · Remote turn</a>
+        <a href="#sync">05 · Sync & RPC</a>
+        <a href="#trust">06 · Trust boundary</a>
+        <a href="#state">07 · State & storage</a>
+        <a href="#packages">08 · Package map</a>
+        <a href="#deployment">09 · Deployment</a>
+        <a href="#observations">10 · Observations</a>
+        <a href="#sources">11 · Source trail</a>
+      </nav>
+      <div class="aside-actions">
+        <button id="theme" class="icon-button" type="button" aria-label="Toggle color theme" title="Toggle color theme">◐</button>
+        <button id="print" class="icon-button" type="button" aria-label="Print architecture document" title="Print document">⇩</button>
+      </div>
+    </aside>
+
+    <main>
+      <div class="content">
+        <header class="hero">
+          <span class="eyebrow">System map · 26 July 2026</span>
+          <h1>Talos, from process to pixel.</h1>
+          <p class="lede">
+            A source-backed guide to the system that lets a person <strong>run coding agents on a computer
+            and control them from mobile, web, desktop, or automation</strong>—without giving the server
+            plaintext access to the conversation.
+          </p>
+          <div class="meta-row">
+            <span class="pill">7 workspace packages</span>
+            <span class="pill">4 user-facing runtimes</span>
+            <span class="pill">HTTP + Socket.IO</span>
+            <span class="pill">client-side encryption</span>
+            <span class="pill">commit a4bc1a40</span>
+          </div>
+        </header>
+
+        <div id="no-results" class="no-results">No architecture section matches that filter.</div>
+
+        <section id="model" data-search="mental model encrypted control plane local coding agents server identity routing persistence">
+          <div class="section-head">
+            <div class="section-number">01 / Mental model</div>
+            <div>
+              <h2>The shortest useful explanation</h2>
+              <p class="section-intro">Talos separates where an agent runs from where a person supervises it. The local machine remains the execution environment; the backend coordinates encrypted state and commands between authenticated clients.</p>
+            </div>
+          </div>
+          <div class="thesis">
+            <article class="statement">
+              <blockquote>Talos is an encrypted control plane for local coding-agent processes.</blockquote>
+              <footer>“Control plane” here means identity, discovery, presence, message sequencing, state synchronization, and command routing—not execution of the coding agent itself.</footer>
+            </article>
+            <div class="stacked-notes">
+              <article class="note">
+                <span class="kicker">Runs locally</span>
+                <h3>Agent execution and tools</h3>
+                <p>Claude, Codex, Gemini, and OpenClaw runners execute on the user’s machine through the Talos CLI/daemon. Filesystem and shell access stay beside the repository.</p>
+              </article>
+              <article class="note">
+                <span class="kicker">Coordinates centrally</span>
+                <h3>Encrypted state and routing</h3>
+                <p>The server authenticates clients, stores opaque encrypted content, assigns sequence numbers, tracks presence, and relays realtime updates and RPC calls.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="topology" data-search="system topology clients expo mobile web tauri talos-desktop electron talos agent cli daemon server postgres pglite redis s3 minio">
+          <div class="section-head">
+            <div class="section-number">02 / Topology</div>
+            <div>
+              <h2>One control plane, several edges</h2>
+              <p class="section-intro">The architecture is hub-and-spoke for coordination, but agent execution remains at an edge machine. Three Socket.IO connection scopes keep account-wide, session-specific, and machine-specific traffic distinct.</p>
+            </div>
+          </div>
+          <figure class="topology">
+            <div class="topology-grid">
+              <div class="topo-group">
+                <div class="topo-label">Control surfaces</div>
+                <div class="node client"><strong>Talos App</strong><small>Expo · iOS · Android · Web · Tauri</small></div>
+                <div class="node client"><strong>talos-agent</strong><small>headless automation and remote control</small></div>
+                <div class="node client"><strong>Codium</strong><small>Electron renderer + isolated workers</small></div>
+              </div>
+              <div class="connector">encrypted HTTP<br>user-scoped socket</div>
+              <div class="topo-group">
+                <div class="topo-label">Execution edge</div>
+                <div class="node compute"><strong>Talos CLI</strong><small>command router · auth · local sessions</small></div>
+                <div class="node compute"><strong>Machine daemon</strong><small>child lifecycle · local IPC · heartbeats</small></div>
+                <div class="node compute"><strong>Agent runners</strong><small>Claude · Codex · Gemini · OpenClaw</small></div>
+              </div>
+              <div class="connector">session/machine sockets<br>encrypted RPC</div>
+              <div class="topo-group">
+                <div class="topo-label">Coordination core</div>
+                <div class="node server"><strong>Talos Server</strong><small>Fastify · Socket.IO · auth · sequence allocation</small></div>
+                <div class="node storage"><strong>Postgres / PGlite</strong><small>accounts · sessions · messages · machines</small></div>
+                <div class="node storage"><strong>Redis + S3 / local files</strong><small>cross-replica socket bus · binary objects</small></div>
+              </div>
+            </div>
+            <figcaption class="topology-caption">Arrows represent bidirectional coordination. Plaintext user content exists at authenticated clients; the coordination core mainly sees ciphertext plus routing metadata.</figcaption>
+          </figure>
+        </section>
+
+        <section id="surfaces" data-search="runtime surfaces app cli daemon server talos agent talos-desktop wire logs responsibilities">
+          <div class="section-head">
+            <div class="section-number">03 / Surfaces</div>
+            <div>
+              <h2>Runtime responsibilities</h2>
+              <p class="section-intro">The repository contains more than “frontend + backend.” Each executable surface has a distinct ownership boundary.</p>
+            </div>
+          </div>
+          <div class="grid three">
+            <article class="card accent-blue">
+              <span class="tag">Remote console</span>
+              <h3>Talos App</h3>
+              <p>One React Native/Expo codebase presents sessions, messages, permissions, machines, artifacts, voice, settings, and social features.</p>
+              <ul><li>Expo Router navigation</li><li>Zustand client state</li><li>REST bootstrap + user-scoped realtime</li><li>Native, web, and Tauri targets</li></ul>
+            </article>
+            <article class="card accent-orange">
+              <span class="tag">Execution owner</span>
+              <h3>Talos CLI + daemon</h3>
+              <p>The main local runtime authenticates the machine, launches provider adapters, owns live session sockets, and exposes controlled RPC handlers.</p>
+              <ul><li>Foreground and background sessions</li><li>Local HTTP control server</li><li>Machine and session heartbeats</li><li>Provider normalization</li></ul>
+            </article>
+            <article class="card">
+              <span class="tag">Coordination core</span>
+              <h3>Talos Server</h3>
+              <p>Fastify and Socket.IO provide authentication, domain APIs, persistent update sequencing, presence, RPC routing, integrations, and metrics.</p>
+              <ul><li>Postgres or embedded PGlite</li><li>Redis streams adapter when configured</li><li>S3-compatible or local files</li><li>Opaque encrypted payload storage</li></ul>
+            </article>
+            <article class="card accent-violet">
+              <span class="tag">Automation client</span>
+              <h3>talos-agent</h3>
+              <p>A separate Commander-based CLI for listing, creating, messaging, spawning, resuming, and waiting on Talos sessions.</p>
+              <ul><li>Reuses Talos auth and encryption</li><li>Machine RPC caller</li><li>Script-friendly output</li></ul>
+            </article>
+            <article class="card accent-yellow">
+              <span class="tag">Desktop experiment</span>
+              <h3>Codium</h3>
+              <p>An Electron desktop application with a React renderer, main-process IPC, persistent chat storage, terminals, worktrees, plugins, and worker-isolated agent execution.</p>
+              <ul><li>Agent worker thread</li><li>Talos auth worker thread</li><li>Anthropic, Codex, Talos plugins</li></ul>
+            </article>
+            <article class="card accent-blue">
+              <span class="tag">Shared contracts</span>
+              <h3>talos-wire + app-logs</h3>
+              <p><code>@ahmadposten/talos-wire</code> holds runtime-validated message schemas. <code>talos-app-logs</code> is a small local diagnostics receiver.</p>
+              <ul><li>Zod wire validation</li><li>Legacy production message format</li><li>Unified protocol is frozen and under review</li></ul>
+            </article>
+          </div>
+        </section>
+
+        <section id="turn-flow" data-search="remote turn message send encryption apiSocket v3 sessions messages socket update agent run flow">
+          <div class="section-head">
+            <div class="section-number">04 / Core flow</div>
+            <div>
+              <h2>A remote agent turn, end to end</h2>
+              <p class="section-intro">Durable messages use HTTP and persistent update events; live control uses Socket.IO RPC. The client’s outbox and sequence cursors make the UI resilient to reconnects and retries.</p>
+            </div>
+          </div>
+          <div class="lane" role="list" aria-label="Remote turn sequence">
+            <article class="lane-step" role="listitem"><b>01 · Compose</b><p>The app adds a local outbox item, encrypts message content with the session key, and prepares a stable local ID.</p></article>
+            <article class="lane-step" role="listitem"><b>02 · Persist</b><p>The app posts encrypted messages to the v3 session endpoint. The server allocates per-session and per-account sequence numbers.</p></article>
+            <article class="lane-step" role="listitem"><b>03 · Fan out</b><p>The server emits a durable <code>update</code> to user-scoped clients and the interested session-scoped process.</p></article>
+            <article class="lane-step" role="listitem"><b>04 · Execute</b><p>The local runner decrypts the prompt, drives the provider, normalizes provider events, and publishes encrypted agent output.</p></article>
+            <article class="lane-step" role="listitem"><b>05 · Reconcile</b><p>The app decrypts updates, deduplicates by IDs/sequences, reduces messages into view state, and clears matching outbox entries.</p></article>
+          </div>
+          <div class="flow">
+            <div class="flow-head"><span>Source-level call tree</span><span>primary talos-app → server → talos-cli path</span></div>
+            <pre>User sends a message in the Talos App
+│
+├─ Sync.sendMessage(sessionId, text, options)
+│  ├─ pendingOutbox: Map&lt;sessionId, OutboxMessage[]&gt;
+│  ├─ session encryption → base64 ciphertext
+│  └─ getSendSync(sessionId).invalidate()
+│
+├─ Sync.flushOutbox(sessionId)
+│  └─ POST /v3/sessions/:id/messages
+│     └─ { messages: Array&lt;{ localId: string; content: SessionMessageContent }&gt; }
+│
+├─ talos-server / v3SessionRoutes
+│  ├─ transaction: SessionMessage + Session.seq + Account.seq
+│  └─ eventRouter.emitUpdate({ recipientFilter: all-interested-in-session })
+│
+├─ ApiSessionClient receives "update"
+│  ├─ decrypts SessionMessageContent
+│  └─ provider runner consumes the user message
+│
+└─ agent response returns through the same durable update path
+   └─ Sync.subscribeToUpdates()
+      ├─ normalizeRawMessage(...)
+      ├─ storage.applyMessages(sessionId, messages)
+      └─ reducer rebuilds chat/tool/todo view state</pre>
+          </div>
+        </section>
+
+        <section id="sync" data-search="realtime websocket socket io rooms scopes rpc event router reconnect durable ephemeral presence sequence">
+          <div class="section-head">
+            <div class="section-number">05 / Sync & RPC</div>
+            <div>
+              <h2>Two traffic classes share one socket</h2>
+              <p class="section-intro">Normal state fan-out and point-to-point RPC both use <code>/v1/updates</code>, but have different delivery semantics. Durable updates can be recovered by refetching; RPC requires a live handler owner.</p>
+            </div>
+          </div>
+          <div class="grid two">
+            <article class="card">
+              <span class="tag">Durable + ephemeral fan-out</span>
+              <h3>EventRouter</h3>
+              <p>Persistent <code>update</code> events describe database-backed mutations. Ephemeral events carry presence, thinking, usage, and session status. Recipient filters map to Socket.IO rooms.</p>
+              <ul><li><code>user:&lt;userId&gt;</code></li><li><code>user:&lt;userId&gt;:user-scoped</code></li><li><code>user:&lt;userId&gt;:session:&lt;sessionId&gt;</code></li><li><code>user:&lt;userId&gt;:machine:&lt;machineId&gt;</code></li></ul>
+            </article>
+            <article class="card accent-orange">
+              <span class="tag">Point-to-point control</span>
+              <h3>RPC handler rooms</h3>
+              <p>Handlers register a prefixed method in <code>rpc:&lt;userId&gt;:&lt;method&gt;</code>. Calls are forwarded to a live target, acknowledged, and encrypted with session- or machine-specific keys.</p>
+              <ul><li>Session methods: <code>&lt;sessionId&gt;:&lt;method&gt;</code></li><li>Machine methods: <code>&lt;machineId&gt;:&lt;method&gt;</code></li><li>Reconnect grace before “not available”</li></ul>
+            </article>
+          </div>
+          <div class="flow" style="margin-top:1rem">
+            <div class="flow-head"><span>Remote machine command</span><span>real method prefix and data boundary</span></div>
+            <pre>Talos App calls apiSocket.machineRPC&lt;R, A&gt;(machineId, method, params)
+│
+├─ Encryption.getMachineEncryption(machineId)
+│  └─ encryptRaw(params) → opaque bytes
+│
+├─ socket.emitWithAck("rpc-call")
+│  └─ { method: `${machineId}:${method}`, params: Uint8Array }
+│
+├─ talos-server rpcHandler(userId, socket, io)
+│  ├─ resolves room: rpc:${userId}:${method}
+│  ├─ forwards "rpc-request" to registered machine socket
+│  └─ never needs to decrypt params
+│
+└─ ApiMachineClient / RpcHandlerManager
+   ├─ decrypts params
+   ├─ executes registered local handler
+   └─ encrypts result → ack → app decrypts</pre>
+          </div>
+          <div class="callout">Connection state recovery is intentionally disabled in the current server configuration. On a non-recovered reconnect, the app invalidates and refetches state through REST. Redis streams currently provide cross-replica Socket.IO delivery, not client-side replay.</div>
+        </section>
+
+        <section id="trust" data-search="trust encryption end to end nacl secretbox aes gcm data key ciphertext plaintext metadata server blind authentication">
+          <div class="section-head">
+            <div class="section-number">06 / Trust boundary</div>
+            <div>
+              <h2>The server routes what it cannot read</h2>
+              <p class="section-intro">Talos’s most important architectural boundary sits before transport. Client-held secrets encrypt session messages and state; the backend operates on ciphertext and the minimum metadata needed for coordination.</p>
+            </div>
+          </div>
+          <div class="boundary">
+            <article class="boundary-side trusted">
+              <span class="tag" style="color:var(--green);font:650 .68rem/1 var(--mono);text-transform:uppercase;letter-spacing:.08em">Trusted client edge</span>
+              <h3>Plaintext exists here</h3>
+              <ul><li>Prompt and agent response content</li><li>Session and machine metadata</li><li>Agent state and tool details</li><li>Artifact and KV values</li><li>Session/machine data keys</li></ul>
+            </article>
+            <div class="boundary-rule">encryption boundary</div>
+            <article class="boundary-side blind">
+              <span class="tag" style="color:var(--violet);font:650 .68rem/1 var(--mono);text-transform:uppercase;letter-spacing:.08em">Coordination core</span>
+              <h3>Server-visible material</h3>
+              <ul><li>Account, session, and machine IDs</li><li>Sequence numbers and timestamps</li><li>Presence and routing scope</li><li>Encrypted blobs and wrapped data keys</li><li>Operational metadata and integration tokens</li></ul>
+            </article>
+          </div>
+          <div class="grid two" style="margin-top:1rem">
+            <article class="card">
+              <span class="tag">Legacy encryption</span>
+              <h3>NaCl secretbox</h3>
+              <p>XSalsa20-Poly1305 with a 24-byte nonce and 32-byte shared secret. The wire blob is nonce followed by authenticated ciphertext, then base64 encoded.</p>
+            </article>
+            <article class="card accent-blue">
+              <span class="tag">Data-key encryption</span>
+              <h3>AES-256-GCM</h3>
+              <p>A versioned payload uses a 12-byte nonce, ciphertext, and 16-byte auth tag. The content key is separately wrapped with an ephemeral NaCl box keypair.</p>
+            </article>
+          </div>
+          <div class="callout">End-to-end encryption protects user content, not all metadata. IDs, ownership relationships, timestamps, versions, presence, and usage/account fields remain available to the server because they are required for indexing, routing, billing, or operations.</div>
+        </section>
+
+        <section id="state" data-search="state storage postgres prisma pglite redis s3 local files zustand filesystem sequence concurrency optimistic">
+          <div class="section-head">
+            <div class="section-number">07 / State</div>
+            <div>
+              <h2>State is layered by durability</h2>
+              <p class="section-intro">No single store is authoritative for everything. Database records, encrypted client stores, in-memory presence, local daemon files, and realtime views each serve a different recovery horizon.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Layer</th><th>Owned state</th><th>Consistency / recovery</th><th>Primary implementation</th></tr></thead>
+              <tbody>
+                <tr><td>Postgres / PGlite</td><td>Accounts, sessions, messages, machines, artifacts, access keys, usage, social/feed, KV, voice records.</td><td>Durable source for server APIs. Transactions allocate monotonic account/session sequence numbers.</td><td>Prisma schema + provider adapter</td></tr>
+                <tr><td>Redis streams</td><td>Socket.IO cross-replica broadcast traffic.</td><td>Enables room fan-out across server replicas. Optional in standalone mode.</td><td><code>@socket.io/redis-streams-adapter</code></td></tr>
+                <tr><td>S3 / local files</td><td>Uploaded files and encrypted attachments; database retains references and metadata.</td><td>Object durability depends on configured backend. Local mode guards resolved paths.</td><td>MinIO client or filesystem adapter</td></tr>
+                <tr><td>App Zustand store</td><td>Decrypted sessions, messages, machines, artifacts, view models, drafts, socket state, settings.</td><td>REST bootstrap + realtime reduction. Selected preferences persist locally.</td><td><code>sources/sync/storage.ts</code></td></tr>
+                <tr><td>CLI local state</td><td>Credentials, settings, daemon PID/port/version, locks, logs, temporary attachment material.</td><td>Atomic local files under <code>~/.talos</code> or <code>TALOS_HOME_DIR</code>.</td><td>persistence + daemon control files</td></tr>
+                <tr><td>Presence cache</td><td>Recent session/machine activity and debounce/batch state.</td><td>Transient; periodic timeout marks stale actors inactive and emits an event.</td><td>server activity cache + timeout loop</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="packages" data-search="package map workspace dependencies talos app cli server wire agent talos-desktop app logs">
+          <div class="section-head">
+            <div class="section-number">08 / Package map</div>
+            <div>
+              <h2>Workspace boundaries</h2>
+              <p class="section-intro">The monorepo uses pnpm workspaces. <code>@ahmadposten/talos-wire</code> is the only shared internal package declared across the main app/CLI/server boundary; most other coupling is through HTTP, Socket.IO, and duplicated compatible crypto behavior.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Workspace</th><th>Ships as</th><th>Role</th><th>Key dependencies / boundary</th></tr></thead>
+              <tbody>
+                <tr><td>talos-app</td><td>Expo app, web SPA, Tauri desktop</td><td>Primary end-user remote control UI</td><td>React Native, Expo Router, Zustand, Socket.IO client, libsodium, talos-wire</td></tr>
+                <tr><td>talos-cli</td><td><code>talos</code> and <code>talos-mcp</code> binaries</td><td>Local agent wrapper and machine daemon</td><td>Provider SDKs, Fastify local control, Socket.IO client, sandbox runtime, talos-wire</td></tr>
+                <tr><td>talos-server</td><td>Hosted service or portable binary</td><td>Authenticated sync, persistence, routing, presence, integrations</td><td>Fastify, Socket.IO, Prisma, Postgres/PGlite, Redis, S3, talos-wire</td></tr>
+                <tr><td>talos-agent</td><td><code>talos-agent</code> binary</td><td>Headless session and machine controller</td><td>Commander, Axios, Socket.IO client, TweetNaCl, talos-wire</td></tr>
+                <tr><td>talos-wire</td><td>Internal/public library</td><td>Runtime-validated wire schemas and types</td><td>Zod; no runtime platform dependency</td></tr>
+                <tr><td>talos-desktop</td><td>Electron desktop app</td><td>Desktop-first agent workspace and Talos integration</td><td>Electron, React, worker threads, provider SDKs, SQLite; uses @ahmadposten/talos-wire for shared protocol and encryption contexts</td></tr>
+                <tr><td>talos-app-logs</td><td>Local Node service</td><td>Receives development logs from the app</td><td>Node HTTP only; intentionally isolated</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="deployment" data-search="deployment hosted self hosted standalone portable docker kubernetes postgres pglite redis minio webapp">
+          <div class="section-head">
+            <div class="section-number">09 / Deployment</div>
+            <div>
+              <h2>Hosted and portable modes</h2>
+              <p class="section-intro">The same server domain logic can run as a multi-service hosted deployment or as a self-contained distribution with an embedded database and bundled web app.</p>
+            </div>
+          </div>
+          <div class="grid two">
+            <article class="card">
+              <span class="tag">Hosted</span>
+              <h3>Multi-replica service</h3>
+              <p>Node runs Fastify + Socket.IO against external Postgres. Redis streams distribute room traffic between replicas. S3-compatible object storage handles files. Prometheus metrics are exposed separately.</p>
+              <ul><li>Docker and Kubernetes manifests</li><li>nginx routes API and file domains</li><li>Redis required for cross-replica realtime</li></ul>
+            </article>
+            <article class="card accent-violet">
+              <span class="tag">Self-host / portable</span>
+              <h3>Single distribution</h3>
+              <p>The standalone entry point can run migrations and serve using PGlite in a local data directory, local file storage, and an optional bundled Talos web app served by Fastify.</p>
+              <ul><li><code>talos-server migrate</code></li><li><code>talos-server serve</code></li><li>Redis optional</li><li>HTML config injection for the bundled SPA</li></ul>
+            </article>
+          </div>
+          <div class="flow" style="margin-top:1rem">
+            <div class="flow-head"><span>Server startup</span><span>main hosted path</span></div>
+            <pre>main()
+│
+├─ db.$connect()
+├─ activityCache shutdown hook
+├─ if REDIS_URL → redis.ping()
+├─ initEncrypt() → initGithub() → loadFiles() → auth.init()
+├─ startApi()
+│  ├─ Fastify + Zod validation + auth decorator
+│  ├─ domain route modules
+│  └─ startSocket() at /v1/updates
+├─ startMetricsServer()
+├─ startDatabaseMetricsUpdater()
+├─ startTimeout()  // presence expiry
+└─ awaitShutdown()</pre>
+          </div>
+        </section>
+
+        <section id="observations" data-search="architecture observations sharp edges risks strengths recommendations boundaries protocol duplication complexity">
+          <div class="section-head">
+            <div class="section-number">10 / Observations</div>
+            <div>
+              <h2>What the shape of the code says</h2>
+              <p class="section-intro">These are architectural interpretations from the current source, not product commitments.</p>
+            </div>
+          </div>
+          <div class="observations">
+            <article class="observation"><div><h3>The encryption boundary is the organizing principle.</h3><p>It explains why rich domain objects are reconstructed in clients, why the server stores opaque strings/bytes, and why RPC payloads pass through the backend without server-side interpretation.</p></div></article>
+            <article class="observation"><div><h3>The app sync layer is a de facto client domain service.</h3><p><code>Sync</code> coordinates encryption keys, REST fetches, realtime subscriptions, outboxes, pagination, purchases, artifacts, friends, and notifications. It is powerful, but it concentrates many reasons to change in one long-lived singleton.</p></div></article>
+            <article class="observation"><div><h3>Realtime correctness falls back to durable APIs.</h3><p>Sequence numbers, idempotent local IDs, version checks, and REST invalidation after reconnect form the recovery model. The socket is a low-latency signal path, not the sole source of truth.</p></div></article>
+            <article class="observation"><div><h3>There are two desktop strategies.</h3><p>The Talos App reaches desktop through Tauri around the Expo web target. Codium is a separate Electron architecture with its own renderer, IPC contracts, workers, plugin host, and storage. They should be treated as distinct products until their responsibilities intentionally converge.</p></div></article>
+            <article class="observation"><div><h3>Protocol unification is incomplete by design.</h3><p><code>talos-wire</code> says the newer session envelope is frozen and not the production path; legacy role-based message content remains active. The architecture should not imply that every provider already speaks one canonical event model.</p></div></article>
+            <article class="observation"><div><h3>Standalone mode is more than a deployment toggle.</h3><p>PGlite, local files, static SPA serving, configuration injection, and optional Redis create a materially different operational topology that deserves its own testing and documentation path.</p></div></article>
+          </div>
+        </section>
+
+        <section id="sources" data-search="source trail files evidence entry points documentation">
+          <div class="section-head">
+            <div class="section-number">11 / Evidence</div>
+            <div>
+              <h2>Source trail</h2>
+              <p class="section-intro">The atlas was checked against current entry points and domain implementations at commit <code>a4bc1a40</code>. Existing docs were used for orientation; code was treated as canonical.</p>
+            </div>
+          </div>
+          <ul class="source-list">
+            <li><strong>Workspace definition</strong>package.json · pnpm-workspace.yaml</li>
+            <li><strong>App boot and providers</strong>packages/talos-app/index.ts · sources/app/_layout.tsx</li>
+            <li><strong>App synchronization</strong>packages/talos-app/sources/sync/sync.ts</li>
+            <li><strong>App realtime client</strong>packages/talos-app/sources/sync/apiSocket.ts</li>
+            <li><strong>App state model</strong>packages/talos-app/sources/sync/storage.ts</li>
+            <li><strong>CLI router</strong>packages/talos-cli/src/index.ts</li>
+            <li><strong>CLI daemon</strong>packages/talos-cli/src/daemon/run.ts · controlServer.ts</li>
+            <li><strong>Session/machine clients</strong>packages/talos-cli/src/api/apiSession.ts · apiMachine.ts</li>
+            <li><strong>Server lifecycle</strong>packages/talos-server/sources/main.ts · sources/index.ts</li>
+            <li><strong>HTTP composition</strong>packages/talos-server/sources/app/api/api.ts</li>
+            <li><strong>Socket composition</strong>packages/talos-server/sources/app/api/socket.ts</li>
+            <li><strong>Event routing</strong>packages/talos-server/sources/app/events/eventRouter.ts</li>
+            <li><strong>Persistent data model</strong>packages/talos-server/prisma/schema.prisma</li>
+            <li><strong>Standalone server</strong>packages/talos-server/sources/standalone.ts</li>
+            <li><strong>Shared contracts</strong>packages/talos-wire/src/index.ts · messages.ts · sessionProtocol.ts</li>
+            <li><strong>Automation client</strong>packages/talos-agent/src/index.ts · session.ts · machineRpc.ts</li>
+            <li><strong>Talos desktop renderer + main</strong>packages/talos-desktop/sources/main.tsx · boot/main/index.ts</li>
+            <li><strong>Codium worker boundaries</strong>boot/main/agent-worker · boot/main/talos-worker</li>
+          </ul>
+        </section>
+
+        <footer class="footer">
+          <span>Talos Architecture Atlas · generated from the repository, not from a running production environment.</span>
+          <span>Self-contained HTML · no external assets or scripts.</span>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    const search = document.getElementById("search");
+    const noResults = document.getElementById("no-results");
+    const sections = [...document.querySelectorAll("main section")];
+    const navLinks = [...document.querySelectorAll("nav a")];
+    const savedTheme = localStorage.getItem("talos-architecture-theme");
+    if (savedTheme) root.dataset.theme = savedTheme;
+    else if (matchMedia("(prefers-color-scheme: dark)").matches) root.dataset.theme = "dark";
+
+    document.getElementById("theme").addEventListener("click", () => {
+      root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+      localStorage.setItem("talos-architecture-theme", root.dataset.theme);
+    });
+    document.getElementById("print").addEventListener("click", () => window.print());
+
+    search.addEventListener("input", () => {
+      const query = search.value.trim().toLowerCase();
+      let visible = 0;
+      sections.forEach((section) => {
+        const haystack = `${section.dataset.search || ""} ${section.innerText}`.toLowerCase();
+        const match = !query || haystack.includes(query);
+        section.classList.toggle("search-hidden", !match);
+        const link = document.querySelector(`nav a[href="#${section.id}"]`);
+        if (link) link.classList.toggle("search-hidden", !match);
+        if (match) visible++;
+      });
+      noResults.classList.toggle("visible", visible === 0);
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach((link) => link.classList.toggle("active", link.hash === `#${visible.target.id}`));
+    }, { rootMargin: "-15% 0px -70% 0px", threshold: [0, 0.2, 0.5] });
+    sections.forEach((section) => observer.observe(section));
+  </script>
+</body>
+</html>

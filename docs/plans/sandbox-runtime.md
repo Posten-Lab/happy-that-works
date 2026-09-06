@@ -1,22 +1,22 @@
 # Add Anthropic Sandbox Runtime to CLI
 
 ## Overview
-Integrate `@anthropic-ai/sandbox-runtime` into happy-cli to sandbox both **Claude Code** and **Codex** sessions with OS-level filesystem and network restrictions. The sandbox wraps agent subprocesses, enforcing configurable restrictions without requiring containers.
+Integrate `@anthropic-ai/sandbox-runtime` into talos-cli to sandbox both **Claude Code** and **Codex** sessions with OS-level filesystem and network restrictions. The sandbox wraps agent subprocesses, enforcing configurable restrictions without requiring containers.
 
 Key features:
-- **`happy sandbox configure`** - Interactive CLI wizard (using `inquirer`) to set up sandbox rules
-- **`happy sandbox status`** - Show current sandbox configuration
-- **`happy sandbox disable`** - Turn off sandboxing
+- **`talos sandbox configure`** - Interactive CLI wizard (using `inquirer`) to set up sandbox rules
+- **`talos sandbox status`** - Show current sandbox configuration
+- **`talos sandbox disable`** - Turn off sandboxing
 - **Automatic enforcement** - Once configured, sandbox wraps both Claude and Codex sessions by default (bypass with `--no-sandbox`)
-- **Global config** - Stored in `~/.happy/settings.json` alongside existing settings
+- **Global config** - Stored in `~/.talos/settings.json` alongside existing settings
 - **Dual agent support** - Same sandbox config applies to both Claude Code and Codex
 
 ## Context
-- **Claude spawn point**: `packages/happy-cli/src/claude/claudeLocal.ts:241` - `spawn('node', [claudeCliPath, ...args], {env, ...})`
-- **Codex spawn point**: `packages/happy-cli/src/codex/codexMcpClient.ts:107` - `StdioClientTransport({ command: 'codex', args: ['mcp-server'], env })` which internally calls `cross-spawn('codex', ['mcp-server'])`
-- **Config storage**: `packages/happy-cli/src/persistence.ts` - Settings interface + Zod schemas + atomic `updateSettings()`
-- **Command dispatch**: `packages/happy-cli/src/index.ts` - manual `if/else if` routing on `args[0]`
-- **Existing command pattern**: `packages/happy-cli/src/commands/connect.ts` - exported `handleXxxCommand(args)` functions
+- **Claude spawn point**: `packages/talos-cli/src/claude/claudeLocal.ts:241` - `spawn('node', [claudeCliPath, ...args], {env, ...})`
+- **Codex spawn point**: `packages/talos-cli/src/codex/codexMcpClient.ts:107` - `StdioClientTransport({ command: 'codex', args: ['mcp-server'], env })` which internally calls `cross-spawn('codex', ['mcp-server'])`
+- **Config storage**: `packages/talos-cli/src/persistence.ts` - Settings interface + Zod schemas + atomic `updateSettings()`
+- **Command dispatch**: `packages/talos-cli/src/index.ts` - manual `if/else if` routing on `args[0]`
+- **Existing command pattern**: `packages/talos-cli/src/commands/connect.ts` - exported `handleXxxCommand(args)` functions
 - **Test pattern**: Co-located `.test.ts` files using vitest (e.g., `claudeLocal.test.ts`)
 
 ## Sandbox Runtime API
@@ -84,8 +84,8 @@ The sandbox provides a strict OS-level security boundary (filesystem + network).
 ## Implementation Steps
 
 ### Task 1: Add `@anthropic-ai/sandbox-runtime` and `inquirer` dependencies
-- [x] Run `yarn add @anthropic-ai/sandbox-runtime inquirer` in `packages/happy-cli`
-- [x] Run `yarn add -D @types/inquirer` in `packages/happy-cli`
+- [x] Run `yarn add @anthropic-ai/sandbox-runtime inquirer` in `packages/talos-cli`
+- [x] Run `yarn add -D @types/inquirer` in `packages/talos-cli`
 - [x] Verify packages install and build succeeds
 
 ### Task 2: Define sandbox config Zod schema and persistence
@@ -113,7 +113,7 @@ The sandbox provides a strict OS-level security boundary (filesystem + network).
 - [x] Run tests - must pass before next task
 
 ### Task 3: Create sandbox config builder utility
-- [x] Create `packages/happy-cli/src/sandbox/config.ts`
+- [x] Create `packages/talos-cli/src/sandbox/config.ts`
 - [x] Implement `buildSandboxRuntimeConfig(sandboxConfig, sessionPath)` function that converts our `SandboxConfig` into `SandboxRuntimeConfig`:
   - Resolves `~` in all paths
   - For `sessionIsolation`:
@@ -133,7 +133,7 @@ The sandbox provides a strict OS-level security boundary (filesystem + network).
 - [x] Run tests - must pass before next task
 
 ### Task 4: Create sandbox lifecycle manager
-- [x] Create `packages/happy-cli/src/sandbox/manager.ts`
+- [x] Create `packages/talos-cli/src/sandbox/manager.ts`
 - [x] Implement `initializeSandbox(sandboxConfig, sessionPath)`:
   - Builds runtime config via `buildSandboxRuntimeConfig()`
   - Calls `SandboxManager.initialize(runtimeConfig)`
@@ -147,8 +147,8 @@ The sandbox provides a strict OS-level security boundary (filesystem + network).
 - [x] Write tests for lifecycle manager (mock `SandboxManager`)
 - [x] Run tests - must pass before next task
 
-### Task 5: Create `happy sandbox configure` interactive wizard
-- [x] Create `packages/happy-cli/src/commands/sandbox.ts`
+### Task 5: Create `talos sandbox configure` interactive wizard
+- [x] Create `packages/talos-cli/src/commands/sandbox.ts`
 - [x] Implement `handleSandboxCommand(args: string[])` with subcommand dispatch (`configure`, `status`, `disable`, `help`)
 - [x] Implement `handleSandboxConfigure()` using `inquirer` prompts:
   1. **Workspace root**: `input` prompt - "Where is your workspace root? (e.g. ~/projects)" with default `~/projects`
@@ -172,7 +172,7 @@ The sandbox provides a strict OS-level security boundary (filesystem + network).
 - [x] Write tests for `handleSandboxCommand` argument routing (unit test the dispatch logic)
 - [x] Run tests - must pass before next task
 
-### Task 6: Implement `happy sandbox status` and `happy sandbox disable`
+### Task 6: Implement `talos sandbox status` and `talos sandbox disable`
 - [x] Implement `handleSandboxStatus()` - reads settings, prints formatted sandbox config or "not configured"
 - [x] Implement `handleSandboxDisable()` - sets `sandboxConfig.enabled = false` via `updateSettings()`
 - [x] Implement `handleSandboxHelp()` - prints usage information
@@ -218,17 +218,17 @@ The sandbox provides a strict OS-level security boundary (filesystem + network).
 - [x] Write tests for `--no-sandbox` flag parsing
 - [x] Run tests - must pass before next task
 
-### Task 10: Add `happy sandbox` to help text and polish
-- [x] Add `happy sandbox` to the help text in `index.ts` (alongside `auth`, `connect`, `daemon`, etc.)
+### Task 10: Add `talos sandbox` to help text and polish
+- [x] Add `talos sandbox` to the help text in `index.ts` (alongside `auth`, `connect`, `daemon`, etc.)
 - [x] Add startup message when sandbox is active for both Claude and Codex (e.g., "Sandbox enabled: workspace=~/projects, network=allowed")
 - [x] Handle errors gracefully: if `SandboxManager.initialize()` fails, warn user and continue without sandbox
 - [x] Handle unsupported platforms (Windows): skip sandbox with warning
 - [x] Run tests - must pass before next task
 
 ### Task 11: Verify acceptance criteria
-- [x] Verify `happy sandbox configure` walks through all questions and saves config (automated command tests)
-- [x] Verify `happy sandbox status` shows current config (automated command tests)
-- [x] Verify `happy sandbox disable` turns off sandbox (automated command tests)
+- [x] Verify `talos sandbox configure` walks through all questions and saves config (automated command tests)
+- [x] Verify `talos sandbox status` shows current config (automated command tests)
+- [x] Verify `talos sandbox disable` turns off sandbox (automated command tests)
 - [x] Verify Claude launches with sandbox wrapping when configured (claudeLocal sandbox tests)
 - [x] Verify Claude gets `--dangerously-skip-permissions` auto-added when sandbox is active (claudeLocal sandbox tests)
 - [x] Verify Codex launches with sandbox wrapping when configured (codexMcpClient sandbox tests)
@@ -238,7 +238,7 @@ The sandbox provides a strict OS-level security boundary (filesystem + network).
 - [x] Verify network defaults to "allowed" (unrestricted) (schema default tests)
 - [x] Run full test suite (unit tests)
 - [ ] Run linter - all issues must be fixed
-- ⚠️ Lint blocker: `packages/happy-cli` has no `eslint.config.*` / `.eslintrc*`, so ESLint 9 cannot run in this package.
+- ⚠️ Lint blocker: `packages/talos-cli` has no `eslint.config.*` / `.eslintrc*`, so ESLint 9 cannot run in this package.
 
 ### Task 12: Update documentation
 - [x] Update README.md if it documents CLI commands
@@ -298,7 +298,7 @@ index.ts (parse --no-sandbox for codex subcommand too)
 ## Post-Completion
 
 **Manual verification:**
-- Test `happy sandbox configure` end-to-end on macOS
+- Test `talos sandbox configure` end-to-end on macOS
 - Test that Claude Code sessions actually run inside sandbox (try reading `~/.ssh`)
 - Test that Codex sessions actually run inside sandbox (try reading `~/.ssh`)
 - Test that `--no-sandbox` flag works correctly for both agents

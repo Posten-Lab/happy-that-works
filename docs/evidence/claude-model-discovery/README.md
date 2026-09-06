@@ -1,5 +1,9 @@
 # Claude model discovery validation
 
+This is preserved historical evidence from before the Talos rebrand. Its screenshots,
+package names and commands describe that original validation run; current product
+and deployment instructions are in the Talos release documentation.
+
 Validated on 2026-09-06 from `feat/claude-model-discovery`, based on main `95636e57`.
 The browser ran the changed Happy app at `http://localhost:63838` against a real
 isolated Happy server at `http://localhost:63837`, with a daemon built from this

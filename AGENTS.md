@@ -2,7 +2,7 @@
 
 ## Required delivery workflow
 
-- Every Happy change must go through a pull request. Never push directly to
+- Every Talos change must go through a pull request. Never push directly to
   `main` or `master`, including releases and requests to “sync to main”.
 - Work on a feature branch. Push the branch and open/update its PR as part of
   completing the work; do not ask for push permission each time.

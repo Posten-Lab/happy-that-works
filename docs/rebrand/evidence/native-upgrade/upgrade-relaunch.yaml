@@ -1,0 +1,13 @@
+appId: com.ahposten.happyimproved
+---
+- assertVisible: "This encrypted session existed before the Talos upgrade."
+- assertVisible: "The same session continued after the Talos upgrade."
+- takeScreenshot: talos-continued-session
+- stopApp
+- launchApp
+- assertNotVisible: "Create account"
+- assertVisible: "Terminals"
+- tapOn: "Upgrade continuity check"
+- assertVisible: "This encrypted session existed before the Talos upgrade."
+- assertVisible: "The same session continued after the Talos upgrade."
+- takeScreenshot: talos-session-after-relaunch

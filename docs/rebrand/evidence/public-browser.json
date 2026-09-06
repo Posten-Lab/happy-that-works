@@ -1,0 +1,116 @@
+{
+  "checkedAt": "2026-09-06T17:06:42.667104+00:00",
+  "url": "https://talosapp.ai/",
+  "browser": "agent-browser isolated Chromium",
+  "authenticated": false,
+  "mutations": "none",
+  "initialNormalDns": "ERR_NAME_NOT_RESOLVED (cached negative result)",
+  "responsiveScreenshotsDns": "per-browser host-resolver mapping *talosapp.ai to 35.179.90.95; no machine DNS changes",
+  "finalNormalDns": "PASS in a fresh browser session without resolver arguments",
+  "finalNormalDnsApiCors": {
+    "url": "https://api.talosapp.ai/v1/status",
+    "status": 200,
+    "body": {
+      "protocol": 1,
+      "service": "talos"
+    },
+    "customHeaderPreflight": "PASS"
+  },
+  "finalNormalDnsFilesCors": {
+    "url": "https://files.talosapp.ai/minio/health/live",
+    "status": 200
+  },
+  "title": "Talos",
+  "heading": "Your agents. Your command.",
+  "viewports": [
+    [
+      1440,
+      1000
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "colorSchemes": [
+    "light",
+    "dark"
+  ],
+  "horizontalOverflow": false,
+  "visibleLegacyBrand": false,
+  "legacyHostResources": [],
+  "pageErrors": [],
+  "failedResources": [],
+  "allLogoImagesLoaded": true,
+  "secureContext": true,
+  "staticRoutingReview": "NodePorts match; WebSocket upgrades and file signature Host/path preserved; CORS allows new web origin; database/Redis/bucket compatibility retained",
+  "screenshots": [
+    {
+      "file": "public-welcome-desktop-light.png",
+      "sha256": "49017d92d4d6d11b7253b06409c3f2bdc271cef870d5d3da78be622a9f6e159d",
+      "normalDns": false
+    },
+    {
+      "file": "public-welcome-desktop-dark.png",
+      "sha256": "d239715fb9ec3dbaa79b14ef6d08d75d8fdc8aaea064f10671ee8f9bb3ec1863",
+      "normalDns": false
+    },
+    {
+      "file": "public-welcome-mobile-light.png",
+      "sha256": "0153916090b2757ff1cf9609eb54ea90fdb04ec4f8c2cb77910a1a2a347c2049",
+      "normalDns": false
+    },
+    {
+      "file": "public-welcome-mobile-dark.png",
+      "sha256": "0153916090b2757ff1cf9609eb54ea90fdb04ec4f8c2cb77910a1a2a347c2049",
+      "normalDns": false
+    },
+    {
+      "file": "public-normal-dns-desktop-light.png",
+      "sha256": "49017d92d4d6d11b7253b06409c3f2bdc271cef870d5d3da78be622a9f6e159d",
+      "normalDns": true
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "public-welcome-desktop-light.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "49017d92d4d6d11b7253b06409c3f2bdc271cef870d5d3da78be622a9f6e159d",
+      "dnsOverride": true,
+      "authenticated": false
+    },
+    {
+      "file": "public-welcome-desktop-dark.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "d239715fb9ec3dbaa79b14ef6d08d75d8fdc8aaea064f10671ee8f9bb3ec1863",
+      "dnsOverride": true,
+      "authenticated": false
+    },
+    {
+      "file": "public-welcome-mobile-light.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "0153916090b2757ff1cf9609eb54ea90fdb04ec4f8c2cb77910a1a2a347c2049",
+      "dnsOverride": true,
+      "authenticated": false
+    },
+    {
+      "file": "public-welcome-mobile-dark.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "0153916090b2757ff1cf9609eb54ea90fdb04ec4f8c2cb77910a1a2a347c2049",
+      "dnsOverride": true,
+      "authenticated": false
+    },
+    {
+      "file": "public-normal-dns-desktop-light.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "49017d92d4d6d11b7253b06409c3f2bdc271cef870d5d3da78be622a9f6e159d",
+      "dnsOverride": false,
+      "authenticated": false
+    }
+  ]
+}

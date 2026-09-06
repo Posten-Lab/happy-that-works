@@ -4,15 +4,15 @@ import { pathToFileURL } from 'node:url';
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 export function classifyPath(path) {
   // Native/configuration inputs take precedence over bundled source paths.
-  if (/^packages\/happy-app\/(plugins|patches|ios|android|modules|targets)\//.test(path) ||
-      /^packages\/happy-app\/sources\/assets\//.test(path)) return 'native';
+  if (/^packages\/talos-app\/(plugins|patches|ios|android|modules|targets)\//.test(path) ||
+      /^packages\/talos-app\/sources\/assets\//.test(path)) return 'native';
   if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(path) ||
       /^(docs|\.agents|\.github|deploy|environments)\//.test(path) ||
       /\.md$/.test(path) ||
-      /^packages\/(happy-cli|happy-server|happy-agent|happy-app-logs|codium)\//.test(path) ||
-      /^packages\/happy-app\/(src-tauri|public)\//.test(path)) return 'none';
-  if (/^packages\/happy-app\/(sources\/|index\.[jt]sx?$)/.test(path) ||
-      /^packages\/happy-wire\/src\//.test(path)) return 'ota';
+      /^packages\/(talos-cli|talos-server|talos-agent|talos-app-logs|talos-desktop)\//.test(path) ||
+      /^packages\/talos-app\/(src-tauri|public)\//.test(path)) return 'none';
+  if (/^packages\/talos-app\/(sources\/|index\.[jt]sx?$)/.test(path) ||
+      /^packages\/talos-wire\/src\//.test(path)) return 'ota';
   // Unknown files, shared dependencies, patches and build scripts fail to native.
   return 'native';
 }

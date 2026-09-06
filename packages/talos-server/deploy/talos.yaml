@@ -1,0 +1,201 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: talos-server
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 2
+  replicas: 3
+  selector:
+    matchLabels:
+      app: talos-server
+  template:
+    metadata:
+      labels:
+        app: talos-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: talos
+        image: talos-server:local
+        ports:
+        - containerPort: 3005
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: PORT
+          value: "3005"
+        - name: REDIS_URL
+          value: redis://talos-redis:6379
+        - name: S3_PUBLIC_URL
+          value: http://localhost:9000/talos
+        envFrom:
+        - secretRef:
+            name: talos-secrets
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3005
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 30
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3005
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 30
+          failureThreshold: 10
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: talos-server-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: talos-server
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: talos-secrets
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: SecretStore
+  target:
+    name: talos-secrets
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: /talos-db
+    - extract:
+        key: /talos-master
+    - extract:
+        key: /talos-github
+    - extract:
+        key: /talos-files
+    - extract:
+        key: /talos-e2b
+    - extract:
+        key: /talos-revenuecat
+    - extract:
+        key: /talos-elevenlabs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: talos-server
+spec:
+  selector:
+    app: talos-server
+  ports:
+  - port: 3000
+    targetPort: 3005
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: talos-redis
+  labels:
+    app: talos-redis
+spec:
+  ports:
+  - port: 6379
+    name: redis
+  selector:
+    app: talos-redis
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: talos-redis-config
+data:
+  redis.conf: |
+    dir /data
+    appendonly yes
+    appendfsync everysec
+    save 900 1
+    save 300 10
+    save 60 10000
+    maxmemory-policy noeviction
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: talos-redis
+spec:
+  serviceName: talos-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: talos-redis
+  template:
+    metadata:
+      labels:
+        app: talos-redis
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9121"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command:
+          - redis-server
+          - "/etc/redis/redis.conf"
+        ports:
+        - containerPort: 6379
+          name: redis
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 2Gi
+      - name: redis-exporter
+        image: oliver006/redis_exporter:v1.67.0-alpine
+        ports:
+        - containerPort: 9121
+          name: metrics
+        env:
+        - name: REDIS_ADDR
+          value: "redis://localhost:6379"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+      volumes:
+      - name: redis-config
+        configMap:
+          name: talos-redis-config
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

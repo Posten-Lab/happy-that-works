@@ -1,0 +1,66 @@
+# Initial Talos cutover and release validation — 6 September 2026
+
+This record covers the initial public cutover and validation of the Talos release branch. Public DNS/TLS and session continuity checks passed. The final production deployments, TestFlight delivery, canonical npm installations and any remaining access requirements are recorded in [PR 12](https://github.com/Posten-Lab/happy-that-works/pull/12) and the canonical Jenkins jobs' archived release receipts. Static image hashes below identify the initial cutover, not later automated releases.
+
+## Session continuity
+
+The original checkout and its 26 pre-existing modified/untracked files were preserved. Production resource definitions, secrets, PostgreSQL data and 106 stored objects were backed up privately before rollout. The 263 MB database backup restored successfully in an isolated container with all 190 sessions, including eight marked active.
+
+This machine's account credentials were imported byte-for-byte into `~/.talos` with a separate machine identity. Its 40 cached session keys were imported into a private account-bound index; no daemon ownership or process state was copied. All 40 matching sessions decrypted through both the original API and the new Talos API, and the actual historical resolver succeeded. Twenty-eight currently include provider resume identifiers. Uncached history remains available through the fully authenticated app; CLI access to uncached encryption keys requires full account authentication.
+
+An encrypted, read-only RPC travelled through the new API to the original running daemon and returned its existing path-access restriction. No session start, resume, stop, or daemon restart was requested during that verification. The original daemon remained alive, and all seven original production pods retained their identities and restart counts.
+
+New migrations automatically import available session keys. Later `talos migrate --import-session-keys` calls preserve existing keys, merge newly cached IDs under an exclusive lock, and reject conflicting keys. Ordinary registration and relay-setting changes do not block these imports. See [migration details](migration.md).
+
+The app's account linking defaults to Talos. Selecting **Connect an existing installation** produces a compatible QR code that an already signed-in older app can approve. A browser test verified that this flow decrypted exactly the same synthetic account secret and entered the Talos workspace. This allows migration without exposing a recovery secret in a URL or rewriting account data.
+
+## Initial local command activation
+
+The verified CLI candidate is installed at `~/.local/share/talos/releases/1.0.0-candidate-02cb264efff1`. Both `~/.local/bin/talos` and `talos-mcp` point into that immutable installation; `talos --version` reports 1.0.0. Only CLI and wire packages are installed there. The command uses the migrated account and its verified public Talos API/web URLs. Changing only those two saved URLs preserved the other settings, credentials, key index and original daemon.
+
+Activation preserved the existing command, credentials, settings, key index, receipt and running daemon. No new daemon was started. When switching to a registry installation, remove only activation links still pointing to this recorded candidate; retain its release directory while any running process uses it. Its private installation record and tarballs are retained in the release directory.
+
+## Initial public deployment
+
+Only the following new resources were created in the existing application namespace: `talos-api` Deployment/Service and `talos-web` Deployment/Service. Each deployment has two healthy replicas, separate selectors and NodePorts 32002/32001. They share the existing database, Redis, master secret and object storage. No database migration or datastore rollout was performed.
+
+Initial immutable images:
+
+- API: `ahmadposten/talos-server@sha256:fa3c0d6d68600acc3fc8fc668ad47c5c1e03f586da882beb1fff22fc529d39ae`
+- Web: `ahmadposten/talos-web@sha256:6974d2e225cf2777cff504d1a6d1c0b98f54b4667681b9121e31a0addb8bff15`
+
+Both images were built for Linux amd64. Their checked build contexts, hashes and logs are retained under `/tmp/talos-evidence`. The API snapshot predates npm-only Prisma packaging support; its source runtime and schema are unchanged and its Prisma generation and live account checks passed.
+
+The three Talos DNS A records point to the existing edge, and a trusted certificate covers the web/API/files names through 5 December 2026. Webroot renewal and the existing nginx reload hook are configured. nginx was validated and gracefully reloaded; existing host configurations were preserved. Both Talos API replicas now use `files.talosapp.ai`, and all Talos deployments are healthy.
+
+## Publication preparation and remaining access
+
+Prepared packages are `talosapp@1.0.0`, `@ahmadposten/talos-wire@0.1.0`, `@ahmadposten/talos-agent@0.1.0`, and `@ahmadposten/talos-server@1.0.0`. The command remains `talos`. The unscoped `talos` package belongs to another publisher.
+
+Actual tarballs passed clean isolated, hoisted, and cached installations with CLI/agent version checks, packaged tools, standalone relay, database authentication and bundled web startup. CLI-only installation was separately checked without the optional server or agent packages. Packaging checks also found and fixed version output falling through to authentication and Prisma clients missing from cached installations.
+
+No npm package was published. The registry rejected the first wire-package publication with HTTP 403, requiring two-factor authentication or a granular publishing token with bypass-2FA enabled. A second attempt used a newly supplied token, which authenticated as `ahmadposten`; pnpm's use of the intended private configuration was also verified. The wire prepublish builds and all 29 tests passed, but publication returned the same 2FA-related HTTP 403. A subsequent registry lookup returned 404 for the requested version, confirming that it had not been published. No other packages were attempted.
+
+Publishing authorization must be corrected before another attempt. The [local token setup helper](../../scripts/configure-npm-publishing.py) accepts replacement credentials without displaying them. Publish wire first, then server/agent, then CLI; retain all prepublish checks. Server publication needs the verified Bun executable available on PATH.
+
+The default AWS profile resolves to IAM user `quietplan-backend`. After the user granted its DNS permissions, the verified public zone `Z07313861V4CRG5EG7OMH` accepted the three new records; change `C0626508363V3HC8OSIPO` is INSYNC. The [additive production runbook](../../deploy/talos-production/README.md) records the deployment and rollback route.
+
+Normal DNS and trusted HTTPS passed in a fresh browser, including cross-origin API/files access. All 40 imported session keys decrypted through the public Talos API and an encrypted read-only RPC reached the original daemon. A new opaque test attachment passed presigned multipart upload, signed download, CORS and byte/decryption checks; only that exact verification object was then removed. Original account files, daemon and all seven original production pods remained unchanged. Only the Talos installation's saved API/web URLs were updated. [Public rollout evidence](evidence/public-rollout.json) records the results.
+
+The delivery branch has integrated the latest main through a normal merge and is under review in [PR 12](https://github.com/Posten-Lab/happy-that-works/pull/12). Independent review added regression coverage for accepted socket writes during shutdown and interrupted deployment recovery. The release command now requires explicit publication and validates bundled web endpoints before uploading. Read-only encrypted RPC through public Talos HTTPS reached both original MacBook and Dell machines and an active session on each; no new daemon or global package was installed.
+
+The production delivery sequence continues with the hardened Jenkins/runtime release, canonical npm installation/connection on MacBook and Dell, and the Talos native update. Consult the linked release record for their final outcome. npm publishing still needs a token satisfying its 2FA requirement. Apple rejected the exact listing name `Talos` as already used by another account. The existing listing now uses `Talos — AI Coding Agents`; its installed app display name remains Talos. App Store Connect currently contains a draft public listing and valid TestFlight build 14, so the next native delivery targets the existing TestFlight installation.
+
+## Validation
+
+The recorded suites comprise app 742, CLI 797, wire 29, server 101, release/configuration 66, and iOS artifact gate 14, plus the previously passed unchanged agent 230 and desktop 102 suites. Relevant typechecks, frozen installation, branding and whitespace checks passed. Eleven focused CLI launcher/wrapper checks verified the Windows fallback fix. Fresh final archives passed all five real installation scenarios on Mac, including actual search behavior, database authentication and cached server startup. Hosted Linux and Windows packaging passed on Node 20 and 24.
+
+The three Jenkins jobs were renamed with their histories retained. Live web66 and server58 validations passed all relevant tests and export/typecheck steps, with delivery stages skipped. Mobile21 passed 23 release/download checks, the then-current artifact tests, wire29, app742, typecheck and native export. The completed executable gate has 14 test groups, verified on Mac and in the actual Linux EAS image. It uses pinned tools to check every executable slice, matching XML/DER entitlements, the retained default keychain group, profile identity and exact reviewed version/runtime before submission. The actual previous build14 executable passed, and an altered copy was rejected. Full Apple/platform validation is distinct from the documented portable tool checks.
+
+The [native install-over-existing test](evidence/native-upgrade/README.md) passed completely: the account and old encrypted message survived without login or restore; Talos sent another message into that same conversation; both messages remained readable after native restart, and the explicit Light preference survived. These simulator binaries use ad hoc signing. The previously distributed store IPA was inspected separately, and the final distribution artifact is gated before submission. Earlier Android arm64 Release and Tauri macOS builds also passed.
+
+Earlier interactive checks covered light/dark desktop and phone layouts, browser and native CLI pairing, fresh accounts, settings, an encrypted synthetic session message, and an isolated daemon lifecycle. The final QR migration flow adds a verified older-client approval path. [Screenshots and hashes](evidence/screenshots.json) contain synthetic accounts only.
+
+Build orchestration must finish wire rebuilds before consumer tests. Concurrent native Metro builds need separate temporary/cache directories; an Android cache collision was resolved by using its own temporary directory and rebuilding successfully.
+
+A [sanitized verification manifest](evidence/verification.json) records suite totals, package hashes, session decryption and process-preservation results.

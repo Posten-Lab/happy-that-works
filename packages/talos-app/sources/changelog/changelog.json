@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "title": "Welcome to Talos",
+      "summary": "Your agents. Your command.",
+      "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
+    }
+  ],
+  "latestTitle": "Welcome to Talos"
+}

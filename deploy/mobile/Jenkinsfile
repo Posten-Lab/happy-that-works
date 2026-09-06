@@ -1,7 +1,7 @@
 pipeline {
   // Reuses the same `eas` Jenkins agent pod template that benjamins-mobile
-  // uses (Node + eas-cli). The happy app is a pnpm monorepo, so all EAS
-  // commands run from packages/happy-app after a workspace install.
+  // uses (Node + eas-cli). The talos app is a pnpm monorepo, so all EAS
+  // commands run from packages/talos-app after a workspace install.
   agent { kubernetes { label 'eas'; defaultContainer 'jnlp' } }
 
   options {
@@ -24,16 +24,21 @@ pipeline {
     // These four credentials are the SAME ones benjamins-mobile already
     // uses. App Store Connect API keys are team-wide (not per-app), so the
     // existing key works for any app under Apple team H2XR8XWZXW. EXPO_TOKEN
-    // must belong to the Expo account that owns the happy EAS project.
+    // must belong to the Expo account that owns the talos EAS project.
     EXPO_TOKEN         = credentials('expo-token')
     EXPO_ASC_KEY_ID    = credentials('asc-key-id')
     EXPO_ASC_ISSUER_ID = credentials('asc-issuer-id')
     EXPO_APPLE_TEAM_ID = 'H2XR8XWZXW'
     EXPO_APPLE_TEAM_TYPE = 'INDIVIDUAL'
     // Monorepo: EAS is driven from the app package.
-    APP_DIR = 'packages/happy-app'
+    APP_DIR = 'packages/talos-app'
     APP_ENV = 'production'
     CI = '1'
+    TALOS_EAS_PROJECT_ID = '4445e993-5eaa-4a1a-8754-7068e8565e64'
+    TALOS_EXPO_OWNER = 'posten-lab'
+    EXPO_PUBLIC_TALOS_SERVER_URL = 'https://api.talosapp.ai'
+    EXPO_PUBLIC_TALOS_WEBAPP_URL = 'https://talosapp.ai'
+    EXPO_PUBLIC_TALOS_INSTALL_COMMAND = 'npm install -g talosapp'
     // The eas-agent runs as non-root (uid 1000) with npm prefix /usr, so
     // `corepack enable` can't symlink pnpm into /usr/bin. Install the pnpm
     // shim into a writable dir and put it on PATH for every stage. Version
@@ -55,9 +60,15 @@ pipeline {
           if (!env.GIT_BRANCH || !(env.GIT_COMMIT ==~ /[0-9a-f]{40}/)) {
             error('Checkout did not return a branch and exact commit; refusing an unclassified release')
           }
+          def actual = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+          if (actual != env.GIT_COMMIT) error('Checkout revision mismatch')
           echo "Checked out ${env.GIT_BRANCH} at ${env.GIT_COMMIT}"
         }
       }
+    }
+
+    stage('Validate production identity') {
+      steps { sh 'node scripts/verify-release-config.cjs ios && node scripts/verify-brand.cjs' }
     }
 
     stage('Install') {
@@ -70,21 +81,28 @@ pipeline {
           mkdir -p /home/jenkins/.pnpm-bin
           corepack enable --install-directory /home/jenkins/.pnpm-bin pnpm
           corepack prepare pnpm@10.11.0 --activate
-          # Install ONLY the happy-app subgraph. The repo .npmrc defaults to
+          # Install ONLY the talos-app subgraph. The repo .npmrc defaults to
           # node-linker=hoisted, which flattens every workspace dep to root
-          # and builds codium's node-pty (needs `make`, absent here) even
+          # and builds talos-desktop's node-pty (needs `make`, absent here) even
           # with --filter. Override to isolated (exactly like
-          # Dockerfile.webapp) so the filter truly excludes codium/node-pty.
-          SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happy-app... \
+          # Dockerfile.webapp) so the filter truly excludes talos-desktop/node-pty.
+          SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter talos-app... \
             --config.node-linker=isolated --config.shamefully-hoist=false
-          # happy-app's typecheck imports @slopus/happy-wire's built output.
-          pnpm --filter @slopus/happy-wire build
+          # talos-app's typecheck imports @ahmadposten/talos-wire's built output.
+          pnpm --filter @ahmadposten/talos-wire test
         '''
       }
     }
 
     stage('Release selector tests') {
-      steps { sh 'node --test deploy/mobile/release-plan.test.mjs' }
+      steps {
+        sh 'node --test deploy/mobile/release-plan.test.mjs deploy/mobile/download-ios-artifact.test.cjs'
+        script {
+          env.SIGNATURE_TOOLS_ROOT = sh(script: 'mktemp -d /tmp/talos-signature-tools.XXXXXX', returnStdout: true).trim()
+        }
+        sh 'python3 deploy/mobile/apple_signature_tools.py --output-dir "$SIGNATURE_TOOLS_ROOT/tools"'
+        sh "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/mobile -p 'test_ios_ipa.py' -v"
+      }
     }
 
     stage('App tests and typecheck') {
@@ -139,16 +157,17 @@ pipeline {
         dir("${APP_DIR}") {
           sh '''
             eas fingerprint:generate --build-profile production --platform ios --json --non-interactive > fingerprint-result.json
-            RUNTIME=$(node -e 'const f=require("./fingerprint-result.json"); if (!/^[a-f0-9]{40}$/.test(f.hash)) process.exit(1); console.log(f.hash)')
+            pnpm exec expo config --type public --json > runtime-config.json
+            RUNTIME=$(node -e 'const c=require("./runtime-config.json"); if (typeof c.runtimeVersion !== "string" || !c.runtimeVersion) process.exit(1); console.log(c.runtimeVersion)')
             eas build:list --platform ios --build-profile production --channel production \
               --distribution store --status finished --runtime-version "$RUNTIME" \
-              --limit 1 --json --non-interactive > compatible-builds.json
+              --limit 50 --json --non-interactive > compatible-builds.json
           '''
           script {
             def compatible = sh(script: 'node ../../deploy/mobile/compatible-runtime.cjs', returnStdout: true).trim()
             if (compatible != 'yes') {
               if (params.MOBILE_RELEASE_MODE == 'ota') {
-                error('No finished production binary matches the OTA runtime; use auto or native')
+                error('No finished production binary matches both the OTA runtime and native fingerprint; use auto or native')
               }
               env.MOBILE_RELEASE_KIND = 'native'
               echo 'No compatible production binary: building native instead'
@@ -163,6 +182,7 @@ pipeline {
       steps {
         dir("${APP_DIR}") {
           sh '''
+            node ../../scripts/verify-release-config.cjs ios
             eas update --channel production --environment production --platform ios \
               --message "git-$GIT_COMMIT" --non-interactive
           '''
@@ -178,13 +198,25 @@ pipeline {
             sh '''
               set +x
               umask 077
-              trap 'rm -f /tmp/asc-key.p8' EXIT HUP INT TERM
-              printf '%s' "$ASC_KEY_P8_B64" | base64 -d > /tmp/asc-key.p8
-              export EXPO_ASC_API_KEY_PATH=/tmp/asc-key.p8
+              node ../../scripts/verify-release-config.cjs ios
+              EXPO_ASC_API_KEY_PATH=$(mktemp /tmp/talos-asc-key.XXXXXX)
+              export EXPO_ASC_API_KEY_PATH
+              IPA_DIR=''
+              trap 'rm -f "$EXPO_ASC_API_KEY_PATH"; if [ -n "$IPA_DIR" ]; then rm -rf "$IPA_DIR"; fi' EXIT HUP INT TERM
+              printf '%s' "$ASC_KEY_P8_B64" | base64 -d > "$EXPO_ASC_API_KEY_PATH"
+              unset ASC_KEY_P8_B64
               # Submit reads its key from eas.json, not EXPO_ASC_API_KEY_PATH.
               node ../../deploy/mobile/prepare-submit.cjs
+              pnpm exec expo config --type public --json > ipa-expected-config.json
+              IPA_VERSION=$(node -e 'const c=require("./ipa-expected-config.json"); if (typeof c.version !== "string" || !c.version) process.exit(1); console.log(c.version)')
+              IPA_RUNTIME=$(node -e 'const c=require("./ipa-expected-config.json"); if (typeof c.runtimeVersion !== "string" || !c.runtimeVersion) process.exit(1); console.log(c.runtimeVersion)')
               eas build -p ios --profile production --non-interactive --wait --json > build-result.json
               node ../../deploy/mobile/build-id.cjs build-result.json > build-id.txt
+              IPA_DIR=$(mktemp -d /tmp/talos-ios-artifact.XXXXXX)
+              node ../../deploy/mobile/download-ios-artifact.cjs build-result.json "$IPA_DIR/verified.ipa" > artifact-download.json
+              python3 ../../deploy/mobile/verify-ios-ipa.py "$IPA_DIR/verified.ipa" \
+                --expected-version "$IPA_VERSION" --expected-runtime "$IPA_RUNTIME" \
+                --signature-tools "$SIGNATURE_TOOLS_ROOT/tools" --output ipa-verification.json
               eas submit -p ios --profile production --id "$(cat build-id.txt)" --non-interactive --wait
             '''
           }
@@ -203,5 +235,15 @@ pipeline {
     }
   }
 
-  post { always { cleanWs() } }
+  post {
+    always {
+      archiveArtifacts artifacts: 'packages/talos-app/build-id.txt,packages/talos-app/artifact-download.json,packages/talos-app/ipa-verification.json', allowEmptyArchive: true
+      sh '''
+        case "${SIGNATURE_TOOLS_ROOT:-}" in
+          /tmp/talos-signature-tools.*) rm -rf -- "$SIGNATURE_TOOLS_ROOT" ;;
+        esac
+      '''
+      cleanWs()
+    }
+  }
 }

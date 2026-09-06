@@ -1,0 +1,93 @@
+{
+  "dns": {
+    "zoneId": "Z07313861V4CRG5EG7OMH",
+    "changeId": "C0626508363V3HC8OSIPO",
+    "status": "INSYNC",
+    "records": {
+      "talosapp.ai": "35.179.90.95",
+      "api.talosapp.ai": "35.179.90.95",
+      "files.talosapp.ai": "35.179.90.95"
+    }
+  },
+  "tls": {
+    "trustedCertificate": true,
+    "expires": "2026-12-05",
+    "webrootRenewal": true,
+    "renewalTimerEnabled": true,
+    "existingNginxReloadHookVerified": true
+  },
+  "continuity": {
+    "verifiedAt": "2026-09-06T17:04:39.066594+00:00",
+    "endpoint": "https://api.talosapp.ai",
+    "ordinaryDns": true,
+    "dnsOverride": false,
+    "tlsCertificateValidation": true,
+    "sessionControlRequests": 0,
+    "originalCredentialsAndSettingsMatchPrivateBackup": true,
+    "podsBefore": {
+      "expectedOriginalPods": 7,
+      "unchangedOriginalPodIdentitiesAndRestarts": 7,
+      "allOriginalPodsPreserved": true
+    },
+    "daemonBefore": {
+      "originalDaemonPidPreserved": true,
+      "originalDaemonAlive": true,
+      "originalDaemonCommandPreserved": true
+    },
+    "sessions": {
+      "directHttpsEndpoint": "https://api.talosapp.ai",
+      "verifiedAt": "2026-09-06T17:04:44.972Z",
+      "returnedAccountSessions": 150,
+      "activeAccountSessions": 8,
+      "importedKeys": 40,
+      "matchingAccountSessions": 40,
+      "decryptedSessionMetadata": 40,
+      "providerResumeMetadata": 28,
+      "actualResolverSucceeded": true,
+      "noSessionControlRequests": true
+    },
+    "daemonRpc": {
+      "directHttpsEndpoint": "https://api.talosapp.ai",
+      "verifiedAt": "2026-09-06T17:04:46.839Z",
+      "talosApiConnectedToExistingDaemon": true,
+      "encryptedRpcRoundTrip": true,
+      "readOnlyMethod": "listDirectory",
+      "existingDaemonPathPolicyEnforced": true,
+      "originalDaemonAlive": true,
+      "sessionControlRequests": 0
+    },
+    "podsAfter": {
+      "expectedOriginalPods": 7,
+      "unchangedOriginalPodIdentitiesAndRestarts": 7,
+      "allOriginalPodsPreserved": true
+    },
+    "daemonAfter": {
+      "originalDaemonPidPreserved": true,
+      "originalDaemonAlive": true,
+      "originalDaemonCommandPreserved": true
+    },
+    "protectedAccountFilesUnchanged": true,
+    "passed": true
+  },
+  "attachment": {
+    "verifiedAt": "2026-09-06T17:08:49.714Z",
+    "ordinaryDns": true,
+    "trustedHttps": true,
+    "apiOrigin": "https://api.talosapp.ai",
+    "storageOrigin": "https://files.talosapp.ai",
+    "presignedPostUpload": true,
+    "presignedGetDownload": true,
+    "preflightAndResponseCors": true,
+    "encryptedBytesAndDecryptionMatch": true,
+    "verificationObjectRemoved": true,
+    "existingSessionMessagesUnchanged": true
+  },
+  "localUrls": {
+    "talosSavedServerUrl": "https://api.talosapp.ai",
+    "talosSavedWebappUrl": "https://talosapp.ai",
+    "otherSettingsPreserved": true,
+    "protectedCredentialsAndKeysPreserved": true,
+    "originalCredentialsAndSettingsPreserved": true,
+    "originalDaemonAlive": true
+  }
+}

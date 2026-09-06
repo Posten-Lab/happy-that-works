@@ -9,340 +9,20 @@ overrides:
   parse-path: 7.0.3
   '@types/parse-path': 7.0.3
 
+patchedDependencies:
+  '@react-native/gradle-plugin@0.83.1':
+    hash: c1b594a16e682d621b6a960926f8ce13fc92edfb397884cfe7fcb0518996a784
+    path: patches/@react-native__gradle-plugin@0.83.1.patch
+
 importers:
 
   .: {}
 
-  packages/codium:
+  packages/talos-agent:
     dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: 0.3.220
-        version: 0.3.220(@anthropic-ai/sdk@0.96.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
-      '@anthropic-ai/claude-code':
-        specifier: 2.1.143
-        version: 2.1.143
-      '@anthropic-ai/sdk':
-        specifier: ^0.96.0
-        version: 0.96.0(zod@4.4.3)
-      '@dnd-kit/accessibility':
-        specifier: ^3.1.1
-        version: 3.1.1(react@19.2.0)
-      '@dnd-kit/core':
-        specifier: ^6.3.1
-        version: 6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@dnd-kit/modifiers':
-        specifier: ^9.0.0
-        version: 9.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
-      '@dnd-kit/sortable':
-        specifier: ^10.0.0
-        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
-      '@dnd-kit/utilities':
-        specifier: ^3.2.2
-        version: 3.2.2(react@19.2.0)
-      '@floating-ui/react':
-        specifier: ^0.27.19
-        version: 0.27.19(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@headless-tree/core':
-        specifier: ^1.6.3
-        version: 1.6.3
-      '@lexical/clipboard':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/code':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/history':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/link':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/list':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/markdown':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/plain-text':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/react':
-        specifier: ^0.43.0
-        version: 0.43.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(yjs@13.6.30)
-      '@lexical/rich-text':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/selection':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/utils':
-        specifier: ^0.43.0
-        version: 0.43.0
-      '@lexical/yjs':
-        specifier: ^0.43.0
-        version: 0.43.0(yjs@13.6.30)
-      '@openai/codex':
-        specifier: 0.130.0
-        version: 0.130.0
-      '@radix-ui/react-accordion':
-        specifier: ^1.2.12
-        version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-checkbox':
-        specifier: ^1.3.3
-        version: 1.3.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-collapsible':
-        specifier: ^1.1.12
-        version: 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-context-menu':
-        specifier: ^2.2.16
-        version: 2.2.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-dialog':
-        specifier: ^1.1.15
-        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-dropdown-menu':
-        specifier: ^2.1.16
-        version: 2.1.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-hover-card':
-        specifier: ^1.1.15
-        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-popover':
-        specifier: ^1.1.15
-        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-select':
-        specifier: ^2.2.6
-        version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-slot':
-        specifier: ^1.2.4
-        version: 1.2.4(@types/react@19.2.14)(react@19.2.0)
-      '@radix-ui/react-tooltip':
-        specifier: ^1.2.8
-        version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@radix-ui/react-visually-hidden':
-        specifier: ^1.2.4
-        version: 1.2.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@shikijs/transformers':
-        specifier: ^4.0.2
-        version: 4.0.2
-      '@tanstack/react-form':
-        specifier: ^1.29.0
-        version: 1.29.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@tanstack/react-query':
-        specifier: ^5.99.2
-        version: 5.99.2(react@19.2.0)
-      '@tanstack/react-store':
-        specifier: ^0.11.0
-        version: 0.11.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      '@wterm/dom':
-        specifier: ^0.1.9
-        version: 0.1.9
-      '@wterm/react':
-        specifier: ^0.1.9
-        version: 0.1.9(@wterm/dom@0.1.9)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      better-sqlite3:
-        specifier: ^12.9.0
-        version: 12.9.0
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      cmdk:
-        specifier: ^1.1.1
-        version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      d3:
-        specifier: ^7.9.0
-        version: 7.9.0
-      date-fns:
-        specifier: ^4.1.0
-        version: 4.1.0
-      dayjs:
-        specifier: ^1.11.20
-        version: 1.11.20
-      electron-context-menu:
-        specifier: ^4.1.2
-        version: 4.1.2
-      electron-dl:
-        specifier: ^4.0.0
-        version: 4.0.0
-      electron-is-dev:
-        specifier: ^3.0.1
-        version: 3.0.1
-      framer-motion:
-        specifier: ^12.38.0
-        version: 12.38.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      fuse.js:
-        specifier: ^7.1.0
-        version: 7.1.0
-      jotai:
-        specifier: ^2.19.1
-        version: 2.19.1(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.14)(react@19.2.0)
-      jotai-effect:
-        specifier: ^2.2.3
-        version: 2.2.3(jotai@2.19.1(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.14)(react@19.2.0))
-      jotai-tanstack-query:
-        specifier: ^0.11.0
-        version: 0.11.0(@tanstack/query-core@5.99.2)(@tanstack/react-query@5.99.2(react@19.2.0))(jotai@2.19.1(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
-      katex:
-        specifier: ^0.16.45
-        version: 0.16.45
-      lexical:
-        specifier: ^0.43.0
-        version: 0.43.0
-      marked:
-        specifier: ^18.0.2
-        version: 18.0.2
-      node-pty:
-        specifier: ^1.1.0
-        version: 1.1.0
-      prosemirror-commands:
-        specifier: ^1.7.1
-        version: 1.7.1
-      prosemirror-gapcursor:
-        specifier: ^1.4.1
-        version: 1.4.1
-      prosemirror-history:
-        specifier: ^1.5.0
-        version: 1.5.0
-      prosemirror-keymap:
-        specifier: ^1.2.3
-        version: 1.2.3
-      prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
-      prosemirror-state:
-        specifier: ^1.4.4
-        version: 1.4.4
-      prosemirror-transform:
-        specifier: ^1.12.0
-        version: 1.12.0
-      prosemirror-view:
-        specifier: ^1.41.8
-        version: 1.41.8
-      qrcode:
-        specifier: ^1.5.4
-        version: 1.5.4
-      react-intl:
-        specifier: ^10.1.2
-        version: 10.1.2(@types/react@19.2.14)(react@19.2.0)
-      react-router-dom:
-        specifier: ^7.14.1
-        version: 7.14.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      remark:
-        specifier: ^15.0.1
-        version: 15.0.1
-      remark-breaks:
-        specifier: ^4.0.0
-        version: 4.0.0
-      remark-directive:
-        specifier: ^4.0.0
-        version: 4.0.0
-      remark-gfm:
-        specifier: ^4.0.1
-        version: 4.0.1
-      remark-parse:
-        specifier: ^11.0.0
-        version: 11.0.0
-      remark-rehype:
-        specifier: ^11.1.2
-        version: 11.1.2
-      remark-stringify:
-        specifier: ^11.0.0
-        version: 11.0.0
-      shiki:
-        specifier: ^4.0.2
-        version: 4.0.2
-      streamdown:
-        specifier: ^2.5.0
-        version: 2.5.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      tailwind-merge:
-        specifier: ^3.5.0
-        version: 3.5.0
-      tailwind-styled-components:
-        specifier: ^2.2.0
-        version: 2.2.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      tweetnacl:
-        specifier: ^1.0.3
-        version: 1.0.3
-      uuid:
-        specifier: ^14.0.0
-        version: 14.0.0
-      yjs:
-        specifier: ^13.6.30
-        version: 13.6.30
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-      zod-to-json-schema:
-        specifier: ^3.25.2
-        version: 3.25.2(zod@4.4.3)
-    devDependencies:
-      '@electron-toolkit/preload':
-        specifier: ^3.0.2
-        version: 3.0.2(electron@41.2.1)
-      '@electron-toolkit/tsconfig':
-        specifier: ^2.0.0
-        version: 2.0.0(@types/node@24.12.2)
-      '@electron-toolkit/utils':
-        specifier: ^4.0.0
-        version: 4.0.0(electron@41.2.1)
-      '@electron/rebuild':
-        specifier: ^4.0.3
-        version: 4.0.3
-      '@tailwindcss/vite':
-        specifier: ^4.2.3
-        version: 4.2.3(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
-      '@types/d3':
-        specifier: ^7.4.3
-        version: 7.4.3
-      '@types/katex':
-        specifier: ^0.16.8
-        version: 0.16.8
-      '@types/qrcode':
-        specifier: ^1.5.5
-        version: 1.5.6
-      '@types/react':
-        specifier: ^19.2.14
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@types/uuid':
-        specifier: ^11.0.0
-        version: 11.0.0
-      '@vitejs/plugin-react':
-        specifier: ^6.0.1
-        version: 6.0.1(babel-plugin-react-compiler@1.0.0)(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
-      electron:
-        specifier: ^41.2.1
-        version: 41.2.1
-      electron-vite:
-        specifier: ^5.0.0
-        version: 5.0.0(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
-      react:
-        specifier: 19.2.0
-        version: 19.2.0
-      react-dom:
-        specifier: 19.2.0
-        version: 19.2.0(react@19.2.0)
-      tailwindcss:
-        specifier: ^4.2.3
-        version: 4.2.3
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vite:
-        specifier: ^8.0.9
-        version: 8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-      vitest:
-        specifier: ^4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.2)(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
-
-  packages/happy-agent:
-    dependencies:
-      '@slopus/happy-wire':
+      '@ahmadposten/talos-wire':
         specifier: workspace:*
-        version: link:../happy-wire
+        version: link:../talos-wire
       axios:
         specifier: ^1.13.2
         version: 1.13.4
@@ -384,8 +64,11 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.13)(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/happy-app:
+  packages/talos-app:
     dependencies:
+      '@ahmadposten/talos-wire':
+        specifier: workspace:*
+        version: link:../talos-wire
       '@codemirror/lang-cpp':
         specifier: ^6.0.3
         version: 6.0.3
@@ -503,9 +186,6 @@ importers:
       '@shopify/react-native-skia':
         specifier: ~2.5.3
         version: 2.5.3(react-native-reanimated@4.2.3(react-native-worklets@0.7.2(@babel/core@7.28.6)(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0)
-      '@slopus/happy-wire':
-        specifier: workspace:*
-        version: link:../happy-wire
       '@tauri-apps/api':
         specifier: 2.9.1
         version: 2.9.1
@@ -895,7 +575,7 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/happy-app-logs:
+  packages/talos-app-logs:
     devDependencies:
       '@types/node':
         specifier: '>=20'
@@ -907,11 +587,17 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/happy-cli:
+  packages/talos-cli:
     dependencies:
       '@agentclientprotocol/sdk':
         specifier: ^0.14.1
         version: 0.14.1(zod@4.4.3)
+      '@ahmadposten/talos-server':
+        specifier: workspace:^
+        version: link:../talos-server
+      '@ahmadposten/talos-wire':
+        specifier: workspace:*
+        version: link:../talos-wire
       '@anthropic-ai/claude-agent-sdk':
         specifier: 0.3.220
         version: 0.3.220(@anthropic-ai/sdk@0.96.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
@@ -930,9 +616,6 @@ importers:
       '@paralleldrive/cuid2':
         specifier: ^2.2.2
         version: 2.3.1
-      '@slopus/happy-wire':
-        specifier: workspace:*
-        version: link:../happy-wire
       '@stablelib/base64':
         specifier: ^2.0.1
         version: 2.0.1
@@ -1061,8 +744,339 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.13)(@types/node@20.19.39)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/happy-server:
+  packages/talos-desktop:
     dependencies:
+      '@ahmadposten/talos-wire':
+        specifier: workspace:*
+        version: link:../talos-wire
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: 0.3.220
+        version: 0.3.220(@anthropic-ai/sdk@0.96.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
+      '@anthropic-ai/claude-code':
+        specifier: 2.1.143
+        version: 2.1.143
+      '@anthropic-ai/sdk':
+        specifier: ^0.96.0
+        version: 0.96.0(zod@4.4.3)
+      '@dnd-kit/accessibility':
+        specifier: ^3.1.1
+        version: 3.1.1(react@19.2.0)
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@dnd-kit/modifiers':
+        specifier: ^9.0.0
+        version: 9.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.2.0)
+      '@floating-ui/react':
+        specifier: ^0.27.19
+        version: 0.27.19(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@headless-tree/core':
+        specifier: ^1.6.3
+        version: 1.6.3
+      '@lexical/clipboard':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/code':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/history':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/link':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/list':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/markdown':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/plain-text':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/react':
+        specifier: ^0.43.0
+        version: 0.43.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(yjs@13.6.30)
+      '@lexical/rich-text':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/selection':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/utils':
+        specifier: ^0.43.0
+        version: 0.43.0
+      '@lexical/yjs':
+        specifier: ^0.43.0
+        version: 0.43.0(yjs@13.6.30)
+      '@openai/codex':
+        specifier: 0.130.0
+        version: 0.130.0
+      '@radix-ui/react-accordion':
+        specifier: ^1.2.12
+        version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-checkbox':
+        specifier: ^1.3.3
+        version: 1.3.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-collapsible':
+        specifier: ^1.1.12
+        version: 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-context-menu':
+        specifier: ^2.2.16
+        version: 2.2.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.15
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-dropdown-menu':
+        specifier: ^2.1.16
+        version: 2.1.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-hover-card':
+        specifier: ^1.1.15
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-popover':
+        specifier: ^1.1.15
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-select':
+        specifier: ^2.2.6
+        version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-slot':
+        specifier: ^1.2.4
+        version: 1.2.4(@types/react@19.2.14)(react@19.2.0)
+      '@radix-ui/react-tooltip':
+        specifier: ^1.2.8
+        version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@radix-ui/react-visually-hidden':
+        specifier: ^1.2.4
+        version: 1.2.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@shikijs/transformers':
+        specifier: ^4.0.2
+        version: 4.0.2
+      '@tanstack/react-form':
+        specifier: ^1.29.0
+        version: 1.29.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@tanstack/react-query':
+        specifier: ^5.99.2
+        version: 5.99.2(react@19.2.0)
+      '@tanstack/react-store':
+        specifier: ^0.11.0
+        version: 0.11.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@wterm/dom':
+        specifier: ^0.1.9
+        version: 0.1.9
+      '@wterm/react':
+        specifier: ^0.1.9
+        version: 0.1.9(@wterm/dom@0.1.9)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      better-sqlite3:
+        specifier: ^12.9.0
+        version: 12.9.0
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      cmdk:
+        specifier: ^1.1.1
+        version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      d3:
+        specifier: ^7.9.0
+        version: 7.9.0
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
+      dayjs:
+        specifier: ^1.11.20
+        version: 1.11.20
+      electron-context-menu:
+        specifier: ^4.1.2
+        version: 4.1.2
+      electron-dl:
+        specifier: ^4.0.0
+        version: 4.0.0
+      electron-is-dev:
+        specifier: ^3.0.1
+        version: 3.0.1
+      framer-motion:
+        specifier: ^12.38.0
+        version: 12.38.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      fuse.js:
+        specifier: ^7.1.0
+        version: 7.1.0
+      jotai:
+        specifier: ^2.19.1
+        version: 2.19.1(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.14)(react@19.2.0)
+      jotai-effect:
+        specifier: ^2.2.3
+        version: 2.2.3(jotai@2.19.1(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.14)(react@19.2.0))
+      jotai-tanstack-query:
+        specifier: ^0.11.0
+        version: 0.11.0(@tanstack/query-core@5.99.2)(@tanstack/react-query@5.99.2(react@19.2.0))(jotai@2.19.1(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
+      katex:
+        specifier: ^0.16.45
+        version: 0.16.45
+      lexical:
+        specifier: ^0.43.0
+        version: 0.43.0
+      marked:
+        specifier: ^18.0.2
+        version: 18.0.2
+      node-pty:
+        specifier: ^1.1.0
+        version: 1.1.0
+      prosemirror-commands:
+        specifier: ^1.7.1
+        version: 1.7.1
+      prosemirror-gapcursor:
+        specifier: ^1.4.1
+        version: 1.4.1
+      prosemirror-history:
+        specifier: ^1.5.0
+        version: 1.5.0
+      prosemirror-keymap:
+        specifier: ^1.2.3
+        version: 1.2.3
+      prosemirror-model:
+        specifier: ^1.25.4
+        version: 1.25.4
+      prosemirror-state:
+        specifier: ^1.4.4
+        version: 1.4.4
+      prosemirror-transform:
+        specifier: ^1.12.0
+        version: 1.12.0
+      prosemirror-view:
+        specifier: ^1.41.8
+        version: 1.41.8
+      qrcode:
+        specifier: ^1.5.4
+        version: 1.5.4
+      react-intl:
+        specifier: ^10.1.2
+        version: 10.1.2(@types/react@19.2.14)(react@19.2.0)
+      react-router-dom:
+        specifier: ^7.14.1
+        version: 7.14.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      remark:
+        specifier: ^15.0.1
+        version: 15.0.1
+      remark-breaks:
+        specifier: ^4.0.0
+        version: 4.0.0
+      remark-directive:
+        specifier: ^4.0.0
+        version: 4.0.0
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
+      remark-parse:
+        specifier: ^11.0.0
+        version: 11.0.0
+      remark-rehype:
+        specifier: ^11.1.2
+        version: 11.1.2
+      remark-stringify:
+        specifier: ^11.0.0
+        version: 11.0.0
+      shiki:
+        specifier: ^4.0.2
+        version: 4.0.2
+      streamdown:
+        specifier: ^2.5.0
+        version: 2.5.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+      tailwind-styled-components:
+        specifier: ^2.2.0
+        version: 2.2.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      tweetnacl:
+        specifier: ^1.0.3
+        version: 1.0.3
+      uuid:
+        specifier: ^14.0.0
+        version: 14.0.0
+      yjs:
+        specifier: ^13.6.30
+        version: 13.6.30
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+      zod-to-json-schema:
+        specifier: ^3.25.2
+        version: 3.25.2(zod@4.4.3)
+    devDependencies:
+      '@electron-toolkit/preload':
+        specifier: ^3.0.2
+        version: 3.0.2(electron@41.2.1)
+      '@electron-toolkit/tsconfig':
+        specifier: ^2.0.0
+        version: 2.0.0(@types/node@24.12.2)
+      '@electron-toolkit/utils':
+        specifier: ^4.0.0
+        version: 4.0.0(electron@41.2.1)
+      '@electron/rebuild':
+        specifier: ^4.0.3
+        version: 4.0.3
+      '@tailwindcss/vite':
+        specifier: ^4.2.3
+        version: 4.2.3(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+      '@types/d3':
+        specifier: ^7.4.3
+        version: 7.4.3
+      '@types/katex':
+        specifier: ^0.16.8
+        version: 0.16.8
+      '@types/qrcode':
+        specifier: ^1.5.5
+        version: 1.5.6
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@types/uuid':
+        specifier: ^11.0.0
+        version: 11.0.0
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.1(babel-plugin-react-compiler@1.0.0)(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      electron:
+        specifier: ^41.2.1
+        version: 41.2.1
+      electron-vite:
+        specifier: ^5.0.0
+        version: 5.0.0(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+      tailwindcss:
+        specifier: ^4.2.3
+        version: 4.2.3
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.9
+        version: 8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.2)(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.2)(jiti@2.6.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/talos-server:
+    dependencies:
+      '@ahmadposten/talos-wire':
+        specifier: workspace:*
+        version: link:../talos-wire
       '@date-fns/tz':
         specifier: ^1.2.0
         version: 1.4.1
@@ -1078,12 +1092,12 @@ importers:
       '@fastify/static':
         specifier: ^8.1.1
         version: 8.3.0
+      '@octokit/webhooks':
+        specifier: 14.2.0
+        version: 14.2.0
       '@prisma/client':
         specifier: 6.19.2
         version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
-      '@slopus/happy-wire':
-        specifier: workspace:*
-        version: link:../happy-wire
       '@socket.io/redis-streams-adapter':
         specifier: ^0.2.2
         version: 0.2.3(socket.io-adapter@2.5.6)
@@ -1215,7 +1229,7 @@ importers:
         specifier: ^2.4.2
         version: 2.8.2
 
-  packages/happy-wire:
+  packages/talos-wire:
     dependencies:
       '@paralleldrive/cuid2':
         specifier: ^2.2.2
@@ -7257,6 +7271,7 @@ packages:
   eslint@9.39.2:
     resolution: {integrity: sha512-LEyamqS7W5HB3ujJyvi0HQK/dtVINZvd5mAAp9eT5S/ujByGjiZLCzPcHVzuXbpJDJF/cxwHlfceVUDZ2lnSTw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -10384,6 +10399,7 @@ packages:
   prom-client@15.1.3:
     resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
     engines: {node: ^16 || ^18 || >=20}
+    deprecated: prom-client has been replaced by @prometheus-io/client
 
   promise-limit@2.7.0:
     resolution: {integrity: sha512-7nJ6v5lnJsXwGprnGXga4wx6d1POjvi5Qmf1ivTRxTjH4Z/9Czja/UCMLVmB9N93GeWOU93XaFaEt6jbuoagNw==}
@@ -16646,7 +16662,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@react-native/gradle-plugin@0.83.1': {}
+  '@react-native/gradle-plugin@0.83.1(patch_hash=c1b594a16e682d621b6a960926f8ce13fc92edfb397884cfe7fcb0518996a784)': {}
 
   '@react-native/js-polyfills@0.83.1': {}
 
@@ -23799,7 +23815,7 @@ snapshots:
       '@react-native/assets-registry': 0.83.1
       '@react-native/codegen': 0.83.1(@babel/core@7.28.6)
       '@react-native/community-cli-plugin': 0.83.1
-      '@react-native/gradle-plugin': 0.83.1
+      '@react-native/gradle-plugin': 0.83.1(patch_hash=c1b594a16e682d621b6a960926f8ce13fc92edfb397884cfe7fcb0518996a784)
       '@react-native/js-polyfills': 0.83.1
       '@react-native/normalize-colors': 0.83.1
       '@react-native/virtualized-lists': 0.83.1(@types/react@19.1.17)(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0)

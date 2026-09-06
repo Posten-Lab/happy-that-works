@@ -1,0 +1,43 @@
+{
+  "buildId": "dda6616a-0ac8-4d35-8300-94ae2f62cdad",
+  "gitCommitHash": "4780b7b244c4311992a41a407e21be512042a459",
+  "ipaSha256": "040fc852e79eef04ca1ad1c752e44c2f9bfde3176b4694a7db7200f8157fd45c",
+  "ipaBytes": 56919206,
+  "info": {
+    "CFBundleIdentifier": "com.ahposten.happyimproved",
+    "CFBundleDisplayName": "Happy-Improved",
+    "CFBundleName": "HappyImproved",
+    "CFBundleShortVersionString": "1.7.0",
+    "CFBundleVersion": "14",
+    "DTPlatformName": "iphoneos",
+    "DTSDKName": "iphoneos26.2",
+    "MinimumOSVersion": "15.1"
+  },
+  "entitlements": {
+    "application-identifier": "H2XR8XWZXW.com.ahposten.happyimproved",
+    "com.apple.developer.team-identifier": "H2XR8XWZXW",
+    "keychain-access-groups": null,
+    "aps-environment": "production",
+    "com.apple.developer.associated-domains": null,
+    "get-task-allow": false
+  },
+  "profile": {
+    "Name": "*[expo] com.ahposten.happyimproved AppStore 2026-07-03T16:30:12.515Z",
+    "UUID": "8cf455dc-94a1-4d9b-af18-1b2153190808",
+    "TeamIdentifier": [
+      "H2XR8XWZXW"
+    ],
+    "ApplicationIdentifierPrefix": [
+      "H2XR8XWZXW"
+    ]
+  },
+  "profileEntitlements": {
+    "application-identifier": "H2XR8XWZXW.com.ahposten.happyimproved",
+    "com.apple.developer.team-identifier": "H2XR8XWZXW",
+    "keychain-access-groups": [
+      "H2XR8XWZXW.*",
+      "com.apple.token"
+    ],
+    "aps-environment": "production"
+  }
+}

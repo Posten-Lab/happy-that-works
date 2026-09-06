@@ -1,0 +1,150 @@
+{
+  "sourceBundle": "Talos-Brand-Asset-Bundle.zip",
+  "assets": [
+    {
+      "source": "assets/talos/app-icons/talos-app-icon-dark-1024.png",
+      "destination": "packages/talos-app/sources/assets/images/icon.png",
+      "sha256": "d6edf7ac2879434ae7ae22fa2ec1f6a5ad76eb5d68289b88f3c02fea6bd00407"
+    },
+    {
+      "source": "assets/talos/android/adaptive/ic_launcher_foreground.png",
+      "destination": "packages/talos-app/sources/assets/images/icon-adaptive.png",
+      "sha256": "053be1949b0f1f05c49c6636733a0c4e7ee3237c66cc8c361bea5059c776773f"
+    },
+    {
+      "source": "assets/talos/masters/talos-mark-white-256.png",
+      "destination": "packages/talos-app/sources/assets/images/icon-monochrome.png",
+      "sha256": "bc857d4a81991736f91db12656a5adf9354e8e588fdd13d7fdfd0f251a968dd8"
+    },
+    {
+      "source": "assets/talos/masters/talos-mark-white-128.png",
+      "destination": "packages/talos-app/sources/assets/images/icon-notification.png",
+      "sha256": "73ff1988d266bbb90944ad5da8190e2f933703e6d6491e453b2935a842a317ad"
+    },
+    {
+      "source": "assets/talos/masters/talos-mark-black-512.png",
+      "destination": "packages/talos-app/sources/assets/images/logo-black.png",
+      "sha256": "0c1049012c6f0d8f1edf7389b5bad7d3e279d0201f0b2b3e6820a884421ffa10"
+    },
+    {
+      "source": "assets/talos/masters/talos-mark-white-512.png",
+      "destination": "packages/talos-app/sources/assets/images/logo-white.png",
+      "sha256": "2d932f425f39e2ceed584a70b016724eca93077bbe4fae737fc8ec16808b38e3"
+    },
+    {
+      "source": "assets/talos/masters/talos-mark-color-512.png",
+      "destination": "packages/talos-app/sources/assets/images/talos-mark.png",
+      "sha256": "5f4ca50cec7e9c74a4a725a6b05a97e9b9ad3e2b26f607db022ac6c767ce5104"
+    },
+    {
+      "source": "assets/talos/web/favicon-64x64.png",
+      "destination": "packages/talos-app/sources/assets/images/favicon.png",
+      "sha256": "b20479774ec50f3e7b0d5fe68185199d7e211dc052590cdcba6528cb59b861e8"
+    },
+    {
+      "source": "assets/talos/web/favicon-48x48.png",
+      "destination": "packages/talos-app/sources/assets/images/favicon-active.png",
+      "sha256": "58b629e268d0eba23a0d6f3340b2426d189860886562284a492ce214e21cce78"
+    },
+    {
+      "source": "assets/talos/masters/talos-mark-black-512.png",
+      "destination": "packages/talos-app/sources/assets/images/splash-android-light.png",
+      "sha256": "0c1049012c6f0d8f1edf7389b5bad7d3e279d0201f0b2b3e6820a884421ffa10"
+    },
+    {
+      "source": "assets/talos/masters/talos-mark-white-512.png",
+      "destination": "packages/talos-app/sources/assets/images/splash-android-dark.png",
+      "sha256": "2d932f425f39e2ceed584a70b016724eca93077bbe4fae737fc8ec16808b38e3"
+    },
+    {
+      "source": "assets/talos/macos/Talos.icns",
+      "destination": "packages/talos-app/src-tauri/icons/icon.icns",
+      "sha256": "e29b7c37f7934bf90fc12ebaf98789fb80d0a002d96f24fd821272d4fd35cd98"
+    },
+    {
+      "source": "assets/talos/web/favicon.ico",
+      "destination": "packages/talos-app/src-tauri/icons/icon.ico",
+      "sha256": "9bf705e4e0efa5ef24ef20c106c1d31ac9afa7ee1f589ac1c62a5b6fe482b3d0"
+    },
+    {
+      "source": "assets/talos/masters/talos-mark-color-512.png",
+      "destination": "packages/talos-app/src-tauri/icons/icon.png",
+      "sha256": "5f4ca50cec7e9c74a4a725a6b05a97e9b9ad3e2b26f607db022ac6c767ce5104"
+    },
+    {
+      "source": "assets/talos/macos/talos-32.png",
+      "destination": "packages/talos-app/src-tauri/icons/32x32.png",
+      "sha256": "830ef3f999daec37cccebae704478c6cb6916a6215a85ad274d7515f1c9d233c"
+    },
+    {
+      "source": "assets/talos/macos/talos-64.png",
+      "destination": "packages/talos-app/src-tauri/icons/64x64.png",
+      "sha256": "7847901088597308c0822ba4bbc25aae187f779283af317556e7ad2dd9a3d48c"
+    },
+    {
+      "source": "assets/talos/macos/talos-128.png",
+      "destination": "packages/talos-app/src-tauri/icons/128x128.png",
+      "sha256": "def9ed344884827f0c80e899d685d13afd59d3f7c410d697add0ec29c9e0d44f"
+    },
+    {
+      "source": "assets/talos/macos/talos-256.png",
+      "destination": "packages/talos-app/src-tauri/icons/128x128@2x.png",
+      "sha256": "acd5e6d3e2acfdb47214f07ab11bde2be81dd59e8543e85601707369253838e9"
+    },
+    {
+      "source": "assets/talos/web/favicon.ico",
+      "destination": "packages/talos-app/public/favicon-active.ico",
+      "sha256": "9bf705e4e0efa5ef24ef20c106c1d31ac9afa7ee1f589ac1c62a5b6fe482b3d0"
+    },
+    {
+      "source": "assets/talos/web/favicon-16x16.png",
+      "destination": "packages/talos-app/public/favicon-16x16.png",
+      "sha256": "f09114198d311494b7da4cd7dd7d252b2612b7999be59ffd34ceb2920705d91b"
+    },
+    {
+      "source": "assets/talos/web/favicon.ico",
+      "destination": "packages/talos-app/public/favicon.ico",
+      "sha256": "9bf705e4e0efa5ef24ef20c106c1d31ac9afa7ee1f589ac1c62a5b6fe482b3d0"
+    },
+    {
+      "source": "assets/talos/web/apple-touch-icon.png",
+      "destination": "packages/talos-app/public/apple-touch-icon.png",
+      "sha256": "61933791f0eb03241ba56eff8c8406a44a5841f9a7d65f0b5dd7cdfafd5c02f3"
+    },
+    {
+      "source": "assets/talos/web/maskable-icon-512.png",
+      "destination": "packages/talos-app/public/maskable-icon-512.png",
+      "sha256": "48bba921396e4fbb79ff873d9a4622c7aa4cf97be79d6e56293f07dbfb510c45"
+    },
+    {
+      "source": "assets/talos/web/icon-192.png",
+      "destination": "packages/talos-app/public/icon-192.png",
+      "sha256": "46786f497250e805f5ce2aa55630972c21f092537606520c3abb2143d09f7706"
+    },
+    {
+      "source": "assets/talos/web/favicon-48x48.png",
+      "destination": "packages/talos-app/public/favicon-48x48.png",
+      "sha256": "58b629e268d0eba23a0d6f3340b2426d189860886562284a492ce214e21cce78"
+    },
+    {
+      "source": "assets/talos/web/favicon-64x64.png",
+      "destination": "packages/talos-app/public/favicon-64x64.png",
+      "sha256": "b20479774ec50f3e7b0d5fe68185199d7e211dc052590cdcba6528cb59b861e8"
+    },
+    {
+      "source": "assets/talos/web/icon-512.png",
+      "destination": "packages/talos-app/public/icon-512.png",
+      "sha256": "48bba921396e4fbb79ff873d9a4622c7aa4cf97be79d6e56293f07dbfb510c45"
+    },
+    {
+      "source": "assets/talos/web/favicon-32x32.png",
+      "destination": "packages/talos-app/public/favicon-32x32.png",
+      "sha256": "fbc9aa832f45ba648739726d0ff89fe1505ae2cf6508cd266249c340e18d2ac0"
+    },
+    {
+      "source": "assets/talos/macos/talos-512.png",
+      "destination": "packages/talos-desktop/sources/assets/talos-icon.png",
+      "sha256": "48bba921396e4fbb79ff873d9a4622c7aa4cf97be79d6e56293f07dbfb510c45"
+    }
+  ]
+}

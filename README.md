@@ -1,86 +1,74 @@
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/.github/logotype-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="/.github/logotype-light.png">
-    <img src="/.github/logotype-dark.png" width="400" alt="Happy">
-  </picture>
-</div>
+# Talos
 
-<h1 align="center">
-  Mobile and Web Client for Claude Code & Codex
-</h1>
+Your agents. Your command.
 
-<h4 align="center">
-Use Claude Code or Codex from anywhere with end-to-end encryption.
-</h4>
+Talos connects your coding agents to a private workspace on the web, your phone, and your desktop. Start a session on your computer, follow its progress, approve requests, and continue the conversation from another device. Session content is encrypted before it reaches the relay.
 
-<div align="center">
-  
-[📱 **iOS App**](https://apps.apple.com/us/app/happy-claude-code-client/id6748571505) • [🤖 **Android App**](https://play.google.com/store/apps/details?id=com.ex3ndr.happy) • [🌐 **Web App**](https://app.happy.engineering) • [🎥 **See a Demo**](https://youtu.be/GCS0OG9QMSE) • [📚 **Documentation**](https://happy.engineering/docs/) • [💬 **Discord**](https://discord.gg/fX9WBAhyfD)
+## Install
 
-</div>
+Publication is prepared but currently awaits npm publishing access; see the [rollout record](docs/rebrand/rollout.md) for availability.
 
-<img width="5178" height="2364" alt="github" src="/.github/header.png" />
-
-
-<h3 align="center">
-Step 1: Download App
-</h3>
-
-<div align="center">
-<a href="https://apps.apple.com/us/app/happy-claude-code-client/id6748571505"><img width="135" height="39" alt="appstore" src="https://github.com/user-attachments/assets/45e31a11-cf6b-40a2-a083-6dc8d1f01291" /></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=com.ex3ndr.happy"><img width="135" height="39" alt="googleplay" src="https://github.com/user-attachments/assets/acbba639-858f-4c74-85c7-92a4096efbf5" /></a>
-</div>
-
-<h3 align="center">
-Step 2: Install CLI on your computer
-</h3>
-
-```bash
-npm install -g happy
+```sh
+npm install -g talosapp
+talos auth login
 ```
 
-> Migrated from the `happy-coder` package. Thanks to [@franciscop](https://github.com/franciscop) for donating the `happy` package name!
+The npm package is `talosapp`; the command is `talos`. Open [talosapp.ai](https://talosapp.ai) to connect your browser or phone.
 
-<h3 align="center">
-Step 3: Start using `happy` instead of `claude` or `codex`
-</h3>
+## Develop locally
 
-```bash
-# Instead of claude, use:
-happy claude
-# or
-happy codex
+Requirements: Node.js, pnpm, and the tools required by your chosen agent. Native builds also require Xcode or the Android SDK.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @ahmadposten/talos-wire build
+pnpm --filter talosapp build
+pnpm --filter talos-app web
 ```
 
-## How does it work?
+For an isolated local relay:
 
-On your computer, run `happy` instead of `claude` or `happy codex` instead of `codex` to start your AI through our wrapper. When you want to control your coding agent from your phone, it restarts the session in remote mode. To switch back to your computer, just press any key on your keyboard.
+```sh
+TALOS_HOME_DIR="$PWD/.talos-local" node packages/talos-cli/bin/talos.mjs server --no-persist
+```
 
-## 🔥 Why Happy Coder?
+The relay generates and retains its master secret in that isolated directory. Reuse the directory to retain accounts and encrypted server data.
 
-- 📱 **Mobile access to Claude Code and Codex** - Check what your AI is building while away from your desk
-- 🔔 **Push notifications** - Get alerted when Claude Code and Codex needs permission or encounters errors  
-- ⚡ **Switch devices instantly** - Take control from phone or desktop with one keypress
-- 🔐 **End-to-end encrypted** - Your code never leaves your devices unencrypted
-- 🛠️ **Open source** - Audit the code yourself. No telemetry, no tracking
+Set `TALOS_SERVER_URL` for the CLI and `EXPO_PUBLIC_TALOS_SERVER_URL` for the app when using another relay. The hosted default is `https://api.talosapp.ai`. For local development, use `http://localhost:3005`; a phone needs a reachable LAN address.
 
-## 📦 Project Components
+Run the built CLI directly:
 
-- **[Happy App](https://github.com/slopus/happy/tree/main/packages/happy-app)** - Web UI + mobile client (Expo)
-- **[Happy CLI](https://github.com/slopus/happy/tree/main/packages/happy-cli)** - Command-line interface for Claude Code and Codex
-- **[Happy Agent](https://github.com/slopus/happy/tree/main/packages/happy-agent)** - Remote agent control CLI (create, send, monitor sessions)
-- **[Happy Server](https://github.com/slopus/happy/tree/main/packages/happy-server)** - Backend server for encrypted sync
+```sh
+node packages/talos-cli/bin/talos.mjs --help
+node packages/talos-cli/bin/talos.mjs auth login
+node packages/talos-cli/bin/talos.mjs claude
+node packages/talos-cli/bin/talos.mjs codex
+```
 
-## 🏠 Who We Are
+Talos uses `~/.talos` and the `TALOS_HOME_DIR` override. Run `talos migrate` to import an existing local account and cached session keys while its sessions continue running. See the [migration guide](docs/rebrand/migration.md).
 
-We're engineers scattered across Bay Area coffee shops and hacker houses, constantly checking how our AI coding agents are progressing on our pet projects during lunch breaks. Happy Coder was born from the frustration of not being able to peek at our AI coding tools building our side hustles while we're away from our keyboards. We believe the best tools come from scratching your own itch and sharing with the community.
+## Workspaces
 
-## 📚 Documentation & Contributing
+| Package | Purpose |
+| --- | --- |
+| [talos-app](packages/talos-app) | Expo web, iOS, Android, and Tauri desktop |
+| [talos-cli](packages/talos-cli) | `talos` command and machine daemon |
+| [talos-agent](packages/talos-agent) | `talos-agent` remote control command |
+| [talos-server](packages/talos-server) | Relay, local storage, and bundled web hosting |
+| [talos-wire](packages/talos-wire) | Shared protocol schemas and compatibility |
+| [talos-desktop](packages/talos-desktop) | Electron desktop workspace |
+| [talos-app-logs](packages/talos-app-logs) | Optional development log receiver |
 
-- **[Documentation Website](https://happy.engineering/docs/)** - Learn how to use Happy Coder effectively
-- **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute, PR guidelines, and development setup
-- **[Edit docs at github.com/slopus/slopus.github.io](https://github.com/slopus/slopus.github.io)** - Help improve our documentation and guides
+The supplied [Talos brand assets](assets/talos) are the source of all product marks and launcher icons. [Architecture documentation](docs/README.md) describes the implementation.
+
+## Distribution
+
+The CLI package name is `talosapp`. Companion packages are `@ahmadposten/talos-wire`, `@ahmadposten/talos-agent`, and `@ahmadposten/talos-server`. Production endpoints, stores, signing, and OTA updates use the Talos settings in [.env.talos.example](.env.talos.example).
+
+For this production installation, follow the [additive rollout](deploy/talos-production/README.md), which shares the existing account database and preserves active clients. Generic deployment templates are for separate installations.
+
+See the [rebrand and release record](docs/rebrand/README.md) for compatibility boundaries, verification results, and remaining deployment configuration.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+[MIT](LICENSE). Copyright notices are preserved with each distributed package.

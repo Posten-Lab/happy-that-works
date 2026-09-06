@@ -1,6 +1,6 @@
 # Manual Product Validation
 
-This is the full Happy product check.
+This is the full Talos product check.
 
 It is manual on purpose.
 
@@ -23,20 +23,20 @@ Useful helpers:
 
 - `yarn env:list` shows available environments
 - `yarn env:current` prints the active environment path
-- `yarn env:cli` starts `happy` inside the current environment
+- `yarn env:cli` starts `talos` inside the current environment
 
 For daemon and agent work, use a sourced shell:
 
 ```bash
 source environments/data/envs/<name>/env.sh
-happy daemon start
+talos daemon start
 ```
 
 That shell now points at the local stack through:
 
-- `HAPPY_SERVER_URL`
-- `HAPPY_WEBAPP_URL`
-- `HAPPY_HOME_DIR`
+- `TALOS_SERVER_URL`
+- `TALOS_WEBAPP_URL`
+- `TALOS_HOME_DIR`
 
 Use the local web app URL printed by `yarn env:web`, or open the mobile app if
 you are testing on device.
@@ -86,7 +86,7 @@ Expected:
 
 Send:
 
-`Reply with exactly: happy-e2e-ok`
+`Reply with exactly: talos-e2e-ok`
 
 Expected:
 

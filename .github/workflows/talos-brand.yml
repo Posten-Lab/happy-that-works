@@ -1,0 +1,12 @@
+name: Talos identity
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/verify-brand.cjs
+      - run: node --test scripts/verify-release-config.test.cjs scripts/render-deployment.test.cjs scripts/release-ota.test.cjs

@@ -1,0 +1,333 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "talos-api",
+        "namespace": "happy",
+        "labels": {
+          "app": "talos-api",
+          "product": "talos"
+        },
+        "annotations": {
+          "talosapp.ai/rollout-state": "awaiting-dns-and-tls"
+        }
+      },
+      "spec": {
+        "replicas": 2,
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "selector": {
+          "matchLabels": {
+            "app": "talos-api",
+            "product": "talos"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "talos-api",
+              "product": "talos"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "NODE_ENV",
+                    "value": "production"
+                  },
+                  {
+                    "name": "PORT",
+                    "value": "3005"
+                  },
+                  {
+                    "name": "DB_PROVIDER",
+                    "value": "postgres"
+                  },
+                  {
+                    "name": "REDIS_URL",
+                    "value": "redis://happy-redis:6379"
+                  },
+                  {
+                    "name": "S3_HOST",
+                    "value": "files.happy.ahposten.com"
+                  },
+                  {
+                    "name": "S3_PORT",
+                    "value": "443"
+                  },
+                  {
+                    "name": "S3_USE_SSL",
+                    "value": "true"
+                  },
+                  {
+                    "name": "S3_REGION",
+                    "value": "us-east-1"
+                  },
+                  {
+                    "name": "S3_BUCKET",
+                    "value": "happy"
+                  },
+                  {
+                    "name": "S3_PUBLIC_URL",
+                    "value": "https://files.happy.ahposten.com/happy"
+                  },
+                  {
+                    "name": "PUBLIC_URL",
+                    "value": "https://api.talosapp.ai"
+                  },
+                  {
+                    "name": "METRICS_ENABLED",
+                    "value": "true"
+                  },
+                  {
+                    "name": "TALOS_WEBAPP_URL",
+                    "value": "https://talosapp.ai"
+                  }
+                ],
+                "envFrom": [
+                  {
+                    "secretRef": {
+                      "name": "happy-server-secret"
+                    }
+                  }
+                ],
+                "image": "ahmadposten/talos-server@sha256:fa3c0d6d68600acc3fc8fc668ad47c5c1e03f586da882beb1fff22fc529d39ae",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 3005,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 20,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "name": "talos-api",
+                "ports": [
+                  {
+                    "containerPort": 3005,
+                    "name": "http",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9090,
+                    "name": "metrics",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 3005,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 10,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "2",
+                    "memory": "1536Mi"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "384Mi"
+                  }
+                }
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "initContainers": [
+              {
+                "command": [
+                  "sh",
+                  "-c",
+                  "until nc -z happy-postgres 5432; do echo waiting for postgres; sleep 2; done"
+                ],
+                "image": "busybox:1.36",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "wait-postgres",
+                "resources": {}
+              }
+            ],
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "terminationGracePeriodSeconds": 30
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "talos-api",
+        "namespace": "happy",
+        "labels": {
+          "app": "talos-api",
+          "product": "talos"
+        },
+        "annotations": {
+          "talosapp.ai/rollout-state": "awaiting-dns-and-tls"
+        }
+      },
+      "spec": {
+        "type": "NodePort",
+        "selector": {
+          "app": "talos-api",
+          "product": "talos"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 3005,
+            "targetPort": 3005,
+            "nodePort": 32002
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "talos-web",
+        "namespace": "happy",
+        "labels": {
+          "app": "talos-web",
+          "product": "talos"
+        },
+        "annotations": {
+          "talosapp.ai/rollout-state": "awaiting-dns-and-tls"
+        }
+      },
+      "spec": {
+        "replicas": 2,
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          },
+          "type": "RollingUpdate"
+        },
+        "selector": {
+          "matchLabels": {
+            "app": "talos-web",
+            "product": "talos"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "talos-web",
+              "product": "talos"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "image": "ahmadposten/talos-web@sha256:6974d2e225cf2777cff504d1a6d1c0b98f54b4667681b9121e31a0addb8bff15",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/",
+                    "port": 80,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 15,
+                  "periodSeconds": 20,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "name": "talos-web",
+                "ports": [
+                  {
+                    "containerPort": 80,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/",
+                    "port": 80,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 3
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "128Mi"
+                  },
+                  "requests": {
+                    "cpu": "20m",
+                    "memory": "32Mi"
+                  }
+                }
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "terminationGracePeriodSeconds": 30
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "talos-web",
+        "namespace": "happy",
+        "labels": {
+          "app": "talos-web",
+          "product": "talos"
+        },
+        "annotations": {
+          "talosapp.ai/rollout-state": "awaiting-dns-and-tls"
+        }
+      },
+      "spec": {
+        "type": "NodePort",
+        "selector": {
+          "app": "talos-web",
+          "product": "talos"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 80,
+            "targetPort": 80,
+            "nodePort": 32001
+          }
+        ]
+      }
+    }
+  ]
+}

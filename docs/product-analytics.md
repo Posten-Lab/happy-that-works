@@ -33,7 +33,7 @@
   - source
   - session_agent
   - session_started_source
-  - happy_cli_version
+  - talos_cli_version
   - ota_version
   - ota_runtime_version
 - session_switched
@@ -152,11 +152,11 @@ all include flow property which customizes the upsell screen shown by revenue ca
 
 ## Relevant Sources
 
-- packages/happy-app/sources/track/index.ts
-- packages/happy-app/sources/hooks/useNavigateToSession.ts
-- packages/happy-app/sources/-session/SessionView.tsx
-- packages/happy-app/sources/realtime/RealtimeSession.ts
-- packages/happy-app/sources/components/SettingsView.tsx
-- packages/happy-app/sources/sync/sync.ts
-- packages/happy-app/sources/track/useTrackScreens.ts
-- packages/happy-app/sources/track/tracking.ts
+- packages/talos-app/sources/track/index.ts
+- packages/talos-app/sources/hooks/useNavigateToSession.ts
+- packages/talos-app/sources/-session/SessionView.tsx
+- packages/talos-app/sources/realtime/RealtimeSession.ts
+- packages/talos-app/sources/components/SettingsView.tsx
+- packages/talos-app/sources/sync/sync.ts
+- packages/talos-app/sources/track/useTrackScreens.ts
+- packages/talos-app/sources/track/tracking.ts

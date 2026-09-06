@@ -2,68 +2,68 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add Codex image attachment parity with Claude while preserving Happy encrypted attachment storage and safe fork/history behavior.
+**Goal:** Add Codex image attachment parity with Claude while preserving Talos encrypted attachment storage and safe fork/history behavior.
 
-**Architecture:** The app keeps the existing encrypted upload plus `file` event flow and extends the support gate from Claude to Codex. The Codex CLI mirrors Claude's file-event ownership model, validates image bytes, writes local plaintext image files into a configured per-session cache, and sends Codex `localImage` input items through `codex app-server`. Provider-history fork backfill uses a side-effecting orchestrator that uploads existing local image paths through the normal Happy encrypted attachment API while keeping the pure Codex thread mapper side-effect-free.
+**Architecture:** The app keeps the existing encrypted upload plus `file` event flow and extends the support gate from Claude to Codex. The Codex CLI mirrors Claude's file-event ownership model, validates image bytes, writes local plaintext image files into a configured per-session cache, and sends Codex `localImage` input items through `codex app-server`. Provider-history fork backfill uses a side-effecting orchestrator that uploads existing local image paths through the normal Talos encrypted attachment API while keeping the pure Codex thread mapper side-effect-free.
 
-**Tech Stack:** TypeScript, Vitest, React Native/Expo, Happy session protocol, Happy encrypted attachment APIs, Codex app-server JSON-RPC v2.
+**Tech Stack:** TypeScript, Vitest, React Native/Expo, Talos session protocol, Talos encrypted attachment APIs, Codex app-server JSON-RPC v2.
 
 ---
 
 ## File Structure
 
-- Create `packages/happy-app/sources/sync/attachmentSupport.ts`: pure app helper for image attachment support decisions.
-- Create `packages/happy-app/sources/sync/attachmentSupport.test.ts`: focused tests for Claude/Codex support and unsupported image-only sends.
-- Modify `packages/happy-app/sources/sync/sync.ts`: use the support helper and avoid empty text messages for unsupported image-only sends.
-- Modify `packages/happy-app/sources/text/_default.ts`: change image upload feature subtitle from Claude-only wording to supported-agent wording.
-- Modify `packages/happy-app/sources/text/translations/en.ts`: keep English translation aligned with `_default.ts`.
-- Modify `packages/happy-app/sources/text/translations/ru.ts`: update Russian subtitle wording.
-- Modify `packages/happy-app/sources/text/translations/ca.ts`: replace Claude-only subtitle with neutral supported-agent wording.
-- Modify `packages/happy-app/sources/text/translations/es.ts`: replace Claude-only subtitle with neutral supported-agent wording.
-- Modify `packages/happy-app/sources/text/translations/it.ts`: replace Claude-only subtitle with neutral supported-agent wording.
-- Modify `packages/happy-app/sources/text/translations/ja.ts`: replace Claude-only subtitle with neutral supported-agent wording.
-- Modify `packages/happy-app/sources/text/translations/pl.ts`: replace Claude-only subtitle with neutral supported-agent wording.
-- Modify `packages/happy-app/sources/text/translations/pt.ts`: replace Claude-only subtitle with neutral supported-agent wording.
-- Modify `packages/happy-app/sources/text/translations/zh-Hans.ts`: replace Claude-only subtitle with neutral supported-agent wording.
-- Modify `packages/happy-app/sources/text/translations/zh-Hant.ts`: replace Claude-only subtitle with neutral supported-agent wording.
-- Modify `packages/happy-cli/src/codex/codexClearCommand.ts`: carry attachments when queueing normal Codex messages and isolated `/clear` messages.
-- Modify `packages/happy-cli/src/codex/codexClearCommand.test.ts`: prove attachments are forwarded into queue calls.
-- Modify `packages/happy-cli/src/codex/codexAppServerTypes.ts`: align image input items with generated Codex 0.137 wire shape by allowing optional `detail`.
-- Modify `packages/happy-cli/src/codex/codexAppServerClient.ts`: allow callers to pass extra `InputItem`s and omit empty text items for image-only turns.
-- Modify `packages/happy-cli/src/codex/codexAppServerClient.test.ts`: assert text-only input stays unchanged and image-only input is sent without `text: ""`.
-- Create `packages/happy-cli/src/codex/utils/imageInput.ts`: detect supported image bytes, write generated cache files, and build Codex `localImage` input items.
-- Create `packages/happy-cli/src/codex/utils/imageInput.test.ts`: cover byte detection, generated names, unsupported formats, and cache root selection.
-- Create `packages/happy-cli/src/codex/utils/attachmentEvents.ts`: convert Happy `file` events into decrypted `PendingAttachment` promises for Codex.
-- Create `packages/happy-cli/src/codex/utils/attachmentEvents.test.ts`: cover successful download/decrypt and failure isolation.
-- Modify `packages/happy-cli/src/api/apiSession.ts`: expose a generic encrypted local image upload helper that can tag envelopes with `claudeUuid` or `codexItemId`.
-- Modify `packages/happy-cli/src/api/apiSession.test.ts`: preserve Claude transcript image upload coverage and add Codex-tagged local image upload coverage.
-- Modify `packages/happy-cli/src/codex/utils/sessionProtocolMapper.ts`: extract pure per-turn/per-item mapping helpers without adding upload or filesystem side effects.
-- Modify `packages/happy-cli/src/codex/__tests__/sessionProtocolMapper.test.ts`: keep existing mapping behavior stable after extraction.
-- Create `packages/happy-cli/src/codex/utils/threadImageBackfill.ts`: build ordered Codex fork-backfill envelopes, inserting uploaded local image file envelopes before the matching user text envelope.
-- Create `packages/happy-cli/src/codex/utils/threadImageBackfill.test.ts`: cover image-before-text ordering, image-only user items, missing paths, and URL-image skip behavior.
-- Modify `packages/happy-cli/src/codex/runCodex.ts`: register file-event handling, drain attachments per message, prepare Codex image input items, handle image-only turns, and use ordered image backfill for Codex fork sessions.
+- Create `packages/talos-app/sources/sync/attachmentSupport.ts`: pure app helper for image attachment support decisions.
+- Create `packages/talos-app/sources/sync/attachmentSupport.test.ts`: focused tests for Claude/Codex support and unsupported image-only sends.
+- Modify `packages/talos-app/sources/sync/sync.ts`: use the support helper and avoid empty text messages for unsupported image-only sends.
+- Modify `packages/talos-app/sources/text/_default.ts`: change image upload feature subtitle from Claude-only wording to supported-agent wording.
+- Modify `packages/talos-app/sources/text/translations/en.ts`: keep English translation aligned with `_default.ts`.
+- Modify `packages/talos-app/sources/text/translations/ru.ts`: update Russian subtitle wording.
+- Modify `packages/talos-app/sources/text/translations/ca.ts`: replace Claude-only subtitle with neutral supported-agent wording.
+- Modify `packages/talos-app/sources/text/translations/es.ts`: replace Claude-only subtitle with neutral supported-agent wording.
+- Modify `packages/talos-app/sources/text/translations/it.ts`: replace Claude-only subtitle with neutral supported-agent wording.
+- Modify `packages/talos-app/sources/text/translations/ja.ts`: replace Claude-only subtitle with neutral supported-agent wording.
+- Modify `packages/talos-app/sources/text/translations/pl.ts`: replace Claude-only subtitle with neutral supported-agent wording.
+- Modify `packages/talos-app/sources/text/translations/pt.ts`: replace Claude-only subtitle with neutral supported-agent wording.
+- Modify `packages/talos-app/sources/text/translations/zh-Hans.ts`: replace Claude-only subtitle with neutral supported-agent wording.
+- Modify `packages/talos-app/sources/text/translations/zh-Hant.ts`: replace Claude-only subtitle with neutral supported-agent wording.
+- Modify `packages/talos-cli/src/codex/codexClearCommand.ts`: carry attachments when queueing normal Codex messages and isolated `/clear` messages.
+- Modify `packages/talos-cli/src/codex/codexClearCommand.test.ts`: prove attachments are forwarded into queue calls.
+- Modify `packages/talos-cli/src/codex/codexAppServerTypes.ts`: align image input items with generated Codex 0.137 wire shape by allowing optional `detail`.
+- Modify `packages/talos-cli/src/codex/codexAppServerClient.ts`: allow callers to pass extra `InputItem`s and omit empty text items for image-only turns.
+- Modify `packages/talos-cli/src/codex/codexAppServerClient.test.ts`: assert text-only input stays unchanged and image-only input is sent without `text: ""`.
+- Create `packages/talos-cli/src/codex/utils/imageInput.ts`: detect supported image bytes, write generated cache files, and build Codex `localImage` input items.
+- Create `packages/talos-cli/src/codex/utils/imageInput.test.ts`: cover byte detection, generated names, unsupported formats, and cache root selection.
+- Create `packages/talos-cli/src/codex/utils/attachmentEvents.ts`: convert Talos `file` events into decrypted `PendingAttachment` promises for Codex.
+- Create `packages/talos-cli/src/codex/utils/attachmentEvents.test.ts`: cover successful download/decrypt and failure isolation.
+- Modify `packages/talos-cli/src/api/apiSession.ts`: expose a generic encrypted local image upload helper that can tag envelopes with `claudeUuid` or `codexItemId`.
+- Modify `packages/talos-cli/src/api/apiSession.test.ts`: preserve Claude transcript image upload coverage and add Codex-tagged local image upload coverage.
+- Modify `packages/talos-cli/src/codex/utils/sessionProtocolMapper.ts`: extract pure per-turn/per-item mapping helpers without adding upload or filesystem side effects.
+- Modify `packages/talos-cli/src/codex/__tests__/sessionProtocolMapper.test.ts`: keep existing mapping behavior stable after extraction.
+- Create `packages/talos-cli/src/codex/utils/threadImageBackfill.ts`: build ordered Codex fork-backfill envelopes, inserting uploaded local image file envelopes before the matching user text envelope.
+- Create `packages/talos-cli/src/codex/utils/threadImageBackfill.test.ts`: cover image-before-text ordering, image-only user items, missing paths, and URL-image skip behavior.
+- Modify `packages/talos-cli/src/codex/runCodex.ts`: register file-event handling, drain attachments per message, prepare Codex image input items, handle image-only turns, and use ordered image backfill for Codex fork sessions.
 
 ### Task 1: App Attachment Support Gate
 
 **Files:**
-- Create: `packages/happy-app/sources/sync/attachmentSupport.ts`
-- Create: `packages/happy-app/sources/sync/attachmentSupport.test.ts`
-- Modify: `packages/happy-app/sources/sync/sync.ts`
-- Modify: `packages/happy-app/sources/text/_default.ts`
-- Modify: `packages/happy-app/sources/text/translations/en.ts`
-- Modify: `packages/happy-app/sources/text/translations/ru.ts`
-- Modify: `packages/happy-app/sources/text/translations/ca.ts`
-- Modify: `packages/happy-app/sources/text/translations/es.ts`
-- Modify: `packages/happy-app/sources/text/translations/it.ts`
-- Modify: `packages/happy-app/sources/text/translations/ja.ts`
-- Modify: `packages/happy-app/sources/text/translations/pl.ts`
-- Modify: `packages/happy-app/sources/text/translations/pt.ts`
-- Modify: `packages/happy-app/sources/text/translations/zh-Hans.ts`
-- Modify: `packages/happy-app/sources/text/translations/zh-Hant.ts`
+- Create: `packages/talos-app/sources/sync/attachmentSupport.ts`
+- Create: `packages/talos-app/sources/sync/attachmentSupport.test.ts`
+- Modify: `packages/talos-app/sources/sync/sync.ts`
+- Modify: `packages/talos-app/sources/text/_default.ts`
+- Modify: `packages/talos-app/sources/text/translations/en.ts`
+- Modify: `packages/talos-app/sources/text/translations/ru.ts`
+- Modify: `packages/talos-app/sources/text/translations/ca.ts`
+- Modify: `packages/talos-app/sources/text/translations/es.ts`
+- Modify: `packages/talos-app/sources/text/translations/it.ts`
+- Modify: `packages/talos-app/sources/text/translations/ja.ts`
+- Modify: `packages/talos-app/sources/text/translations/pl.ts`
+- Modify: `packages/talos-app/sources/text/translations/pt.ts`
+- Modify: `packages/talos-app/sources/text/translations/zh-Hans.ts`
+- Modify: `packages/talos-app/sources/text/translations/zh-Hant.ts`
 
 - [ ] **Step 1: Write the failing support helper test**
 
-Create `packages/happy-app/sources/sync/attachmentSupport.test.ts`:
+Create `packages/talos-app/sources/sync/attachmentSupport.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -135,14 +135,14 @@ describe('getImageAttachmentSendPlan', () => {
 Run:
 
 ```bash
-pnpm --dir packages/happy-app exec vitest run sources/sync/attachmentSupport.test.ts
+pnpm --dir packages/talos-app exec vitest run sources/sync/attachmentSupport.test.ts
 ```
 
 Expected: FAIL with an import error because `attachmentSupport.ts` does not exist.
 
 - [ ] **Step 3: Add the support helper**
 
-Create `packages/happy-app/sources/sync/attachmentSupport.ts`:
+Create `packages/talos-app/sources/sync/attachmentSupport.ts`:
 
 ```ts
 export type ImageAttachmentFlavor = string | null | undefined;
@@ -178,7 +178,7 @@ export function getImageAttachmentSendPlan(opts: {
 
 - [ ] **Step 4: Use the helper in `sync.sendMessage`**
 
-In `packages/happy-app/sources/sync/sync.ts`, add the import:
+In `packages/talos-app/sources/sync/sync.ts`, add the import:
 
 ```ts
 import { getImageAttachmentSendPlan } from './attachmentSupport';
@@ -209,80 +209,80 @@ Replace the current `supportsAttachments` block in `sendMessage` with:
 
 - [ ] **Step 5: Update image upload feature copy**
 
-Replace the English/default subtitle in `packages/happy-app/sources/text/_default.ts` and `packages/happy-app/sources/text/translations/en.ts`:
+Replace the English/default subtitle in `packages/talos-app/sources/text/_default.ts` and `packages/talos-app/sources/text/translations/en.ts`:
 
 ```ts
 imageUploadSubtitle: 'Attach images to messages for supported agents to analyze',
 ```
 
-Replace the English/default unsupported message in `packages/happy-app/sources/text/_default.ts` and `packages/happy-app/sources/text/translations/en.ts`:
+Replace the English/default unsupported message in `packages/talos-app/sources/text/_default.ts` and `packages/talos-app/sources/text/translations/en.ts`:
 
 ```ts
 notSupportedMessage: 'This agent does not support image attachments. Images were not sent.',
 ```
 
-Replace the Russian subtitle in `packages/happy-app/sources/text/translations/ru.ts`:
+Replace the Russian subtitle in `packages/talos-app/sources/text/translations/ru.ts`:
 
 ```ts
 imageUploadSubtitle: 'Прикрепляйте изображения к сообщениям для анализа поддерживаемыми агентами',
 ```
 
-Replace the Russian unsupported message in `packages/happy-app/sources/text/translations/ru.ts`:
+Replace the Russian unsupported message in `packages/talos-app/sources/text/translations/ru.ts`:
 
 ```ts
 notSupportedMessage: 'Этот агент не поддерживает вложения изображений. Изображения не были отправлены.',
 ```
 
-In `packages/happy-app/sources/text/translations/ca.ts`, replace both strings:
+In `packages/talos-app/sources/text/translations/ca.ts`, replace both strings:
 
 ```ts
 imageUploadSubtitle: 'Adjunta imatges als missatges perquè els agents compatibles les analitzin',
 notSupportedMessage: 'Aquest agent no admet fitxers adjunts d\'imatge. Les imatges no s\'han enviat.',
 ```
 
-In `packages/happy-app/sources/text/translations/es.ts`, replace both strings:
+In `packages/talos-app/sources/text/translations/es.ts`, replace both strings:
 
 ```ts
 imageUploadSubtitle: 'Adjunta imágenes a los mensajes para que los agentes compatibles las analicen',
 notSupportedMessage: 'Este agente no admite archivos adjuntos de imagen. Las imágenes no se enviaron.',
 ```
 
-In `packages/happy-app/sources/text/translations/it.ts`, replace both strings:
+In `packages/talos-app/sources/text/translations/it.ts`, replace both strings:
 
 ```ts
 imageUploadSubtitle: 'Allega immagini ai messaggi per farle analizzare dagli agenti supportati',
 notSupportedMessage: 'Questo agente non supporta gli allegati immagine. Le immagini non sono state inviate.',
 ```
 
-In `packages/happy-app/sources/text/translations/ja.ts`, replace both strings:
+In `packages/talos-app/sources/text/translations/ja.ts`, replace both strings:
 
 ```ts
 imageUploadSubtitle: '対応エージェントに分析させるため、メッセージに画像を添付する',
 notSupportedMessage: 'このエージェントは画像の添付に対応していません。画像は送信されませんでした。',
 ```
 
-In `packages/happy-app/sources/text/translations/pl.ts`, replace both strings:
+In `packages/talos-app/sources/text/translations/pl.ts`, replace both strings:
 
 ```ts
 imageUploadSubtitle: 'Dołączaj obrazy do wiadomości, aby obsługiwani agenci mogli je analizować',
 notSupportedMessage: 'Ten agent nie obsługuje załączników obrazów. Obrazy nie zostały wysłane.',
 ```
 
-In `packages/happy-app/sources/text/translations/pt.ts`, replace both strings:
+In `packages/talos-app/sources/text/translations/pt.ts`, replace both strings:
 
 ```ts
 imageUploadSubtitle: 'Anexe imagens às mensagens para que agentes compatíveis as analisem',
 notSupportedMessage: 'Este agente não suporta anexos de imagem. As imagens não foram enviadas.',
 ```
 
-In `packages/happy-app/sources/text/translations/zh-Hans.ts`, replace both strings:
+In `packages/talos-app/sources/text/translations/zh-Hans.ts`, replace both strings:
 
 ```ts
 imageUploadSubtitle: '将图片附加到消息中，以便受支持的代理进行分析',
 notSupportedMessage: '此代理不支持图片附件。图片未发送。',
 ```
 
-In `packages/happy-app/sources/text/translations/zh-Hant.ts`, replace both strings:
+In `packages/talos-app/sources/text/translations/zh-Hant.ts`, replace both strings:
 
 ```ts
 imageUploadSubtitle: '將圖片附加到訊息中，讓支援的代理分析',
@@ -294,8 +294,8 @@ notSupportedMessage: '此代理不支援圖片附件。圖片未傳送。',
 Run:
 
 ```bash
-pnpm --dir packages/happy-app exec vitest run sources/sync/attachmentSupport.test.ts
-pnpm --dir packages/happy-app typecheck
+pnpm --dir packages/talos-app exec vitest run sources/sync/attachmentSupport.test.ts
+pnpm --dir packages/talos-app typecheck
 ```
 
 Expected: PASS.
@@ -305,32 +305,32 @@ Expected: PASS.
 Run:
 
 ```bash
-git add packages/happy-app/sources/sync/attachmentSupport.ts \
-  packages/happy-app/sources/sync/attachmentSupport.test.ts \
-  packages/happy-app/sources/sync/sync.ts \
-  packages/happy-app/sources/text/_default.ts \
-  packages/happy-app/sources/text/translations/en.ts \
-  packages/happy-app/sources/text/translations/ru.ts \
-  packages/happy-app/sources/text/translations/ca.ts \
-  packages/happy-app/sources/text/translations/es.ts \
-  packages/happy-app/sources/text/translations/it.ts \
-  packages/happy-app/sources/text/translations/ja.ts \
-  packages/happy-app/sources/text/translations/pl.ts \
-  packages/happy-app/sources/text/translations/pt.ts \
-  packages/happy-app/sources/text/translations/zh-Hans.ts \
-  packages/happy-app/sources/text/translations/zh-Hant.ts
+git add packages/talos-app/sources/sync/attachmentSupport.ts \
+  packages/talos-app/sources/sync/attachmentSupport.test.ts \
+  packages/talos-app/sources/sync/sync.ts \
+  packages/talos-app/sources/text/_default.ts \
+  packages/talos-app/sources/text/translations/en.ts \
+  packages/talos-app/sources/text/translations/ru.ts \
+  packages/talos-app/sources/text/translations/ca.ts \
+  packages/talos-app/sources/text/translations/es.ts \
+  packages/talos-app/sources/text/translations/it.ts \
+  packages/talos-app/sources/text/translations/ja.ts \
+  packages/talos-app/sources/text/translations/pl.ts \
+  packages/talos-app/sources/text/translations/pt.ts \
+  packages/talos-app/sources/text/translations/zh-Hans.ts \
+  packages/talos-app/sources/text/translations/zh-Hant.ts
 git commit -m "feat(app): enable image attachments for codex"
 ```
 
 ### Task 2: Preserve Attachments Through Codex Queueing
 
 **Files:**
-- Modify: `packages/happy-cli/src/codex/codexClearCommand.ts`
-- Modify: `packages/happy-cli/src/codex/codexClearCommand.test.ts`
+- Modify: `packages/talos-cli/src/codex/codexClearCommand.ts`
+- Modify: `packages/talos-cli/src/codex/codexClearCommand.test.ts`
 
 - [ ] **Step 1: Write failing queue attachment tests**
 
-Append these tests to `packages/happy-cli/src/codex/codexClearCommand.test.ts`:
+Append these tests to `packages/talos-cli/src/codex/codexClearCommand.test.ts`:
 
 ```ts
     it('passes attachments to normal queued messages', () => {
@@ -387,14 +387,14 @@ Append these tests to `packages/happy-cli/src/codex/codexClearCommand.test.ts`:
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/codexClearCommand.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/codexClearCommand.test.ts
 ```
 
 Expected: FAIL because `enqueueCodexUserText` does not accept or forward `attachments`.
 
 - [ ] **Step 3: Update `enqueueCodexUserText`**
 
-Replace `packages/happy-cli/src/codex/codexClearCommand.ts` with:
+Replace `packages/talos-cli/src/codex/codexClearCommand.ts` with:
 
 ```ts
 import { parseSpecialCommand } from '@/parsers/specialCommands';
@@ -430,7 +430,7 @@ export function enqueueCodexUserText<T>(opts: {
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/codexClearCommand.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/codexClearCommand.test.ts
 ```
 
 Expected: PASS.
@@ -440,21 +440,21 @@ Expected: PASS.
 Run:
 
 ```bash
-git add packages/happy-cli/src/codex/codexClearCommand.ts \
-  packages/happy-cli/src/codex/codexClearCommand.test.ts
+git add packages/talos-cli/src/codex/codexClearCommand.ts \
+  packages/talos-cli/src/codex/codexClearCommand.test.ts
 git commit -m "feat(cli): preserve codex queued attachments"
 ```
 
 ### Task 3: Allow Codex App-Server Image Input Items
 
 **Files:**
-- Modify: `packages/happy-cli/src/codex/codexAppServerTypes.ts`
-- Modify: `packages/happy-cli/src/codex/codexAppServerClient.ts`
-- Modify: `packages/happy-cli/src/codex/codexAppServerClient.test.ts`
+- Modify: `packages/talos-cli/src/codex/codexAppServerTypes.ts`
+- Modify: `packages/talos-cli/src/codex/codexAppServerClient.ts`
+- Modify: `packages/talos-cli/src/codex/codexAppServerClient.test.ts`
 
 - [ ] **Step 1: Write failing app-server input tests**
 
-Append this test case inside `describe('CodexAppServerClient sandbox integration', ...)` in `packages/happy-cli/src/codex/codexAppServerClient.test.ts`:
+Append this test case inside `describe('CodexAppServerClient sandbox integration', ...)` in `packages/talos-cli/src/codex/codexAppServerClient.test.ts`:
 
 ```ts
     it('sends extra localImage input items and omits empty text for image-only turns', async () => {
@@ -513,12 +513,12 @@ Append this test case inside `describe('CodexAppServerClient sandbox integration
             sandbox: 'danger-full-access',
         });
         await client.sendTurnAndWait('', {
-            extraInputItems: [{ type: 'localImage', path: '/tmp/happy-image.png' }],
+            extraInputItems: [{ type: 'localImage', path: '/tmp/talos-image.png' }],
         });
 
         expect(requests.find((msg) => msg.method === 'turn/start')?.params).toMatchObject({
             threadId: 'thread-images',
-            input: [{ type: 'localImage', path: '/tmp/happy-image.png' }],
+            input: [{ type: 'localImage', path: '/tmp/talos-image.png' }],
         });
 
         await client.disconnect();
@@ -595,14 +595,14 @@ Append this test case inside `describe('CodexAppServerClient sandbox integration
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/codexAppServerClient.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/codexAppServerClient.test.ts
 ```
 
 Expected: FAIL because `sendTurnAndWait` options do not accept `extraInputItems`.
 
 - [ ] **Step 3: Update Codex input item types**
 
-In `packages/happy-cli/src/codex/codexAppServerTypes.ts`, replace the `InputItem` definition with:
+In `packages/talos-cli/src/codex/codexAppServerTypes.ts`, replace the `InputItem` definition with:
 
 ```ts
 export type ImageDetail = "auto" | "low" | "high";
@@ -615,7 +615,7 @@ export type InputItem =
 
 - [ ] **Step 4: Update `sendTurn` and `sendTurnAndWait` options**
 
-In `packages/happy-cli/src/codex/codexAppServerClient.ts`, add `extraInputItems?: InputItem[]` to both option objects:
+In `packages/talos-cli/src/codex/codexAppServerClient.ts`, add `extraInputItems?: InputItem[]` to both option objects:
 
 ```ts
     async sendTurn(prompt: string, opts?: {
@@ -664,7 +664,7 @@ This already forwards `extraInputItems` once the option type is widened. Do not 
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/codexAppServerClient.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/codexAppServerClient.test.ts
 ```
 
 Expected: PASS.
@@ -674,21 +674,21 @@ Expected: PASS.
 Run:
 
 ```bash
-git add packages/happy-cli/src/codex/codexAppServerTypes.ts \
-  packages/happy-cli/src/codex/codexAppServerClient.ts \
-  packages/happy-cli/src/codex/codexAppServerClient.test.ts
+git add packages/talos-cli/src/codex/codexAppServerTypes.ts \
+  packages/talos-cli/src/codex/codexAppServerClient.ts \
+  packages/talos-cli/src/codex/codexAppServerClient.test.ts
 git commit -m "feat(cli): send codex image input items"
 ```
 
 ### Task 4: Build Codex Local Image Cache Helper
 
 **Files:**
-- Create: `packages/happy-cli/src/codex/utils/imageInput.ts`
-- Create: `packages/happy-cli/src/codex/utils/imageInput.test.ts`
+- Create: `packages/talos-cli/src/codex/utils/imageInput.ts`
+- Create: `packages/talos-cli/src/codex/utils/imageInput.test.ts`
 
 - [ ] **Step 1: Write failing image input helper tests**
 
-Create `packages/happy-cli/src/codex/utils/imageInput.test.ts`:
+Create `packages/talos-cli/src/codex/utils/imageInput.test.ts`:
 
 ```ts
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -702,7 +702,7 @@ vi.mock('@/ui/logger', () => ({
 }));
 
 vi.mock('@/configuration', () => ({
-    configuration: { happyHomeDir: '/home/test/.happy' },
+    configuration: { talosHomeDir: '/home/test/.talos' },
 }));
 
 import {
@@ -714,7 +714,7 @@ import {
 const tempDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
-    const dir = await mkdtemp(join(tmpdir(), 'happy-codex-image-input-'));
+    const dir = await mkdtemp(join(tmpdir(), 'talos-codex-image-input-'));
     tempDirs.push(dir);
     return dir;
 }
@@ -822,15 +822,15 @@ describe('prepareCodexImageInputItems', () => {
 describe('resolveCodexImageCacheDir', () => {
     it('uses the explicit cache root when provided', () => {
         expect(resolveCodexImageCacheDir({
-            cacheRootDir: '/tmp/happy-cache',
+            cacheRootDir: '/tmp/talos-cache',
             sessionId: 'session-1',
-        })).toBe('/tmp/happy-cache/session-1');
+        })).toBe('/tmp/talos-cache/session-1');
     });
 
-    it('defaults to Happy local state instead of arbitrary OS temp', () => {
+    it('defaults to Talos local state instead of arbitrary OS temp', () => {
         expect(resolveCodexImageCacheDir({
             sessionId: 'session-4',
-        })).toBe('/home/test/.happy/codex-image-cache/session-4');
+        })).toBe('/home/test/.talos/codex-image-cache/session-4');
     });
 });
 ```
@@ -840,14 +840,14 @@ describe('resolveCodexImageCacheDir', () => {
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/utils/imageInput.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/utils/imageInput.test.ts
 ```
 
 Expected: FAIL because `imageInput.ts` does not exist.
 
 - [ ] **Step 3: Add the image input helper**
 
-Create `packages/happy-cli/src/codex/utils/imageInput.ts`:
+Create `packages/talos-cli/src/codex/utils/imageInput.ts`:
 
 ```ts
 import { randomUUID } from 'node:crypto';
@@ -917,7 +917,7 @@ export function resolveCodexImageCacheDir(opts: {
     sessionId: string;
     cacheRootDir?: string;
 }): string {
-    return join(opts.cacheRootDir ?? join(configuration.happyHomeDir, 'codex-image-cache'), opts.sessionId);
+    return join(opts.cacheRootDir ?? join(configuration.talosHomeDir, 'codex-image-cache'), opts.sessionId);
 }
 
 export async function prepareCodexImageInputItems(
@@ -972,7 +972,7 @@ export async function prepareCodexImageInputItems(
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/utils/imageInput.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/utils/imageInput.test.ts
 ```
 
 Expected: PASS.
@@ -982,21 +982,21 @@ Expected: PASS.
 Run:
 
 ```bash
-git add packages/happy-cli/src/codex/utils/imageInput.ts \
-  packages/happy-cli/src/codex/utils/imageInput.test.ts
+git add packages/talos-cli/src/codex/utils/imageInput.ts \
+  packages/talos-cli/src/codex/utils/imageInput.test.ts
 git commit -m "feat(cli): prepare codex local image inputs"
 ```
 
 ### Task 5: Convert Codex File Events Into Queue Attachments
 
 **Files:**
-- Create: `packages/happy-cli/src/codex/utils/attachmentEvents.ts`
-- Create: `packages/happy-cli/src/codex/utils/attachmentEvents.test.ts`
-- Modify: `packages/happy-cli/src/codex/runCodex.ts`
+- Create: `packages/talos-cli/src/codex/utils/attachmentEvents.ts`
+- Create: `packages/talos-cli/src/codex/utils/attachmentEvents.test.ts`
+- Modify: `packages/talos-cli/src/codex/runCodex.ts`
 
 - [ ] **Step 1: Write failing attachment event tests**
 
-Create `packages/happy-cli/src/codex/utils/attachmentEvents.test.ts`:
+Create `packages/talos-cli/src/codex/utils/attachmentEvents.test.ts`:
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -1079,14 +1079,14 @@ describe('downloadCodexFileEventAttachment', () => {
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/utils/attachmentEvents.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/utils/attachmentEvents.test.ts
 ```
 
 Expected: FAIL because `attachmentEvents.ts` does not exist.
 
 - [ ] **Step 3: Add the attachment event helper**
 
-Create `packages/happy-cli/src/codex/utils/attachmentEvents.ts`:
+Create `packages/talos-cli/src/codex/utils/attachmentEvents.ts`:
 
 ```ts
 import type { ApiSessionClient } from '@/api/apiSession';
@@ -1121,7 +1121,7 @@ export async function downloadCodexFileEventAttachment(
 
 - [ ] **Step 4: Register Codex file-event handling in `runCodex.ts`**
 
-In `packages/happy-cli/src/codex/runCodex.ts`, add imports:
+In `packages/talos-cli/src/codex/runCodex.ts`, add imports:
 
 ```ts
 import type { PendingAttachment } from '@/utils/MessageQueue2';
@@ -1169,7 +1169,7 @@ Update the `pending` and `message` loop types:
 
 - [ ] **Step 5: Convert queued attachments before `sendTurnAndWait`**
 
-In the main Codex loop in `packages/happy-cli/src/codex/runCodex.ts`, before `buildCodexTurnPrompt`, add:
+In the main Codex loop in `packages/talos-cli/src/codex/runCodex.ts`, before `buildCodexTurnPrompt`, add:
 
 ```ts
                 const imageInputs = await prepareCodexImageInputItems(message.attachments, {
@@ -1216,8 +1216,8 @@ Change user message display so image-only messages do not render an empty row:
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/utils/attachmentEvents.test.ts src/codex/codexClearCommand.test.ts
-pnpm --dir packages/happy-cli typecheck
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/utils/attachmentEvents.test.ts src/codex/codexClearCommand.test.ts
+pnpm --dir packages/talos-cli typecheck
 ```
 
 Expected: PASS.
@@ -1227,21 +1227,21 @@ Expected: PASS.
 Run:
 
 ```bash
-git add packages/happy-cli/src/codex/utils/attachmentEvents.ts \
-  packages/happy-cli/src/codex/utils/attachmentEvents.test.ts \
-  packages/happy-cli/src/codex/runCodex.ts
+git add packages/talos-cli/src/codex/utils/attachmentEvents.ts \
+  packages/talos-cli/src/codex/utils/attachmentEvents.test.ts \
+  packages/talos-cli/src/codex/runCodex.ts
 git commit -m "feat(cli): deliver app images to codex"
 ```
 
 ### Task 6: Generalize Local Image Upload Envelopes
 
 **Files:**
-- Modify: `packages/happy-cli/src/api/apiSession.ts`
-- Modify: `packages/happy-cli/src/api/apiSession.test.ts`
+- Modify: `packages/talos-cli/src/api/apiSession.ts`
+- Modify: `packages/talos-cli/src/api/apiSession.test.ts`
 
 - [ ] **Step 1: Write failing Codex local image upload test**
 
-Append this test to `packages/happy-cli/src/api/apiSession.test.ts` near the existing Claude transcript image upload test:
+Append this test to `packages/talos-cli/src/api/apiSession.test.ts` near the existing Claude transcript image upload test:
 
 ```ts
     it('uploads local Codex image files with codex item ids', async () => {
@@ -1307,14 +1307,14 @@ Append this test to `packages/happy-cli/src/api/apiSession.test.ts` near the exi
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/api/apiSession.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/api/apiSession.test.ts
 ```
 
 Expected: FAIL because `uploadLocalImageAttachmentEnvelope` is not public.
 
 - [ ] **Step 3: Generalize the upload helper**
 
-In `packages/happy-cli/src/api/apiSession.ts`, rename `LocalTranscriptImageAttachment` to an exported type:
+In `packages/talos-cli/src/api/apiSession.ts`, rename `LocalTranscriptImageAttachment` to an exported type:
 
 ```ts
 export type LocalImageAttachment = {
@@ -1362,7 +1362,7 @@ In `sendClaudeSessionMessageFromLocalTranscript`, replace the old private helper
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/api/apiSession.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/api/apiSession.test.ts
 ```
 
 Expected: PASS, including the existing Claude image upload test.
@@ -1372,23 +1372,23 @@ Expected: PASS, including the existing Claude image upload test.
 Run:
 
 ```bash
-git add packages/happy-cli/src/api/apiSession.ts \
-  packages/happy-cli/src/api/apiSession.test.ts
+git add packages/talos-cli/src/api/apiSession.ts \
+  packages/talos-cli/src/api/apiSession.test.ts
 git commit -m "feat(cli): upload local codex image history"
 ```
 
 ### Task 7: Add Ordered Codex Fork Image Backfill
 
 **Files:**
-- Modify: `packages/happy-cli/src/codex/utils/sessionProtocolMapper.ts`
-- Modify: `packages/happy-cli/src/codex/__tests__/sessionProtocolMapper.test.ts`
-- Create: `packages/happy-cli/src/codex/utils/threadImageBackfill.ts`
-- Create: `packages/happy-cli/src/codex/utils/threadImageBackfill.test.ts`
-- Modify: `packages/happy-cli/src/codex/runCodex.ts`
+- Modify: `packages/talos-cli/src/codex/utils/sessionProtocolMapper.ts`
+- Modify: `packages/talos-cli/src/codex/__tests__/sessionProtocolMapper.test.ts`
+- Create: `packages/talos-cli/src/codex/utils/threadImageBackfill.ts`
+- Create: `packages/talos-cli/src/codex/utils/threadImageBackfill.test.ts`
+- Modify: `packages/talos-cli/src/codex/runCodex.ts`
 
 - [ ] **Step 1: Extract pure item mapping without behavior change**
 
-In `packages/happy-cli/src/codex/utils/sessionProtocolMapper.ts`, extract the body of each `switch (item.type)` branch in `mapCodexThreadToSessionEnvelopes` into:
+In `packages/talos-cli/src/codex/utils/sessionProtocolMapper.ts`, extract the body of each `switch (item.type)` branch in `mapCodexThreadToSessionEnvelopes` into:
 
 ```ts
 export function mapCodexThreadItemToSessionEnvelopes(
@@ -1498,14 +1498,14 @@ Then simplify the original loop:
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/__tests__/sessionProtocolMapper.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/__tests__/sessionProtocolMapper.test.ts
 ```
 
 Expected: PASS with no assertion changes. The extracted helper must preserve the existing branch-specific narrowing from the original `switch (item.type)` implementation.
 
 - [ ] **Step 3: Write failing thread image backfill tests**
 
-Create `packages/happy-cli/src/codex/utils/threadImageBackfill.test.ts`:
+Create `packages/talos-cli/src/codex/utils/threadImageBackfill.test.ts`:
 
 ```ts
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -1513,14 +1513,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createEnvelope } from '@slopus/happy-wire';
+import { createEnvelope } from '@ahmadposten/talos-wire';
 
 vi.mock('@/ui/logger', () => ({
     logger: { debug: vi.fn() },
 }));
 
 vi.mock('@/configuration', () => ({
-    configuration: { happyHomeDir: '/home/test/.happy' },
+    configuration: { talosHomeDir: '/home/test/.talos' },
 }));
 
 import { buildCodexThreadBackfillEnvelopes } from './threadImageBackfill';
@@ -1528,7 +1528,7 @@ import { buildCodexThreadBackfillEnvelopes } from './threadImageBackfill';
 const tempDirs: string[] = [];
 
 async function makePngFile(name: string): Promise<string> {
-    const dir = await mkdtemp(join(tmpdir(), 'happy-codex-backfill-'));
+    const dir = await mkdtemp(join(tmpdir(), 'talos-codex-backfill-'));
     tempDirs.push(dir);
     const filePath = join(dir, name);
     await writeFile(filePath, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]));
@@ -1667,20 +1667,20 @@ describe('buildCodexThreadBackfillEnvelopes', () => {
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/utils/threadImageBackfill.test.ts
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/utils/threadImageBackfill.test.ts
 ```
 
 Expected: FAIL because `threadImageBackfill.ts` does not exist.
 
 - [ ] **Step 5: Add ordered thread image backfill helper**
 
-Create `packages/happy-cli/src/codex/utils/threadImageBackfill.ts`:
+Create `packages/talos-cli/src/codex/utils/threadImageBackfill.ts`:
 
 ```ts
 import { readFile } from 'node:fs/promises';
 
-import type { SessionEnvelope } from '@slopus/happy-wire';
-import { createEnvelope } from '@slopus/happy-wire';
+import type { SessionEnvelope } from '@ahmadposten/talos-wire';
+import { createEnvelope } from '@ahmadposten/talos-wire';
 
 import type { Thread, ThreadItem, ThreadTurn } from '../codexAppServerTypes';
 import { detectSupportedImageType } from './imageInput';
@@ -1789,13 +1789,13 @@ export async function buildCodexThreadBackfillEnvelopes(opts: {
 
 - [ ] **Step 6: Use ordered backfill in `runCodex.ts`**
 
-In `packages/happy-cli/src/codex/runCodex.ts`, add:
+In `packages/talos-cli/src/codex/runCodex.ts`, add:
 
 ```ts
 import { buildCodexThreadBackfillEnvelopes } from './utils/threadImageBackfill';
 ```
 
-In the `HAPPY_FORK_CODEX_THREAD_ID` block, replace:
+In the `TALOS_FORK_CODEX_THREAD_ID` block, replace:
 
 ```ts
                 const envelopes = mapCodexThreadToSessionEnvelopes(thread);
@@ -1819,8 +1819,8 @@ Remove `mapCodexThreadToSessionEnvelopes` from the `runCodex.ts` import list if 
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit src/codex/__tests__/sessionProtocolMapper.test.ts src/codex/utils/threadImageBackfill.test.ts src/api/apiSession.test.ts
-pnpm --dir packages/happy-cli typecheck
+pnpm --dir packages/talos-cli exec vitest run --project unit src/codex/__tests__/sessionProtocolMapper.test.ts src/codex/utils/threadImageBackfill.test.ts src/api/apiSession.test.ts
+pnpm --dir packages/talos-cli typecheck
 ```
 
 Expected: PASS.
@@ -1830,11 +1830,11 @@ Expected: PASS.
 Run:
 
 ```bash
-git add packages/happy-cli/src/codex/utils/sessionProtocolMapper.ts \
-  packages/happy-cli/src/codex/__tests__/sessionProtocolMapper.test.ts \
-  packages/happy-cli/src/codex/utils/threadImageBackfill.ts \
-  packages/happy-cli/src/codex/utils/threadImageBackfill.test.ts \
-  packages/happy-cli/src/codex/runCodex.ts
+git add packages/talos-cli/src/codex/utils/sessionProtocolMapper.ts \
+  packages/talos-cli/src/codex/__tests__/sessionProtocolMapper.test.ts \
+  packages/talos-cli/src/codex/utils/threadImageBackfill.ts \
+  packages/talos-cli/src/codex/utils/threadImageBackfill.test.ts \
+  packages/talos-cli/src/codex/runCodex.ts
 git commit -m "feat(cli): backfill codex image history"
 ```
 
@@ -1848,8 +1848,8 @@ git commit -m "feat(cli): backfill codex image history"
 Run:
 
 ```bash
-pnpm --dir packages/happy-app exec vitest run sources/sync/attachmentSupport.test.ts
-pnpm --dir packages/happy-app typecheck
+pnpm --dir packages/talos-app exec vitest run sources/sync/attachmentSupport.test.ts
+pnpm --dir packages/talos-app typecheck
 ```
 
 Expected: PASS.
@@ -1859,7 +1859,7 @@ Expected: PASS.
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli exec vitest run --project unit \
+pnpm --dir packages/talos-cli exec vitest run --project unit \
   src/codex/codexClearCommand.test.ts \
   src/codex/codexAppServerClient.test.ts \
   src/codex/utils/imageInput.test.ts \
@@ -1867,7 +1867,7 @@ pnpm --dir packages/happy-cli exec vitest run --project unit \
   src/codex/utils/threadImageBackfill.test.ts \
   src/codex/__tests__/sessionProtocolMapper.test.ts \
   src/api/apiSession.test.ts
-pnpm --dir packages/happy-cli typecheck
+pnpm --dir packages/talos-cli typecheck
 ```
 
 Expected: PASS.
@@ -1877,7 +1877,7 @@ Expected: PASS.
 Run:
 
 ```bash
-pnpm --dir packages/happy-cli test
+pnpm --dir packages/talos-cli test
 ```
 
 Expected: PASS. This command builds the CLI and runs the unit Vitest project.
@@ -1898,21 +1898,21 @@ Expected: `git diff --check` prints nothing. `git status --short` shows only int
 Start the local server, CLI daemon, and web app in separate terminals:
 
 ```bash
-pnpm --filter happy-server-self-host standalone:dev
+pnpm --filter @ahmadposten/talos-server standalone:dev
 ```
 
 ```bash
-pnpm --filter happy cli:install
-HAPPY_HOME_DIR=~/.happy-dev HAPPY_SERVER_URL=http://localhost:3005 happy daemon stop
-HAPPY_HOME_DIR=~/.happy-dev HAPPY_SERVER_URL=http://localhost:3005 happy daemon start
-HAPPY_HOME_DIR=~/.happy-dev HAPPY_SERVER_URL=http://localhost:3005 happy auth
+pnpm --filter talosapp cli:install
+TALOS_HOME_DIR=~/.talos-dev TALOS_SERVER_URL=http://localhost:3005 talos daemon stop
+TALOS_HOME_DIR=~/.talos-dev TALOS_SERVER_URL=http://localhost:3005 talos daemon start
+TALOS_HOME_DIR=~/.talos-dev TALOS_SERVER_URL=http://localhost:3005 talos auth
 ```
 
 ```bash
-EXPO_PUBLIC_HAPPY_SERVER_URL=http://localhost:3005 pnpm --filter happy-app web
+EXPO_PUBLIC_TALOS_SERVER_URL=http://localhost:3005 pnpm --filter talos-app web
 ```
 
-In the Happy web app, open or create a Codex session, attach a small PNG image with text, and send it.
+In the Talos web app, open or create a Codex session, attach a small PNG image with text, and send it.
 
 Expected:
 - the app shows the image bubble before the text bubble
@@ -1931,10 +1931,10 @@ Expected:
 
 - [ ] **Step 7: Manual Codex fork smoke test**
 
-From a Codex session that previously received a Happy image attachment, create a fork or duplicate session on the same machine.
+From a Codex session that previously received a Talos image attachment, create a fork or duplicate session on the same machine.
 
 Expected:
-- the new Happy session displays historical image file events in the correct order before the matching user text
+- the new Talos session displays historical image file events in the correct order before the matching user text
 - if a provider `localImage.path` no longer exists, text history still appears and no fake image bubble is created
 
 - [ ] **Step 8: Final commit**
@@ -1942,7 +1942,7 @@ Expected:
 If Task 8 revealed fixes, commit them:
 
 ```bash
-git add packages/happy-app packages/happy-cli
+git add packages/talos-app packages/talos-cli
 git commit -m "test: verify codex image attachments"
 ```
 

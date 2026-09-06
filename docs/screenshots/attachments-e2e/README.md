@@ -4,14 +4,14 @@ Feature branch: `feat/attachments`. Target: iOS Simulator (iPhone 17 Pro, iOS 26
 
 ## Environment
 
-- **Server**: `packages/happy-server` `pnpm standalone:dev` on `localhost:3005`,
+- **Server**: `packages/talos-server` `pnpm standalone:dev` on `localhost:3005`,
   PGlite + local-disk blob storage (`./data/files/`, `isLocalStorage() = true`).
   Prod flips to MinIO/S3 via env vars — no code change.
-- **App**: `com.slopus.happy.dev` dev-client build (`pnpm ios`), Metro on `:8081`,
-  pointed at `EXPO_PUBLIC_HAPPY_SERVER_URL=http://localhost:3005`.
-- **CLI**: `packages/happy-cli/bin/happy.mjs --yolo` in a scratch project dir,
-  `HAPPY_SERVER_URL=http://localhost:3005`, paired to the app account.
-- **Fixtures**: `~/tmp/happy-attachment-fixtures/` — see [`fixtures.json`](./fixtures.json).
+- **App**: `com.slopus.talos.dev` dev-client build (`pnpm ios`), Metro on `:8081`,
+  pointed at `EXPO_PUBLIC_TALOS_SERVER_URL=http://localhost:3005`.
+- **CLI**: `packages/talos-cli/bin/talos.mjs --yolo` in a scratch project dir,
+  `TALOS_SERVER_URL=http://localhost:3005`, paired to the app account.
+- **Fixtures**: `~/tmp/talos-attachment-fixtures/` — see [`fixtures.json`](./fixtures.json).
   Pushed to sim Photos (`xcrun simctl addmedia`) and to the Files-app "On My iPhone"
   container (FileProvider LocalStorage).
 - **Driver**: Maestro point-taps + `xcrun simctl` for screenshots (`~/.maestro/bin/maestro`,
@@ -62,7 +62,7 @@ The image roundtrip proves the shared pipeline (pick → encrypt → upload →
 download → decrypt → route → content-block → API → render). The *per-type
 routing decisions* (which the router makes once bytes are in hand) are proven
 deterministically by **40 unit tests** in
-`packages/happy-cli/src/claude/utils/attachmentRouter.test.ts`:
+`packages/talos-cli/src/claude/utils/attachmentRouter.test.ts`:
 
 | Attachment | Router decision | Covered by |
 |---|---|---|
@@ -82,5 +82,5 @@ content-addressing are asserted in the same suite.
 
 ## Suites (this branch)
 
-- `packages/happy-cli` vitest — **733 passed / 18 skipped** (77 files), tsc clean.
-- `packages/happy-app` vitest — **689 passed** (54 files), tsc clean.
+- `packages/talos-cli` vitest — **733 passed / 18 skipped** (77 files), tsc clean.
+- `packages/talos-app` vitest — **689 passed** (54 files), tsc clean.

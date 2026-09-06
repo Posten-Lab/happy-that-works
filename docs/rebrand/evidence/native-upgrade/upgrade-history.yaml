@@ -1,0 +1,8 @@
+appId: com.ahposten.happyimproved
+---
+- assertVisible: "Terminals"
+- assertVisible: "Upgrade continuity check"
+- assertNotVisible: "Create account"
+- tapOn: "Upgrade continuity check"
+- assertVisible: "This encrypted session existed before the Talos upgrade."
+- takeScreenshot: talos-restored-session

@@ -1,8 +1,8 @@
 # User Identity Across Systems
 
-How a single Happy user is identified across every external service.
+How a single Talos user is identified across every external service.
 
-## Primary ID: Happy Account CUID
+## Primary ID: Talos Account CUID
 
 - **Type:** CUID (collision-resistant unique ID, string)
 - **Created:** On first auth via public-key signature verification (`Account.upsert` by `publicKey`)
@@ -13,7 +13,7 @@ How a single Happy user is identified across every external service.
 ## Identity Map
 
 ```
-Happy Account CUID (e.g. cm4x7k2...)
+Talos Account CUID (e.g. cm4x7k2...)
 │
 ├─► ElevenLabs ── u_{base64url(HMAC-SHA256(CUID, MASTER_SECRET))}
 │                 Derived on every request, never stored.
@@ -45,7 +45,7 @@ POST /v1/auth { publicKey, challenge, signature }
   │
   ├─ server verifies signature (tweetnacl)
   ├─ Account.upsert({ where: { publicKey } })  →  CUID
-  ├─ auth.createToken(CUID)  →  JWT (signed with HANDY_MASTER_SECRET)
+  ├─ auth.createToken(CUID)  →  JWT (signed with TALOS_MASTER_SECRET)
   │
   ▼
 Client stores JWT, sends as Authorization header on all requests
@@ -56,17 +56,17 @@ Server extracts CUID from JWT via app.authenticate decorator
 
 | System | ID Type | Why |
 |--------|---------|-----|
-| ElevenLabs | HMAC-derived | Privacy — raw Happy ID never sent to ElevenLabs |
+| ElevenLabs | HMAC-derived | Privacy — raw Talos ID never sent to ElevenLabs |
 | RevenueCat | Pass-through | Direct correlation needed for subscription API calls |
 | GitHub | Stored foreign key | Enables profile linking and account recovery via OAuth |
 | AI vendors | Stored encrypted | User-owned keys, need to be retrievable |
 
 ## Local Scripting
 
-To derive an ElevenLabs user ID from a Happy CUID locally:
+To derive an ElevenLabs user ID from a Talos CUID locally:
 
 ```python
 import hmac, hashlib, base64
-digest = hmac.new(MASTER_SECRET.encode(), happy_cuid.encode(), hashlib.sha256).digest()
+digest = hmac.new(MASTER_SECRET.encode(), talos_cuid.encode(), hashlib.sha256).digest()
 eleven_id = "u_" + base64.b64encode(digest).decode().replace("+","-").replace("/","_").rstrip("=")
 ```

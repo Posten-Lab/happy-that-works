@@ -1,0 +1,104 @@
+{
+  "captured": "2026-09-06",
+  "environment": "isolated local Talos relay; synthetic verification accounts",
+  "screenshots": [
+    {
+      "file": "welcome-desktop-light-final.png",
+      "description": "Web welcome, light theme, desktop",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "49017d92d4d6d11b7253b06409c3f2bdc271cef870d5d3da78be622a9f6e159d"
+    },
+    {
+      "file": "welcome-mobile-dark.png",
+      "description": "Web welcome, dark theme, phone width",
+      "width": 390,
+      "height": 844,
+      "sha256": "0153916090b2757ff1cf9609eb54ea90fdb04ec4f8c2cb77910a1a2a347c2049"
+    },
+    {
+      "file": "session-desktop-light.png",
+      "description": "Paired CLI session and decrypted message, light theme",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "14742b9d43231bd97a225b8791e56530bba2aabfb8c1120e568eb87ef0964727"
+    },
+    {
+      "file": "session-desktop-dark.png",
+      "description": "Paired CLI session and decrypted message, dark theme",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "616a6d0a625e73ea6566fee49df386d099770746fe6d9d81f14f2d4c56cefea1"
+    },
+    {
+      "file": "settings-mobile-dark-final.png",
+      "description": "Web settings, dark theme, phone width",
+      "width": 390,
+      "height": 844,
+      "sha256": "d5969245d2e99aa194994fbf4add1600e067cd75a92f117e639b1ccdebaabfca"
+    },
+    {
+      "file": "android-welcome-light-final.png",
+      "description": "Native Android release build, fresh account entry",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "1aa160a0fd468edd741c92543c39320b40c354c301f70bb809bde185b31d0d32"
+    },
+    {
+      "file": "android-settings-dark.png",
+      "description": "Native Android settings, dark theme",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "6f87e86952fe3a7daf5dca5c219efeb8aa39ddd85402ed3911c848742213ed1b"
+    },
+    {
+      "file": "ios-welcome-light-final.png",
+      "description": "Native iOS release build, fresh account entry",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "c08aa0dff3921c0fd2c6430f8c702d69315fcdfc1a8ebee41b1f1c0302bc73f0"
+    },
+    {
+      "file": "ios-settings-dark-final.png",
+      "description": "Native iOS settings, dark theme",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "0acf8a8992ada775237254b4c62c232417a26926a1100ff14adfd6b427407683"
+    },
+    {
+      "file": "ios-restore-dark.png",
+      "description": "Native iOS account linking and restore",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "aa6230fde2b7c3cd1278c365b008e7c3ed36dd4190ea4e54a1bfbaf873c36e9e"
+    },
+    {
+      "file": "ios-cli-approval.png",
+      "description": "Native iOS approval for the Talos CLI pairing link",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "f0b5ed8e20f24e7e31ac26a13ca02a1c6d5dab8e2398967027d6e4bb887b4817"
+    },
+    {
+      "file": "restore-bridge-default-mobile.png",
+      "sha256": "d57540a87f4ab807ac77cef53c7b31906d4d467daaa7dc7d1f0a9c3774ecd2e9",
+      "width": 390,
+      "height": 844,
+      "description": "Talos account linking on a phone-width browser, with Talos QR selected by default."
+    },
+    {
+      "file": "restore-bridge-existing-mobile.png",
+      "sha256": "652eddc3fe10883218cbb814eae9e5bd8e9da98a3c0cae137ed60724d4df52ec",
+      "width": 390,
+      "height": 844,
+      "description": "Explicit compatibility option for account approval from an existing mobile installation."
+    },
+    {
+      "file": "restore-bridge-authenticated-mobile.png",
+      "sha256": "d27bc9d402e4ccb23ce153b15cdadfe009fbb558ac361c5158b15a96ed54b7f4",
+      "width": 390,
+      "height": 844,
+      "description": "Talos workspace after successfully decrypting the approved synthetic account."
+    }
+  ]
+}

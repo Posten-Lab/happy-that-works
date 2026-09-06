@@ -1,4 +1,4 @@
-name: Mobile release selector
+name: Talos mobile release selector
 on:
   pull_request:
     paths:

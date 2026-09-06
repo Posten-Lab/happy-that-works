@@ -1,4 +1,4 @@
-// Run from packages/happy-app with the same isolated install used by EAS.
+// Run from packages/talos-app with the same isolated install used by EAS.
 // Metro's cached export can otherwise hide a missing preset until Xcode bundles.
 const { createRequire } = require('node:module');
 const { resolve } = require('node:path');

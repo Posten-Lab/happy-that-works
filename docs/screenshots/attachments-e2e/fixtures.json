@@ -1,9 +1,9 @@
 {
-  "fixtureDir": "~/tmp/happy-attachment-fixtures/",
+  "fixtureDir": "~/tmp/talos-attachment-fixtures/",
   "fixtures": [
     {
       "name": "photo.jpg",
-      "path": "~/tmp/happy-attachment-fixtures/photo.jpg",
+      "path": "~/tmp/talos-attachment-fixtures/photo.jpg",
       "mimeType": "image/jpeg",
       "sizeBytes": 2048,
       "expectedRoute": "image",
@@ -12,7 +12,7 @@
     },
     {
       "name": "photo.heic",
-      "path": "~/tmp/happy-attachment-fixtures/photo.heic",
+      "path": "~/tmp/talos-attachment-fixtures/photo.heic",
       "mimeType": "image/heic",
       "sizeBytes": 663,
       "expectedRoute": "path (HEIC downgrade — Anthropic image block rejects HEIC media_type)",
@@ -21,7 +21,7 @@
     },
     {
       "name": "clip.mp4",
-      "path": "~/tmp/happy-attachment-fixtures/clip.mp4",
+      "path": "~/tmp/talos-attachment-fixtures/clip.mp4",
       "mimeType": "video/mp4",
       "sizeBytes": 17408,
       "durationSeconds": 3,
@@ -31,7 +31,7 @@
     },
     {
       "name": "notes.md",
-      "path": "~/tmp/happy-attachment-fixtures/notes.md",
+      "path": "~/tmp/talos-attachment-fixtures/notes.md",
       "mimeType": "text/markdown",
       "sizeBytes": 166,
       "expectedRoute": "path (text → @<temp-path> so Claude Read acts on it)",
@@ -40,7 +40,7 @@
     },
     {
       "name": "small.pdf",
-      "path": "~/tmp/happy-attachment-fixtures/small.pdf",
+      "path": "~/tmp/talos-attachment-fixtures/small.pdf",
       "mimeType": "application/pdf",
       "sizeBytes": 22528,
       "expectedRoute": "document (PDF ≤22 MB → Anthropic document content block)",
@@ -49,7 +49,7 @@
     },
     {
       "name": "big.pdf",
-      "path": "~/tmp/happy-attachment-fixtures/big.pdf",
+      "path": "~/tmp/talos-attachment-fixtures/big.pdf",
       "mimeType": "application/pdf",
       "sizeBytes": 26236928,
       "expectedRoute": "path (25 MB PDF > 22 MB doc-block cap → downgrade to @path)",
@@ -58,7 +58,7 @@
     },
     {
       "name": "huge.bin",
-      "path": "~/tmp/happy-attachment-fixtures/huge.bin",
+      "path": "~/tmp/talos-attachment-fixtures/huge.bin",
       "mimeType": "application/octet-stream",
       "sizeBytes": 125829120,
       "expectedRoute": "rejected client-side (120 MB > 100 MB cap in useImagePicker.MAX_FILE_SIZE)",

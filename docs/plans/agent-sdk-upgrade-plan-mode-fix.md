@@ -2,7 +2,7 @@
 
 ## Context
 
-Plan mode buttons (accept/reject) don't reliably appear in the Happy app UI. Root cause: the CLI's `permissionHandler.handleToolCall` auto-approves ExitPlanMode when `permissionMode` is stale (`bypassPermissions` from a prior session), and `reset()` never clears `permissionMode`. Additionally, `isAborted` always returns true for ExitPlanMode as part of a PLAN_FAKE_RESTART hack, which causes a dead-end when the tool is auto-approved without injecting a restart message.
+Plan mode buttons (accept/reject) don't reliably appear in the Talos app UI. Root cause: the CLI's `permissionHandler.handleToolCall` auto-approves ExitPlanMode when `permissionMode` is stale (`bypassPermissions` from a prior session), and `reset()` never clears `permissionMode`. Additionally, `isAborted` always returns true for ExitPlanMode as part of a PLAN_FAKE_RESTART hack, which causes a dead-end when the tool is auto-approved without injecting a restart message.
 
 The current custom SDK (`src/claude/sdk/`) reimplements what `@anthropic-ai/claude-agent-sdk` now provides natively, including `toolUseID` in `canUseTool` (eliminates our 1-second delay hack) and `setPermissionMode()` (eliminates the session-restart-on-mode-change hack).
 
@@ -41,7 +41,7 @@ if (this.permissionMode === 'bypassPermissions') { ... }  // other tools still b
 
 ## Part 1: Immediate Bug Fix ✅
 
-**File:** `packages/happy-cli/src/claude/utils/permissionHandler.ts`
+**File:** `packages/talos-cli/src/claude/utils/permissionHandler.ts`
 
 ExitPlanMode must never be auto-approved. In `handleToolCall`, check `descriptor.exitPlan` before the `bypassPermissions`/`acceptEdits` shortcuts and always route to `handlePermissionRequest`.
 
@@ -52,7 +52,7 @@ ExitPlanMode must never be auto-approved. In `handleToolCall`, check `descriptor
 ### 2a. Install dependency
 
 ```bash
-cd packages/happy-cli && yarn add @anthropic-ai/claude-agent-sdk@^0.2.96
+cd packages/talos-cli && yarn add @anthropic-ai/claude-agent-sdk@^0.2.96
 ```
 
 ### 2b. Migrate SDK types
@@ -64,7 +64,7 @@ Replace custom types with re-exports from the Agent SDK:
 - `CanCallToolCallback` → `CanUseTool` from agent-sdk (now receives `options.toolUseID`)
 - `QueryOptions` → from agent-sdk `Options`
 - `PermissionResult` → from agent-sdk
-- Keep any Happy-specific extensions as wrappers
+- Keep any Talos-specific extensions as wrappers
 
 ### 2c. Migrate query.ts
 
@@ -141,7 +141,7 @@ Depends on Part 2 being complete.
 
 **File:** `src/claude/planMode.integration.test.ts`
 
-Three tests against an isolated `/tmp/happy-testing-ground-<random>/` fixture with `hello-world.js` in a git repo:
+Three tests against an isolated `/tmp/talos-testing-ground-<random>/` fixture with `hello-world.js` in a git repo:
 
 1. **Plan approval** → ExitPlanMode received by canCallTool, plan input has content, Claude edits the file
 2. **Plan denial** → file untouched after deny
