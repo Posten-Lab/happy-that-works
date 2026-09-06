@@ -45,7 +45,19 @@ pipeline {
   stages {
     stage('Checkout') {
       options { retry(3) }
-      steps { checkout scm }
+      steps {
+        script {
+          // skipDefaultCheckout disables Declarative's automatic Git env binding.
+          // An explicit checkout returns these values but does not export them.
+          def revision = checkout scm
+          env.GIT_BRANCH = revision.GIT_BRANCH
+          env.GIT_COMMIT = revision.GIT_COMMIT
+          if (!env.GIT_BRANCH || !(env.GIT_COMMIT ==~ /[0-9a-f]{40}/)) {
+            error('Checkout did not return a branch and exact commit; refusing an unclassified release')
+          }
+          echo "Checked out ${env.GIT_BRANCH} at ${env.GIT_COMMIT}"
+        }
+      }
     }
 
     stage('Install') {
@@ -89,7 +101,7 @@ pipeline {
           env.MOBILE_RELEASE_KIND = 'none'
           def mainBranch = !env.CHANGE_ID &&
             (env.BRANCH_NAME == 'main' || env.GIT_BRANCH in ['main', 'origin/main'])
-          if (mainBranch && !params.VALIDATE_ONLY) {
+          if (mainBranch) {
             env.RELEASE_MODE = params.MOBILE_RELEASE_MODE ?: 'auto'
             // Validation-only successes must never advance the delivered baseline.
             def previous = currentBuild.previousBuild
@@ -121,7 +133,7 @@ pipeline {
     }
 
     stage('Check OTA runtime compatibility') {
-      when { expression { return env.MOBILE_RELEASE_KIND == 'ota' } }
+      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'ota' } }
       steps {
         dir("${APP_DIR}") {
           sh '''
@@ -146,7 +158,7 @@ pipeline {
     }
 
     stage('Publish production OTA') {
-      when { expression { return env.MOBILE_RELEASE_KIND == 'ota' } }
+      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'ota' } }
       steps {
         dir("${APP_DIR}") {
           sh '''
@@ -158,7 +170,7 @@ pipeline {
     }
 
     stage('Build and submit production iOS') {
-      when { expression { return env.MOBILE_RELEASE_KIND == 'native' } }
+      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'native' } }
       steps {
         dir("${APP_DIR}") {
           withCredentials([string(credentialsId: 'asc-key-p8', variable: 'ASC_KEY_P8_B64')]) {

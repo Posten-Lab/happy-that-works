@@ -6,7 +6,10 @@ its first confirmed delivery. Subsequent main changes are polled every five minu
 
 The job tests the app and release selector, typechecks, and exports a real iOS
 bundle. Feature branches and `VALIDATE_ONLY` runs never release or advance the
-release baseline. Production delivery remains iOS, matching the existing job.
+release baseline. Validation-only main runs still classify the release so branch
+detection and bootstrap decisions can be exercised without publishing. The
+explicit checkout exports its returned Git branch and SHA into the pipeline
+environment; missing metadata fails the run. Production delivery remains iOS, matching the existing job.
 
 Auto selection compares against the most recent successful run marked
 `delivered:<commit>`, including all changes since failed or validation-only runs:
