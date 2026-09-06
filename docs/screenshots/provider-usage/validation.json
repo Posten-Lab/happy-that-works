@@ -1,0 +1,575 @@
+{
+  "schemaVersion": 1,
+  "feature": "Provider usage and limits",
+  "deliveryStatus": "provider_and_browser_e2e_complete",
+  "actualProviderE2E": {
+    "verifiedAt": "2026-09-06T21:17:42.029Z",
+    "transport": "actual local relay + built daemon + encrypted socket.io machine RPC",
+    "results": [
+      {
+        "provider": "codex",
+        "elapsedMs": 915,
+        "response": {
+          "provider": "codex",
+          "status": "ok",
+          "checkedAt": 1788729461673,
+          "dataAsOf": 1788729461673,
+          "freshness": "live",
+          "windows": [
+            {
+              "label": "Weekly limit",
+              "scope": "Codex",
+              "usedPercent": 41,
+              "remainingPercent": 59,
+              "resetsAt": 1789311885000,
+              "durationSeconds": 604800
+            },
+            {
+              "label": "5-hour limit",
+              "scope": "GPT-5.3-Codex-Spark",
+              "usedPercent": 0,
+              "remainingPercent": 100,
+              "resetsAt": 1788747461000,
+              "durationSeconds": 18000
+            },
+            {
+              "label": "Weekly limit",
+              "scope": "GPT-5.3-Codex-Spark",
+              "usedPercent": 0,
+              "remainingPercent": 100,
+              "resetsAt": 1789334261000,
+              "durationSeconds": 604800
+            }
+          ],
+          "balances": [
+            {
+              "label": "Codex credits",
+              "kind": "credits",
+              "unit": "credits",
+              "used": null,
+              "limit": null,
+              "remaining": 128.883025,
+              "usedPercent": null,
+              "unlimited": false,
+              "resetsAt": null,
+              "expiresAt": null
+            },
+            {
+              "label": "Usage resets available",
+              "kind": "resets",
+              "unit": "count",
+              "used": null,
+              "limit": null,
+              "remaining": 2,
+              "usedPercent": null,
+              "resetsAt": null,
+              "expiresAt": null
+            },
+            {
+              "label": "Full reset",
+              "kind": "resets",
+              "unit": "count",
+              "used": null,
+              "limit": null,
+              "remaining": 1,
+              "usedPercent": null,
+              "resetsAt": null,
+              "expiresAt": 1791092255000
+            },
+            {
+              "label": "Full reset",
+              "kind": "resets",
+              "unit": "count",
+              "used": null,
+              "limit": null,
+              "remaining": 1,
+              "usedPercent": null,
+              "resetsAt": null,
+              "expiresAt": 1791174014000
+            }
+          ],
+          "retryAt": 1788729490851,
+          "plan": "pro"
+        }
+      },
+      {
+        "provider": "claude",
+        "elapsedMs": 1265,
+        "response": {
+          "provider": "claude",
+          "status": "ok",
+          "checkedAt": 1788729462026,
+          "dataAsOf": null,
+          "freshness": "provider_cache_possible",
+          "windows": [
+            {
+              "label": "5-hour limit",
+              "usedPercent": 0,
+              "remainingPercent": 100,
+              "resetsAt": null,
+              "durationSeconds": 18000
+            },
+            {
+              "label": "Weekly limit",
+              "usedPercent": 9,
+              "remainingPercent": 91,
+              "resetsAt": 1788775200121,
+              "durationSeconds": 604800
+            }
+          ],
+          "balances": [
+            {
+              "label": "Extra usage monthly spend",
+              "kind": "spend_limit",
+              "unit": "currency",
+              "currency": "GBP",
+              "used": 0,
+              "limit": 100,
+              "remaining": 100,
+              "usedPercent": 0,
+              "unlimited": false,
+              "enabled": false,
+              "disabledReason": "out_of_credits",
+              "resetsAt": null,
+              "expiresAt": null
+            }
+          ],
+          "retryAt": 1788729491469,
+          "plan": "pro"
+        }
+      }
+    ],
+    "submittedModelTurns": false
+  },
+  "browserEvidence": {
+    "settingsNavigation": "Settings > Usage with experiments:false",
+    "liveCodexRemainingPercent": 58,
+    "liveClaudeState": "authenticated",
+    "mobileEvidence": "browser viewport, not native application",
+    "fixtureScope": "Same product renderer and encrypted local relay; Design validation values are synthetic, not actual provider E2E.",
+    "capturePreparation": "Neutral account and host labels are applied immediately before capture; provider quota values are unchanged. Initial scenario captures hide unrelated cards; authenticated captures show both actual providers (mobile is scrolled to Claude).",
+    "images": [
+      {
+        "file": "fixture-critical-desktop-dark.png",
+        "scenario": "synthetic-design-validation",
+        "width": 1440,
+        "height": 1750,
+        "sha256": "f03fb1ba922297a427b412d08b53e7b7284a0953bae7e39fd97a8eda942a6f53",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      },
+      {
+        "file": "fixture-critical-desktop-light.png",
+        "scenario": "synthetic-design-validation",
+        "width": 1440,
+        "height": 1750,
+        "sha256": "0f4af6da312704829e9ec8ea6e6196d3029515e8adf9eb79f0994cbc3ebd6e4f",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      },
+      {
+        "file": "fixture-critical-mobile-dark.png",
+        "scenario": "synthetic-design-validation",
+        "width": 390,
+        "height": 1000,
+        "sha256": "b0f248b7ba850d7e34d66e5dfb99b5e8529a940a8f1fa81c0a35a86e793647ba",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      },
+      {
+        "file": "fixture-critical-mobile-light.png",
+        "scenario": "synthetic-design-validation",
+        "width": 390,
+        "height": 1000,
+        "sha256": "db5306f253e3897747a7d951a2fa7c81ad4782a3184a138d12e386ded7519578",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      },
+      {
+        "file": "fixture-offline-mobile-dark.png",
+        "scenario": "synthetic-design-validation",
+        "width": 390,
+        "height": 1000,
+        "sha256": "f9e28b0d90f0ca30d5dce682fe13b087e710536a46d81233e9ef421cfb9ed710",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      },
+      {
+        "file": "fixture-unknown-mobile-dark.png",
+        "scenario": "synthetic-design-validation",
+        "width": 390,
+        "height": 1000,
+        "sha256": "65780e26dad73a6ba5e47e51f858a462d5b82468e43773eb0e990bc9970d7930",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      },
+      {
+        "file": "live-desktop-dark.png",
+        "scenario": "actual-provider",
+        "width": 1440,
+        "height": 1500,
+        "sha256": "4b53055dc6423284fa2a83c391b5cad0223f176d3a8135c030bc9d124e8d5dae",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data",
+        "phase": "initial Codex data and Claude signed-out state"
+      },
+      {
+        "file": "live-desktop-light.png",
+        "scenario": "actual-provider",
+        "width": 1440,
+        "height": 1500,
+        "sha256": "aba5b09a92afc6b723c52efcf2cbabdab2ef324243afaea851bccf6ca497af67",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data",
+        "phase": "initial Codex data and Claude signed-out state"
+      },
+      {
+        "file": "live-mobile-light.png",
+        "scenario": "actual-provider",
+        "width": 390,
+        "height": 844,
+        "sha256": "08dca964a11a820e182f34288a4b08aff803bfb95cc1b0903ddc7e997ee28b43",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data",
+        "phase": "initial Codex data and Claude signed-out state"
+      },
+      {
+        "file": "live-authenticated-desktop-light.png",
+        "scenario": "actual-provider",
+        "phase": "authenticated Claude follow-up",
+        "width": 1440,
+        "height": 1500,
+        "sha256": "9ceedefface46634985f614122e26ebecb071d55062b5120a8e724279db6150e",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      },
+      {
+        "file": "live-authenticated-desktop-dark.png",
+        "scenario": "actual-provider",
+        "phase": "authenticated Claude follow-up",
+        "width": 1440,
+        "height": 1500,
+        "sha256": "8c4b2df4981d3e7b9b6c9334889ee53b481c66f3793d6ea1bb8e11f39de09154",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      },
+      {
+        "file": "live-authenticated-mobile-light.png",
+        "scenario": "actual-provider",
+        "phase": "authenticated Claude follow-up",
+        "width": 390,
+        "height": 1000,
+        "sha256": "3db76617991c5968c2def022ed99183e41408354bc18034570bddade214bf5c9",
+        "privacyReview": "passed visual publication audit; no real account email, organization, hostname, or authentication data"
+      }
+    ],
+    "assertions": [
+      {
+        "check": "Settings > Usage accessible with experiments:false",
+        "result": "passed",
+        "evidenceSource": "root browser runner",
+        "scope": "actual browser navigation"
+      },
+      {
+        "check": "Unknown values render not reported without a fabricated 0%",
+        "result": "passed",
+        "evidenceSource": "root browser runner",
+        "scope": "synthetic Design validation"
+      },
+      {
+        "check": "Passed reset retains reported 0.5% remaining",
+        "result": "passed",
+        "evidenceSource": "root browser runner",
+        "scope": "synthetic Design validation"
+      },
+      {
+        "check": "Offline state retains a saved reading",
+        "result": "passed",
+        "evidenceSource": "root browser runner",
+        "scope": "synthetic Design validation"
+      },
+      {
+        "check": "Severity list expands and collapses",
+        "result": "passed",
+        "evidenceSource": "root browser runner",
+        "scope": "synthetic Design validation"
+      },
+      {
+        "check": "No horizontal overflow at tested viewports",
+        "result": "passed",
+        "evidenceSource": "root browser runner",
+        "scope": "browser layout"
+      },
+      {
+        "check": "Dark and light themes selected explicitly through Appearance",
+        "result": "passed",
+        "evidenceSource": "root browser runner",
+        "scope": "browser settings"
+      }
+    ],
+    "liveClaudeRemainingPercent": 91,
+    "authenticatedBrowserChecks": [
+      {
+        "actualProvider": "claude",
+        "layout": "desktop",
+        "checks": [
+          {
+            "label": "5-hour limit",
+            "remainingPercent": 100,
+            "resetsAt": null,
+            "labelMatches": true,
+            "percentageMatches": true,
+            "resetMatches": true
+          },
+          {
+            "label": "Weekly limit",
+            "remainingPercent": 91,
+            "resetsAt": 1788775200121,
+            "labelMatches": true,
+            "percentageMatches": true,
+            "resetMatches": true
+          }
+        ],
+        "quotaMeters": 2,
+        "noDuplicates": true,
+        "noOpaqueBuckets": true,
+        "extraUsageReasonMatches": true,
+        "currencyMatches": true,
+        "noHorizontalOverflow": true,
+        "publicationLabelsNeutralized": true,
+        "background": "rgb(20, 20, 19)"
+      },
+      {
+        "actualProvider": "claude",
+        "layout": "mobile-claude",
+        "checks": [
+          {
+            "label": "5-hour limit",
+            "remainingPercent": 100,
+            "resetsAt": null,
+            "labelMatches": true,
+            "percentageMatches": true,
+            "resetMatches": true
+          },
+          {
+            "label": "Weekly limit",
+            "remainingPercent": 91,
+            "resetsAt": 1788775200121,
+            "labelMatches": true,
+            "percentageMatches": true,
+            "resetMatches": true
+          }
+        ],
+        "quotaMeters": 2,
+        "noDuplicates": true,
+        "noOpaqueBuckets": true,
+        "extraUsageReasonMatches": true,
+        "currencyMatches": true,
+        "noHorizontalOverflow": true,
+        "publicationLabelsNeutralized": true,
+        "background": "rgb(244, 241, 234)"
+      }
+    ],
+    "runtimeCheck": {
+      "localTalosSessionsCreated": 0,
+      "daemonRunning": true,
+      "providerProcessesStillRunning": [],
+      "daemonSupportProcesses": [
+        "caffeinate"
+      ]
+    }
+  },
+  "automatedChecks": {
+    "fullSuites": [
+      {
+        "command": "pnpm --filter talos-app exec vitest run",
+        "result": "passed",
+        "tests": 762,
+        "files": 71
+      },
+      {
+        "command": "pnpm --filter talosapp exec vitest run --project unit",
+        "result": "passed",
+        "tests": 833,
+        "files": 93
+      },
+      {
+        "command": "pnpm --filter @ahmadposten/talos-wire exec vitest run",
+        "result": "passed",
+        "tests": 29,
+        "files": 3
+      }
+    ],
+    "fullSuiteTotal": 1624,
+    "focusedRerun": {
+      "command": "pnpm --filter talos-app exec vitest run sources/components/usage/providerUsagePresentation.test.ts sources/hooks/useProviderUsage.test.ts sources/sync/providerUsage.test.ts",
+      "result": "passed",
+      "tests": 18,
+      "includedInFullSuiteTotal": false,
+      "phase": "initial implementation; superseded by full-suite reruns after authenticated fixes"
+    },
+    "buildAndTypes": [
+      {
+        "command": "pnpm --filter @ahmadposten/talos-wire build",
+        "result": "passed"
+      },
+      {
+        "command": "pnpm --filter talosapp build",
+        "result": "passed"
+      },
+      {
+        "command": "pnpm --filter talos-app typecheck",
+        "result": "passed"
+      }
+    ],
+    "provenance": "UI agent ran final full app suite and typecheck; backend agent ran final full CLI/wire suites and builds. Root ran encrypted provider RPC and actual browser assertions."
+  },
+  "limitations": [
+    "Claude full-usage SDK method is experimental.",
+    "Claude can return provider-cached data without its source timestamp; checkedAt is not proof of a fresh quota fetch.",
+    "Immutable identity is required for cross-machine deduplication and backend cache reuse; current Claude SDK display names do not qualify.",
+    "Screenshot fixtures validate design states and do not establish actual Claude account usage."
+  ],
+  "sanitization": {
+    "removed": [
+      "account identifiers",
+      "machine identifiers",
+      "account email labels",
+      "raw window and reset-credit identifiers"
+    ],
+    "credentialsIncluded": false
+  },
+  "initialProviderE2E": {
+    "verifiedAt": "2026-09-06T20:21:31.480Z",
+    "transport": "actual local relay + built daemon + encrypted socket.io machine RPC",
+    "submittedModelTurns": false,
+    "results": [
+      {
+        "elapsedMs": 1013,
+        "response": {
+          "provider": "codex",
+          "status": "ok",
+          "checkedAt": 1788726091302,
+          "dataAsOf": 1788726091302,
+          "freshness": "live",
+          "retryAt": 1788726120549,
+          "plan": "pro",
+          "windows": [
+            {
+              "label": "Weekly limit",
+              "scope": "Codex",
+              "usedPercent": 32,
+              "remainingPercent": 68,
+              "resetsAt": 1789311885000,
+              "durationSeconds": 604800
+            },
+            {
+              "label": "5-hour limit",
+              "scope": "GPT-5.3-Codex-Spark",
+              "usedPercent": 0,
+              "remainingPercent": 100,
+              "resetsAt": 1788744091000,
+              "durationSeconds": 18000
+            },
+            {
+              "label": "Weekly limit",
+              "scope": "GPT-5.3-Codex-Spark",
+              "usedPercent": 0,
+              "remainingPercent": 100,
+              "resetsAt": 1789330891000,
+              "durationSeconds": 604800
+            }
+          ],
+          "balances": [
+            {
+              "label": "Codex credits",
+              "kind": "credits",
+              "unit": "credits",
+              "used": null,
+              "limit": null,
+              "remaining": 128.883025,
+              "usedPercent": null,
+              "unlimited": false,
+              "resetsAt": null,
+              "expiresAt": null
+            },
+            {
+              "label": "Usage resets available",
+              "kind": "resets",
+              "unit": "count",
+              "used": null,
+              "limit": null,
+              "remaining": 2,
+              "usedPercent": null,
+              "resetsAt": null,
+              "expiresAt": null
+            },
+            {
+              "label": "Full reset",
+              "kind": "resets",
+              "unit": "count",
+              "used": null,
+              "limit": null,
+              "remaining": 1,
+              "usedPercent": null,
+              "resetsAt": null,
+              "expiresAt": 1791092255000
+            },
+            {
+              "label": "Full reset",
+              "kind": "resets",
+              "unit": "count",
+              "used": null,
+              "limit": null,
+              "remaining": 1,
+              "usedPercent": null,
+              "resetsAt": null,
+              "expiresAt": 1791174014000
+            }
+          ]
+        }
+      },
+      {
+        "elapsedMs": 1186,
+        "response": {
+          "provider": "claude",
+          "status": "unauthenticated",
+          "checkedAt": 1788726091478,
+          "dataAsOf": null,
+          "freshness": "unknown",
+          "retryAt": 1788726121463,
+          "windows": [],
+          "balances": []
+        }
+      }
+    ]
+  },
+  "authenticatedClaudeSourceCheck": {
+    "verifiedAt": "2026-09-06T21:08:36.775Z",
+    "elapsedMs": 736,
+    "transport": "installed Claude Agent SDK idle query; accountInfo and experimental structured usage",
+    "submittedModelTurns": false,
+    "rateLimitsAvailable": true,
+    "sessionCostUsd": 0,
+    "sessionModelUsage": {},
+    "sourceWindows": [
+      {
+        "kind": "session",
+        "percent": 0,
+        "resets_at": null,
+        "is_active": false
+      },
+      {
+        "kind": "weekly_all",
+        "percent": 9,
+        "resets_at": "2026-09-07T09:59:59.876701+00:00",
+        "is_active": true
+      }
+    ],
+    "sourceSpend": {
+      "used": {
+        "amount_minor": 0,
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "limit": {
+        "amount_minor": 10000,
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "percent": 0,
+      "enabled": false,
+      "disabled_reason": "out_of_credits",
+      "balance": null
+    }
+  }
+}

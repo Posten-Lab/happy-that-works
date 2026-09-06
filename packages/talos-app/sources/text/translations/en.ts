@@ -152,7 +152,7 @@ export const en: TranslationStructure = {
         claudeAuthSuccess: 'Successfully connected to Claude',
         exchangingTokens: 'Exchanging tokens...',
         usage: 'Usage',
-        usageSubtitle: 'View your API usage and costs',
+        usageSubtitle: 'Account limits, resets, and credits',
         // Dynamic settings messages
         accountConnected: ({ service }: { service: string }) => `${service} account connected`,
         machineStatus: ({ name, status }: { name: string; status: 'online' | 'offline' }) =>

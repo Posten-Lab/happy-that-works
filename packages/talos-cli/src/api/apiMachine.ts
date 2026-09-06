@@ -25,6 +25,7 @@ import {
 } from '@/claude/utils/claudeSessionFork';
 import { CodexAppServerClient } from '@/codex/codexAppServerClient';
 import { discoverClaudeModels } from '@/claude/claudeModels';
+import { ProviderUsageService } from '@/usage/providerUsageService';
 import {
     CodexForkRewindPointNotFoundError,
     forkCodexThread,
@@ -295,6 +296,9 @@ export class ApiMachineClient {
                 };
             });
         });
+
+        const providerUsage = new ProviderUsageService();
+        this.rpcHandlerManager.registerHandler('provider-usage', (params) => providerUsage.read(params));
 
         this.rpcHandlerManager.registerHandler('claude-list-models', async () => ({
             type: 'success',

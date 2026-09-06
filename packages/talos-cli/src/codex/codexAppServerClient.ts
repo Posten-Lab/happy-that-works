@@ -48,6 +48,8 @@ import type {
     CodexModelInfo,
     ListModelsResponse,
     McpServerElicitationRequestResponse,
+    CodexAccountReadResponse,
+    CodexAccountRateLimitsResponse,
 } from './codexAppServerTypes';
 import type { SandboxConfig } from '@/persistence';
 import { initializeSandbox, wrapForMcpTransport } from '@/sandbox/manager';
@@ -730,6 +732,15 @@ export class CodexAppServerClient {
     }
 
     // ─── Thread management ──────────────────────────────────────
+
+    /** Read provider account metadata without starting a thread or submitting a turn. */
+    async readAccount(): Promise<CodexAccountReadResponse> {
+        return await this.request('account/read', { refreshToken: false }, 10_000) as CodexAccountReadResponse;
+    }
+
+    async readAccountRateLimits(): Promise<CodexAccountRateLimitsResponse> {
+        return await this.request('account/rateLimits/read', undefined, 15_000) as CodexAccountRateLimitsResponse;
+    }
 
     async listModels(opts?: { includeHidden?: boolean; pageSize?: number }): Promise<CodexModelInfo[]> {
         const models: CodexModelInfo[] = [];

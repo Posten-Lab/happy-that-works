@@ -325,3 +325,16 @@ export type JsonRpcResponse = {
     result?: unknown;
     error?: { code: number; message: string; data?: unknown };
 };
+/** Account metadata only; callers must never request or forward authentication tokens. */
+export type CodexAccountReadResponse = {
+    account: { type: string; email?: string | null; planType?: string } | null;
+    requiresOpenaiAuth: boolean;
+};
+
+/** Extensible provider data is validated by the usage adapter before crossing Talos RPC. */
+export type CodexAccountRateLimitsResponse = {
+    rateLimits: Record<string, unknown>;
+    rateLimitsByLimitId?: Record<string, Record<string, unknown> | undefined> | null;
+    rateLimitResetCredits?: Record<string, unknown> | null;
+    accountId?: string | null;
+};
