@@ -58,6 +58,8 @@ COPY --from=builder /repo/packages/talos-server /repo/packages/talos-server
 # Expose the port the app will run on
 EXPOSE 3000
 
-# Command to run the application
+# Start Node as PID 1 so SIGTERM waits for the application's shutdown handlers.
+# pnpm/tsx CLI wrappers can exit while accepted work is still draining.
 COPY --from=builder /repo/package.json /repo/pnpm-workspace.yaml /repo/
-CMD ["pnpm", "--filter", "@ahmadposten/talos-server", "start"]
+WORKDIR /repo/packages/talos-server
+CMD ["node", "--import", "tsx", "./sources/main.ts"]

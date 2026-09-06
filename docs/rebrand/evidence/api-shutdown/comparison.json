@@ -1,0 +1,46 @@
+{
+  "sameImage": true,
+  "sameSyntheticOverlay": true,
+  "onlyFunctionalDifferences": [
+    "command: node --import tsx ./sources/main.ts",
+    "workingDir: /repo/packages/talos-server"
+  ],
+  "baseline": {
+    "markers": {
+      "PROBE_READY": true,
+      "PROBE_SIGTERM_RECEIVED": true,
+      "PROBE_HANDLER_BEGIN": true,
+      "PROBE_HANDLER_END": false,
+      "PROBE_DRAIN_RETURNED": false,
+      "PROBE_FAILED": false,
+      "Shutting down...": false,
+      "Shutdown handler failed:": false,
+      "Shutdown deadline reached": false
+    },
+    "fixtureExitCode": 1,
+    "drainProven": false
+  },
+  "directNodePid1": {
+    "markers": {
+      "PROBE_READY": true,
+      "PROBE_SIGTERM_RECEIVED": true,
+      "PROBE_HANDLER_BEGIN": true,
+      "PROBE_HANDLER_END": true,
+      "PROBE_DRAIN_RETURNED": true,
+      "PROBE_FAILED": false,
+      "Shutting down...": true,
+      "Shutdown handler failed:": false,
+      "Shutdown deadline reached": false
+    },
+    "fixtureExitCode": 0,
+    "drainProven": true
+  },
+  "productionPodsSignaled": 0,
+  "candidateCleanupErrors": [],
+  "candidatePodDeletionConfirmedBeforePolicyCleanup": true,
+  "remainingCandidateFixtureResources": {
+    "pod": false,
+    "configmap": false,
+    "networkpolicy": false
+  }
+}
