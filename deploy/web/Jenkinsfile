@@ -17,6 +17,7 @@ spec:
         limits: { cpu: "1", memory: "1Gi" }
     - name: node
       image: node:20-bookworm
+      securityContext: { runAsUser: 1000, runAsGroup: 1000 }
       command: ["cat"]
       tty: true
       resources:
