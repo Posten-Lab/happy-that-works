@@ -1,94 +1,85 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
-describe('Ripgrep Launcher Runtime Compatibility', () => {
+describe('ripgrep launcher with an unloadable native addon', () => {
+    let fixture: string;
+    let launcher: string;
+    let binary: string;
+    let searchFile: string;
+
     beforeEach(() => {
-        vi.clearAllMocks();
+        fixture = mkdtempSync(join(tmpdir(), 'talos ripgrep fallback '));
+        mkdirSync(join(fixture, 'scripts'));
+        mkdirSync(join(fixture, 'tools', 'unpacked'), { recursive: true });
+        launcher = join(fixture, 'scripts', 'ripgrep_launcher.cjs');
+        copyFileSync(resolve(__dirname, '../ripgrep_launcher.cjs'), launcher);
+        // Force the same native-load failure as an unsupported Node ABI on Windows.
+        writeFileSync(join(fixture, 'tools', 'unpacked', 'ripgrep.node'), 'not a native addon');
+        const binaryName = process.platform === 'win32' ? 'rg.exe' : 'rg';
+        binary = join(fixture, 'tools', 'unpacked', binaryName);
+        copyFileSync(resolve(__dirname, '../../tools/unpacked', binaryName), binary);
+        searchFile = join(fixture, 'search fixture.txt');
+        writeFileSync(searchFile, 'before\nneedle in packaged search\nafter\n');
     });
 
-    it('has correct file structure', () => {
-        // Test that the launcher file has the correct structure
-        expect(() => {
-            const fs = require('fs');
-            const path = require('path');
-            const content = fs.readFileSync(path.join(__dirname, '../ripgrep_launcher.cjs'), 'utf8');
+    afterEach(() => rmSync(fixture, { recursive: true, force: true }));
 
-            // Check for required elements
-            expect(content).toContain('#!/usr/bin/env node');
-            expect(content).toContain('ripgrepMain');
-            expect(content).toContain('loadRipgrepNative');
-        }).not.toThrow();
+    function run(args: unknown) {
+        // No PATH search tool is available; only the copied package is needed.
+        const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => key.toLowerCase() !== 'path'));
+        const result = spawnSync(process.execPath, [launcher, JSON.stringify(args)], {
+            cwd: fixture, env: { ...env, PATH: fixture }, encoding: 'utf8', timeout: 10000,
+        });
+        expect(result.error).toBeUndefined();
+        expect(result.signal).toBeNull();
+        return result;
+    }
+
+    it('uses the actual packaged binary and keeps fallback diagnostics out of matching output', () => {
+        const result = run(['--no-heading', '--no-filename', '--color', 'never', 'needle', searchFile]);
+        expect(result.status).toBe(0);
+        expect(result.stdout.replaceAll('\r\n', '\n')).toBe('needle in packaged search\n');
+        expect(result.stderr).toContain('Failed to load ripgrep native addon');
+        expect(result.stderr).not.toContain('Using system ripgrep');
     });
 
-    it('handles --version argument gracefully', () => {
-        // Test that --version handling logic exists
-        expect(() => {
-            const fs = require('fs');
-            const path = require('path');
-            const content = fs.readFileSync(path.join(__dirname, '../ripgrep_launcher.cjs'), 'utf8');
-
-            // Check that --version handling is present
-            expect(content).toContain('--version');
-            expect(content).toContain('ripgrepMain');
-        }).not.toThrow();
+    it('preserves no-match exit code 1 and empty stdout', () => {
+        const result = run(['absent-pattern', searchFile]);
+        expect(result.status).toBe(1);
+        expect(result.stdout).toBe('');
     });
 
-    it('detects runtime correctly', () => {
-        // Test runtime detection function exists
-        expect(() => {
-            const fs = require('fs');
-            const path = require('path');
-            const content = fs.readFileSync(path.join(__dirname, '../ripgrep_launcher.cjs'), 'utf8');
-
-            // Check that runtime detection logic is present
-            expect(content).toContain('detectRuntime');
-            expect(content).toContain('typeof Bun');
-            expect(content).toContain('typeof Deno');
-            expect(content).toContain('process?.versions');
-        }).not.toThrow();
+    it('preserves search error exit code 2', () => {
+        const result = run(['[', searchFile]);
+        expect(result.status).toBe(2);
+        expect(result.stdout).toBe('');
+        expect(result.stderr).toContain('regex parse error');
     });
 
-    it('contains fallback chain logic', () => {
-        // Test that fallback logic is present
-        expect(() => {
-            const fs = require('fs');
-            const path = require('path');
-            const content = fs.readFileSync(path.join(__dirname, '../ripgrep_launcher.cjs'), 'utf8');
-
-            // Check that fallback chain is present
-            expect(content).toContain('loadRipgrepNative');
-            expect(content).toContain('systemRipgrep');
-            expect(content).toContain('createRipgrepWrapper');
-            expect(content).toContain('createMockRipgrep');
-        }).not.toThrow();
+    it('keeps JSON search output parseable after native fallback', () => {
+        const result = run(['--json', 'needle', searchFile]);
+        expect(result.status).toBe(0);
+        const events = result.stdout.trim().split('\n').map(line => JSON.parse(line));
+        expect(events.find(event => event.type === 'match').data.lines.text).toBe('needle in packaged search\n');
     });
 
-    it('contains cross-platform logic', () => {
-        // Test that cross-platform logic is present
-        expect(() => {
-            const fs = require('fs');
-            const path = require('path');
-            const content = fs.readFileSync(path.join(__dirname, '../ripgrep_launcher.cjs'), 'utf8');
-
-            // Check for platform-specific logic
-            expect(content).toContain('process.platform');
-            expect(content).toContain('win32');
-            expect(content).toContain('darwin');
-            expect(content).toContain('linux');
-            expect(content).toContain('execFileSync');
-        }).not.toThrow();
+    it('fails when the shipped binary cannot spawn, without silently using a different search tool', () => {
+        rmSync(binary);
+        mkdirSync(binary); // Exists, but cannot execute on either Windows or Unix.
+        const result = run(['needle', searchFile]);
+        expect(result.status).toBe(2);
+        expect(result.stdout).toBe('');
+        expect(result.stderr).toContain('Ripgrep error:');
+        expect(result.stderr).not.toContain('Using system ripgrep');
     });
 
-    it('provides helpful error messages', () => {
-        // Test that helpful error messages are present
-        expect(() => {
-            const fs = require('fs');
-            const path = require('path');
-            const content = fs.readFileSync(path.join(__dirname, '../ripgrep_launcher.cjs'), 'utf8');
-
-            // Check for helpful messages
-            expect(content).toContain('brew install ripgrep');
-            expect(content).toContain('winget install BurntSushi.ripgrep');
-            expect(content).toContain('Search functionality unavailable');
-        }).not.toThrow();
+    it('rejects invalid argument shapes as errors, not successful empty searches', () => {
+        const result = run({ pattern: 'needle' });
+        expect(result.status).toBe(2);
+        expect(result.stdout).toBe('');
+        expect(result.stderr).toContain('Expected an array of string arguments');
     });
 });

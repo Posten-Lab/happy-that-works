@@ -8,7 +8,7 @@
  * - Node.js: Try native addon first, fall back to binary
  * - Bun: Use binary or system ripgrep directly
  * - All runtimes: Cross-platform system detection
- * - Fallback: Mock implementation with helpful guidance
+ * - Prefer the shipped binary before an optional system installation
  */
 
 const path = require('path');
@@ -40,7 +40,8 @@ function findSystemRipgrep() {
         try {
             const result = execFileSync(cmd, args, {
                 encoding: 'utf8',
-                stdio: 'ignore'
+                stdio: ['ignore', 'pipe', 'ignore'],
+                windowsHide: true
             });
 
             if (result) {
@@ -91,25 +92,15 @@ function createRipgrepWrapper(binaryPath) {
             const { spawnSync } = require('child_process');
             const result = spawnSync(binaryPath, args, {
                 stdio: 'inherit',
-                cwd: process.cwd()
+                cwd: process.cwd(),
+                windowsHide: true
             });
-            return result.status || 0;
-        }
-    };
-}
-
-// Create mock that doesn't crash but provides useful feedback
-function createMockRipgrep() {
-    return {
-        ripgrepMain: (args) => {
-            if (args.includes('--version')) {
-                console.log('ripgrep 0.0.0 (mock)');
-                return 0;
+            if (result.error) throw result.error;
+            if (result.signal) {
+                console.error(`Ripgrep terminated by ${result.signal}`);
+                return 128 + (require('os').constants.signals[result.signal] || 0);
             }
-
-            console.error('Search functionality unavailable without ripgrep');
-            console.error('See installation instructions above');
-            return 1;
+            return result.status ?? 2;
         }
     };
 }
@@ -119,12 +110,14 @@ function loadRipgrepNative() {
     const runtime = detectRuntime();
     const toolsDir = path.join(__dirname, '..', 'tools', 'unpacked');
     const nativePath = path.join(toolsDir, 'ripgrep.node');
-    const binaryPath = path.join(toolsDir, 'rg');
+    const binaryPath = path.join(toolsDir, process.platform === 'win32' ? 'rg.exe' : 'rg');
 
     // Try Node.js native addon first (preserves existing behavior)
     if (runtime === 'node') {
         try {
-            return require(nativePath);
+            const addon = require(nativePath);
+            if (typeof addon.ripgrepMain !== 'function') throw new Error('Missing ripgrepMain export');
+            return addon;
         } catch (error) {
             console.warn('Failed to load ripgrep native addon:', error.message);
             console.warn('Falling back to ripgrep binary...');
@@ -132,22 +125,19 @@ function loadRipgrepNative() {
         }
     }
 
-    // Bun or Node.js fallback: Try system ripgrep
-    const systemRipgrep = findSystemRipgrep();
-    if (systemRipgrep) {
-        console.info(`Using system ripgrep: ${systemRipgrep}`);
-        return createRipgrepWrapper(systemRipgrep);
-    }
-
-    // Local binary fallback
+    // Prefer the version shipped and verified with this package.
     if (fs.existsSync(binaryPath)) {
-        console.info('Using packaged ripgrep binary');
         return createRipgrepWrapper(binaryPath);
     }
 
-    // Final fallback: Return mock implementation that provides helpful guidance
-    console.warn('\n⚠️  ripgrep not available - search functionality limited');
-    console.warn('Install ripgrep for full functionality:');
+    // A system installation is useful when the packaged tools are unavailable.
+    const systemRipgrep = findSystemRipgrep();
+    if (systemRipgrep) {
+        console.warn(`Using system ripgrep: ${systemRipgrep}`);
+        return createRipgrepWrapper(systemRipgrep);
+    }
+
+    console.warn('Install ripgrep to enable search:');
 
     if (process.platform === 'win32') {
         console.warn('  • Windows: winget install BurntSushi.ripgrep');
@@ -158,11 +148,8 @@ function loadRipgrepNative() {
     }
     console.warn('');
 
-    return createMockRipgrep();
+    throw new Error('Search functionality unavailable without ripgrep');
 }
-
-// Load ripgrep implementation
-const ripgrepImplementation = loadRipgrepNative();
 
 // Get arguments from command line (skip node and script name)
 const args = process.argv.slice(2);
@@ -171,16 +158,20 @@ const args = process.argv.slice(2);
 let parsedArgs;
 try {
     parsedArgs = JSON.parse(args[0]);
+    if (!Array.isArray(parsedArgs) || parsedArgs.some(arg => typeof arg !== 'string')) {
+        throw new Error('Expected an array of string arguments');
+    }
 } catch (error) {
     console.error('Failed to parse arguments:', error.message);
-    process.exit(1);
+    process.exit(2);
 }
 
 // Run ripgrep using the loaded implementation
 try {
+    const ripgrepImplementation = loadRipgrepNative();
     const exitCode = ripgrepImplementation.ripgrepMain(parsedArgs);
-    process.exit(exitCode);
+    process.exit(Number.isInteger(exitCode) ? exitCode : 2);
 } catch (error) {
     console.error('Ripgrep error:', error.message);
-    process.exit(1);
+    process.exit(2);
 }

@@ -85,13 +85,29 @@ async function verifyInstallation(linker, archives, packages, scenario, onlyCli)
         assert.equal(result.status, 0, `${tool} failed: ${result.stderr}`);
         assert.ok(result.stdout.trim(), `${tool} did not report a version.`);
     }
-    assert.ok(cliRequire(path.join(cliRoot, 'tools', 'unpacked', 'ripgrep.node')));
+    assert.ok(fs.statSync(path.join(cliRoot, 'tools', 'unpacked', 'ripgrep.node')).isFile(), 'Missing optional search addon.');
+    const searchFile = path.join(fixture, 'search fixture.txt');
+    fs.writeFileSync(searchFile, 'talos-packaged-search-match\n');
+    const launcher = path.join(cliRoot, 'scripts', 'ripgrep_launcher.cjs');
+    for (const [pattern, exitCode, stdout] of [
+        ['talos-packaged-search-match', 0, 'talos-packaged-search-match\n'],
+        ['talos-packaged-search-absent', 1, ''],
+        ['[', 2, ''],
+    ]) {
+        const result = spawnSync(process.execPath, [launcher, JSON.stringify([
+            '--no-heading', '--no-filename', '--color', 'never', '--', pattern, searchFile,
+        ])], { cwd: fixture, env, encoding: 'utf8', timeout: 10000 });
+        fs.appendFileSync(log, `Search launcher: expected exit ${exitCode}\n${result.stdout || ''}${result.stderr || ''}\n`);
+        assert.ifError(result.error);
+        assert.equal(result.status, exitCode, `Search launcher failed: ${result.stderr}`);
+        assert.equal(result.stdout.replaceAll('\r\n', '\n'), stdout, 'Search stdout must contain only search results.');
+    }
     if (onlyCli) {
         for (const companion of ['@ahmadposten/talos-server', '@ahmadposten/talos-agent']) {
             assert.ok(!fs.existsSync(path.join(fixture, 'node_modules', companion)), `${companion} must not be installed.`);
             assert.throws(() => cliRequire.resolve(companion), { code: 'MODULE_NOT_FOUND' });
         }
-        console.log(`Packed Talos CLI-only install, optional peer absence, versions, diagnostics, and native tools passed (${linker}).`);
+        console.log(`Packed Talos CLI-only install, optional peer absence, versions, diagnostics, native tools, and launcher searches passed (${linker}).`);
         return;
     }
     assert.match(run(['exec', 'talos-agent', '--help'], fixture), /talos-agent/);
