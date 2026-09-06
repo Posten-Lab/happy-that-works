@@ -29,8 +29,8 @@ export type AgentDefaultConfig = {
 const codeAgentDefaults: Record<AgentKey, AgentDefaultConfig> = {
     // The Claude UI key for YOLO is `bypassPermissions`; the CLI also accepts
     // `yolo` and maps it to the Claude SDK's bypass mode.
-    claude: { permissionMode: 'bypassPermissions', modelMode: 'claude-opus-5', effortLevel: 'medium' },
-    // Let the installed Codex provider choose its advertised default. Pinning a
+    claude: { permissionMode: 'bypassPermissions', modelMode: 'default', effortLevel: 'medium' },
+    // Let Claude and Codex choose their advertised defaults. Pinning a
     // concrete model here makes global defaults stale whenever a rollout lands.
     codex: { permissionMode: 'yolo', modelMode: 'default', effortLevel: 'medium' },
     gemini: { permissionMode: 'default', modelMode: 'gemini-2.5-pro', effortLevel: null },
