@@ -40,6 +40,10 @@ The diff must contain only the four new Talos resources. Review any existing obj
 
 ## DNS and additive edge configuration
 
+The existing local default AWS identity is IAM user `quietplan-backend` in account `238520810352`. An administrator can attach [the limited inline policy](route53-iam-policy.json) to that user under **IAM → Users → quietplan-backend → Permissions → Add permissions → Create inline policy → JSON**, named `TalosDnsDeployment`. The existing CLI credentials then gain these permissions without generating new access keys.
+
+The policy allows zone discovery/read access and change-status checks. Writes are restricted to CREATE/UPSERT of A records named exactly `talosapp.ai`, `api.talosapp.ai`, or `files.talosapp.ai`; it does not grant record deletion, zone creation, domain registration, or writes to other record types/names. Verify the public hosted zone's nameservers match the domain's delegation before applying the change batch. Once that zone ID is known, its administrator can further restrict the hosted-zone resource ARNs to that zone.
+
 Edge: `jenkins-deploy@35.179.90.95`. Public upstream nodes: `89.125.50.58` and `89.125.255.36`. Certbot 2.9.0 is installed. Active nginx directories are `/etc/nginx/conf.d` and `/etc/nginx/sites-enabled`; `/etc/nginx/active` does not exist. Do not change global symlinks or copy directories with deletion enabled.
 
 Create only the required A records (`talosapp.ai`, `api.talosapp.ai`, `files.talosapp.ai`) pointing to `35.179.90.95`, after confirming the correct hosted zone and its delegation. At inventory time the domain returned NXDOMAIN and the local AWS identity lacked Route53 list permissions; those prerequisites must be resolved before certificate issuance.

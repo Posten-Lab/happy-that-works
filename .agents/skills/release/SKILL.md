@@ -42,6 +42,8 @@ Use the requested tag if it differs. **Use `pnpm publish`, never `npm publish`, 
 
 If an upload fails, inspect registry metadata before retrying: a package version is immutable and the upload may already have succeeded. Authentication failures need the account's required 2FA or an appropriately configured token; do not weaken account security to bypass them.
 
+For an operator-supplied granular token, use `python3 scripts/configure-npm-publishing.py` to enter it with hidden input. This writes only `~/.config/talos/npm-publish.npmrc` with private permissions and preserves the existing npm login. Set `NPM_CONFIG_USERCONFIG` to that absolute path for identity checks and publication. The token must grant package read/write access and satisfy the registry's publishing 2FA requirement; successful `whoami` alone does not verify those permissions. Never put token values in chat, shell arguments, documentation, or tracked files.
+
 After publication, verify registry version/dist-tags and perform a real install into an isolated prefix. Check `talos --version` and `talos-agent --version` against the published versions. Metadata alone does not verify bundle contents. Install the global `talos` command only within the user's requested scope, without restarting existing sessions.
 
 Repository tags and hosted releases are separate actions. Check the destination remote and user authorization before pushing. Do not force-push tags or publish against an inherited upstream remote. Use component tags such as `cli-X.Y.Z`, not a monorepo-wide bare `vX.Y.Z`.
