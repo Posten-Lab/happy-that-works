@@ -26,7 +26,10 @@ from loading into incompatible binaries; this migration needs a new binary first
 Before OTA, the job also checks EAS for a finished production iOS store build
 with the exact resolved runtime; missing compatibility falls back to native.
 Commit SHA/timestamp labels are excluded from the fingerprint because they are
-OTA metadata. All other Expo config stays in the fingerprint.
+OTA metadata. All other Expo config stays in the fingerprint. The production EAS profile
+uses `NPM_CONFIG_NODE_LINKER=isolated` and `NPM_CONFIG_SHAMEFULLY_HOIST=false`
+to match Jenkins. Switching dependency layouts changes autolinking paths and
+therefore runtime fingerprints, even with the same lockfile.
 
 Submission uses the exact finished build for the checked-out commit, never
 `--latest`. Both build and submission must finish successfully before the baseline

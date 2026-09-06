@@ -47,7 +47,9 @@
       "channel": "production",
       "env": {
         "APP_ENV": "production",
-        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
+        "NPM_CONFIG_NODE_LINKER": "isolated",
+        "NPM_CONFIG_SHAMEFULLY_HOIST": "false"
       },
       "environment": "production"
     }
