@@ -26,7 +26,9 @@ function mockRegistry({ owner = 'ahmadposten', published = [], failPublish = fal
         }
         throw Error(`Unexpected command ${command}`);
     };
-    return { run, calls, versions, log() {}, env: { APP_ENV: 'production' } };
+    return { run, calls, versions, log() {}, env: { APP_ENV: 'production',
+        EXPO_PUBLIC_TALOS_SERVER_URL: 'https://api.talosapp.ai',
+        EXPO_PUBLIC_TALOS_WEBAPP_URL: 'https://talosapp.ai' } };
 }
 
 test('default and dry-run are plans with explicit package identities and dependency order', () => {
@@ -96,6 +98,29 @@ test('all server prerequisites are checked before publishing wire', () => {
     const state = mockRegistry(); state.env = {};
     assert.throws(() => runRelease(parseArgs(['all', '--publish']), state), /APP_ENV=production/);
     assert.equal(state.calls.filter(call => call.args[0] === 'publish').length, 0);
+});
+
+test('server and combined publication reject missing or unsafe URLs before any external command', () => {
+    for (const target of ['server', 'all']) {
+        for (const key of ['EXPO_PUBLIC_TALOS_SERVER_URL', 'EXPO_PUBLIC_TALOS_WEBAPP_URL']) {
+            for (const value of [undefined, 'http://api.talosapp.ai', 'https://api.happy.ahposten.com', 'https://localhost']) {
+                const state = mockRegistry(); state.env[key] = value;
+                assert.throws(() => runRelease(parseArgs([target, '--publish']), state), /publication configuration is invalid/);
+                assert.equal(state.calls.length, 0);
+            }
+        }
+    }
+});
+
+test('server and combined local plans require no production environment or external commands', () => {
+    for (const target of ['server', 'all']) {
+        for (const mode of ['--plan', '--dry-run']) {
+            const state = mockRegistry(); state.env = {};
+            const result = runRelease(parseArgs([target, mode]), state);
+            assert.ok(result.some(item => item.id === 'server'));
+            assert.equal(state.calls.length, 0);
+        }
+    }
 });
 
 test('inherited ignore-scripts and dry-run settings cannot bypass prepublish or simulate upload', () => {

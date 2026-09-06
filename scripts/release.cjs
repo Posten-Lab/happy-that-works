@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { validateReleaseConfig } = require('./verify-release-config.cjs');
 const repoRoot = path.resolve(__dirname, '..');
 const registry = 'https://registry.npmjs.org';
 const publisher = 'ahmadposten';
@@ -59,6 +60,12 @@ function runRelease(options, { root = repoRoot, run = spawnSync, env = process.e
     const releaseEnv = { ...env, npm_config_registry: registry, NPM_CONFIG_REGISTRY: registry,
         npm_config_ignore_scripts: 'false', NPM_CONFIG_IGNORE_SCRIPTS: 'false',
         npm_config_dry_run: 'false', NPM_CONFIG_DRY_RUN: 'false' };
+    const includesServer = plan.some(item => item.id === 'server');
+    if (includesServer) {
+        if (releaseEnv.APP_ENV !== 'production') throw Error('Server publication requires APP_ENV=production and verified production web configuration.');
+        const errors = validateReleaseConfig(releaseEnv, 'web');
+        if (errors.length) throw Error(`Server publication configuration is invalid: ${errors.join(' ')}`);
+    }
     const capture = (command, args) => {
         const result = run(command, args, { cwd: root, env: releaseEnv, encoding: 'utf8', stdio: 'pipe' });
         if (result.error) throw Error(`Unable to run ${command}.`);
@@ -66,8 +73,7 @@ function runRelease(options, { root = repoRoot, run = spawnSync, env = process.e
     };
     const identity = capture('npm', ['whoami', '--registry', registry]);
     if (identity.status !== 0 || identity.stdout?.trim() !== publisher) throw Error(`npm authentication must identify ${publisher}; publication did not start.`);
-    if (plan.some(item => item.id === 'server')) {
-        if (releaseEnv.APP_ENV !== 'production') throw Error('Server publication requires APP_ENV=production and verified production web configuration.');
+    if (includesServer) {
         const bun = capture('bun', ['--version']);
         if (bun.status !== 0) throw Error('Server publication requires Bun on PATH.');
     }
