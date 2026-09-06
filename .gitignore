@@ -80,3 +80,11 @@ talos-workspaces/
 # Local Talos verification and rendered deployment manifests
 .talos-local/
 deploy/rendered/
+
+# Mobile CI export and EAS delivery receipts
+packages/talos-app/dist-ci/
+packages/talos-app/build-result.json
+packages/talos-app/build-id.txt
+packages/talos-app/fingerprint-result.json
+packages/talos-app/compatible-builds.json
+packages/talos-app/runtime-config.json
