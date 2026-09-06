@@ -203,11 +203,15 @@ pipeline {
               unset ASC_KEY_P8_B64
               # Submit reads its key from eas.json, not EXPO_ASC_API_KEY_PATH.
               node ../../deploy/mobile/prepare-submit.cjs
+              pnpm exec expo config --type public --json > ipa-expected-config.json
+              IPA_VERSION=$(node -e 'const c=require("./ipa-expected-config.json"); if (typeof c.version !== "string" || !c.version) process.exit(1); console.log(c.version)')
+              IPA_RUNTIME=$(node -e 'const c=require("./ipa-expected-config.json"); if (typeof c.runtimeVersion !== "string" || !c.runtimeVersion) process.exit(1); console.log(c.runtimeVersion)')
               eas build -p ios --profile production --non-interactive --wait --json > build-result.json
               node ../../deploy/mobile/build-id.cjs build-result.json > build-id.txt
               IPA_DIR=$(mktemp -d /tmp/talos-ios-artifact.XXXXXX)
               node ../../deploy/mobile/download-ios-artifact.cjs build-result.json "$IPA_DIR/verified.ipa" > artifact-download.json
-              python3 ../../deploy/mobile/verify-ios-ipa.py "$IPA_DIR/verified.ipa" --output ipa-verification.json
+              python3 ../../deploy/mobile/verify-ios-ipa.py "$IPA_DIR/verified.ipa" \
+                --expected-version "$IPA_VERSION" --expected-runtime "$IPA_RUNTIME" --output ipa-verification.json
               eas submit -p ios --profile production --id "$(cat build-id.txt)" --non-interactive --wait
             '''
           }
