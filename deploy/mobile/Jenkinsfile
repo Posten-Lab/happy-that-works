@@ -8,6 +8,16 @@ pipeline {
     timeout(time: 180, unit: 'MINUTES')
     buildDiscarder(logRotator(numToKeepStr: '10'))
     disableConcurrentBuilds()
+    skipDefaultCheckout(true)
+  }
+
+  triggers { pollSCM('H/5 * * * *') }
+
+  parameters {
+    choice(name: 'MOBILE_RELEASE_MODE', choices: ['auto', 'native', 'ota', 'none'],
+      description: 'Auto selects from changes since the last successful delivery. Unsafe overrides fail.')
+    booleanParam(name: 'VALIDATE_ONLY', defaultValue: false,
+      description: 'Run checks and export the iOS bundle without publishing or building.')
   }
 
   environment {
@@ -22,6 +32,8 @@ pipeline {
     EXPO_APPLE_TEAM_TYPE = 'INDIVIDUAL'
     // Monorepo: EAS is driven from the app package.
     APP_DIR = 'packages/happy-app'
+    APP_ENV = 'production'
+    CI = '1'
     // The eas-agent runs as non-root (uid 1000) with npm prefix /usr, so
     // `corepack enable` can't symlink pnpm into /usr/bin. Install the pnpm
     // shim into a writable dir and put it on PATH for every stage. Version
@@ -59,54 +71,122 @@ pipeline {
       }
     }
 
-    stage('Typecheck') {
-      // Fast gate before spending a paid EAS build. tsc --noEmit.
+    stage('Release selector tests') {
+      steps { sh 'node --test deploy/mobile/release-plan.test.mjs' }
+    }
+
+    stage('App tests and typecheck') {
       steps {
         dir("${APP_DIR}") {
-          sh 'pnpm typecheck'
+          sh 'pnpm exec vitest run --maxWorkers=4 && pnpm typecheck'
         }
       }
     }
 
-    stage('EAS Build — iOS (production)') {
-      // retry(1) is deliberate: each attempt is a real EAS build that
-      // consumes paid build credits. The ASC .p8 is materialised from a
-      // base64 Jenkins secret, used, then removed.
-      options { retry(1) }
+    stage('Classify mobile release') {
+      steps {
+        script {
+          env.MOBILE_RELEASE_KIND = 'none'
+          def mainBranch = !env.CHANGE_ID &&
+            (env.BRANCH_NAME == 'main' || env.GIT_BRANCH in ['main', 'origin/main'])
+          if (mainBranch && !params.VALIDATE_ONLY) {
+            env.RELEASE_MODE = params.MOBILE_RELEASE_MODE ?: 'auto'
+            // Validation-only successes must never advance the delivered baseline.
+            def previous = currentBuild.previousBuild
+            def base = ''
+            while (previous != null) {
+              if (previous.result == 'SUCCESS' && previous.description?.startsWith('delivered:')) {
+                base = previous.description.substring('delivered:'.length()).trim()
+                break
+              }
+              previous = previous.previousBuild
+            }
+            env.MOBILE_RELEASE_BASE = base
+            env.MOBILE_RELEASE_KIND = sh(
+              script: 'node deploy/mobile/release-plan.mjs "$MOBILE_RELEASE_BASE" "$GIT_COMMIT" "$RELEASE_MODE"',
+              returnStdout: true
+            ).trim()
+          }
+          echo "Mobile release: ${env.MOBILE_RELEASE_KIND}"
+        }
+      }
+    }
+
+    stage('Export iOS bundle') {
+      steps {
+        dir("${APP_DIR}") {
+          sh 'pnpm exec expo export --platform ios --output-dir dist-ci'
+        }
+      }
+    }
+
+    stage('Check OTA runtime compatibility') {
+      when { expression { return env.MOBILE_RELEASE_KIND == 'ota' } }
+      steps {
+        dir("${APP_DIR}") {
+          sh '''
+            eas fingerprint:generate --build-profile production --platform ios --json --non-interactive > fingerprint-result.json
+            RUNTIME=$(node -e 'const f=require("./fingerprint-result.json"); if (!/^[a-f0-9]{40}$/.test(f.hash)) process.exit(1); console.log(f.hash)')
+            eas build:list --platform ios --build-profile production --channel production \
+              --distribution store --status finished --runtime-version "$RUNTIME" \
+              --limit 1 --json --non-interactive > compatible-builds.json
+          '''
+          script {
+            def compatible = sh(script: 'node ../../deploy/mobile/compatible-runtime.cjs', returnStdout: true).trim()
+            if (compatible != 'yes') {
+              if (params.MOBILE_RELEASE_MODE == 'ota') {
+                error('No finished production binary matches the OTA runtime; use auto or native')
+              }
+              env.MOBILE_RELEASE_KIND = 'native'
+              echo 'No compatible production binary: building native instead'
+            }
+          }
+        }
+      }
+    }
+
+    stage('Publish production OTA') {
+      when { expression { return env.MOBILE_RELEASE_KIND == 'ota' } }
+      steps {
+        dir("${APP_DIR}") {
+          sh '''
+            eas update --channel production --environment production --platform ios \
+              --message "git-$GIT_COMMIT" --non-interactive
+          '''
+        }
+      }
+    }
+
+    stage('Build and submit production iOS') {
+      when { expression { return env.MOBILE_RELEASE_KIND == 'native' } }
       steps {
         dir("${APP_DIR}") {
           withCredentials([string(credentialsId: 'asc-key-p8', variable: 'ASC_KEY_P8_B64')]) {
             sh '''
-              echo "$ASC_KEY_P8_B64" | base64 -d > /tmp/asc-key.p8
-              chmod 600 /tmp/asc-key.p8
-              EXPO_ASC_API_KEY_PATH=/tmp/asc-key.p8 \
-                eas build -p ios --profile production --non-interactive --wait
-              rm -f /tmp/asc-key.p8
+              set +x
+              umask 077
+              trap 'rm -f /tmp/asc-key.p8' EXIT HUP INT TERM
+              printf '%s' "$ASC_KEY_P8_B64" | base64 -d > /tmp/asc-key.p8
+              export EXPO_ASC_API_KEY_PATH=/tmp/asc-key.p8
+              # Submit reads its key from eas.json, not EXPO_ASC_API_KEY_PATH.
+              node ../../deploy/mobile/prepare-submit.cjs
+              eas build -p ios --profile production --non-interactive --wait --json > build-result.json
+              node ../../deploy/mobile/build-id.cjs build-result.json > build-id.txt
+              eas submit -p ios --profile production --id "$(cat build-id.txt)" --non-interactive --wait
             '''
           }
         }
       }
     }
 
-    stage('Submit to TestFlight') {
-      options { retry(3) }
-      steps {
-        dir("${APP_DIR}") {
-          withCredentials([string(credentialsId: 'asc-key-p8', variable: 'ASC_KEY_P8_B64')]) {
-            sh '''
-              echo "$ASC_KEY_P8_B64" | base64 -d > /tmp/asc-key.p8
-              chmod 600 /tmp/asc-key.p8
-              # APP_ENV=production so app.config.js resolves the production
-              # bundle (com.ahposten.happyimproved) — without it, eas submit
-              # defaults to APP_ENV=development, targets the .dev bundle, and
-              # then fails trying to set up ASC credentials non-interactively.
-              APP_ENV=production EXPO_ASC_API_KEY_PATH=/tmp/asc-key.p8 \
-                eas submit -p ios --profile production --latest --non-interactive --no-wait
-              rm -f /tmp/asc-key.p8
-            '''
-          }
+    stage('Record delivered baseline') {
+      when {
+        expression {
+          return !params.VALIDATE_ONLY && !env.CHANGE_ID &&
+            (env.BRANCH_NAME == 'main' || env.GIT_BRANCH in ['main', 'origin/main'])
         }
       }
+      steps { script { currentBuild.description = "delivered:${env.GIT_COMMIT}" } }
     }
   }
 
