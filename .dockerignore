@@ -12,3 +12,8 @@ node_modules
 **/ios/Pods
 **/src-tauri/target
 **/target
+packages/talos-app/android
+packages/talos-app/ios
+**/build
+.agents
+.codex

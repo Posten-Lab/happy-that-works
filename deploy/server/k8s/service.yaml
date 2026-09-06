@@ -1,22 +1,17 @@
-# NodePort Service exposing happy-server to the edge nginx (api.happy.ahposten.com).
-# 30083 is the next free port after 30082 (happy-web) in the 300xx convention
-# (30080 quietplan, 30081 benjamins, 30082 happy-web).
-#
-# The edge upstream `happy_api` (deploy/server/nginx/happy-server-upstreams.conf)
-# points at this nodePort on the public nodes.
+# Talos NodePort; allocate a free port and render this template before applying it.
 apiVersion: v1
 kind: Service
 metadata:
-  name: happy-server
-  namespace: happy
+  name: talos-server
+  namespace: talos
   labels:
-    app: happy-server
+    app: talos-server
 spec:
   type: NodePort
   selector:
-    app: happy-server
+    app: talos-server
   ports:
     - name: http
       port: 3005
       targetPort: 3005
-      nodePort: 30083
+      nodePort: ${TALOS_API_NODE_PORT}

@@ -39,7 +39,7 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Happy Architecture Atlas: http://${host}:${port}`);
+  console.log(`Talos Architecture Atlas: http://${host}:${port}`);
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

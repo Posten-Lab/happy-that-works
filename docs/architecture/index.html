@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A source-backed architecture atlas for the Happy monorepo.">
-  <title>Happy Architecture Atlas</title>
+  <meta name="description" content="A source-backed architecture atlas for the Talos monorepo.">
+  <title>Talos Architecture Atlas</title>
   <style>
     :root {
       color-scheme: light;
@@ -604,7 +604,7 @@
     <aside aria-label="Document navigation">
       <div class="brand">
         <div class="brand-mark">H</div>
-        <div><strong>Architecture Atlas</strong><small>Happy monorepo · source-backed</small></div>
+        <div><strong>Architecture Atlas</strong><small>Talos monorepo · source-backed</small></div>
       </div>
       <input id="search" class="search" type="search" placeholder="Filter sections…" aria-label="Filter architecture sections">
       <nav id="nav">
@@ -630,7 +630,7 @@
       <div class="content">
         <header class="hero">
           <span class="eyebrow">System map · 26 July 2026</span>
-          <h1>Happy, from process to pixel.</h1>
+          <h1>Talos, from process to pixel.</h1>
           <p class="lede">
             A source-backed guide to the system that lets a person <strong>run coding agents on a computer
             and control them from mobile, web, desktop, or automation</strong>—without giving the server
@@ -652,19 +652,19 @@
             <div class="section-number">01 / Mental model</div>
             <div>
               <h2>The shortest useful explanation</h2>
-              <p class="section-intro">Happy separates where an agent runs from where a person supervises it. The local machine remains the execution environment; the backend coordinates encrypted state and commands between authenticated clients.</p>
+              <p class="section-intro">Talos separates where an agent runs from where a person supervises it. The local machine remains the execution environment; the backend coordinates encrypted state and commands between authenticated clients.</p>
             </div>
           </div>
           <div class="thesis">
             <article class="statement">
-              <blockquote>Happy is an encrypted control plane for local coding-agent processes.</blockquote>
+              <blockquote>Talos is an encrypted control plane for local coding-agent processes.</blockquote>
               <footer>“Control plane” here means identity, discovery, presence, message sequencing, state synchronization, and command routing—not execution of the coding agent itself.</footer>
             </article>
             <div class="stacked-notes">
               <article class="note">
                 <span class="kicker">Runs locally</span>
                 <h3>Agent execution and tools</h3>
-                <p>Claude, Codex, Gemini, and OpenClaw runners execute on the user’s machine through the Happy CLI/daemon. Filesystem and shell access stay beside the repository.</p>
+                <p>Claude, Codex, Gemini, and OpenClaw runners execute on the user’s machine through the Talos CLI/daemon. Filesystem and shell access stay beside the repository.</p>
               </article>
               <article class="note">
                 <span class="kicker">Coordinates centrally</span>
@@ -675,7 +675,7 @@
           </div>
         </section>
 
-        <section id="topology" data-search="system topology clients expo mobile web tauri codium electron happy agent cli daemon server postgres pglite redis s3 minio">
+        <section id="topology" data-search="system topology clients expo mobile web tauri talos-desktop electron talos agent cli daemon server postgres pglite redis s3 minio">
           <div class="section-head">
             <div class="section-number">02 / Topology</div>
             <div>
@@ -687,21 +687,21 @@
             <div class="topology-grid">
               <div class="topo-group">
                 <div class="topo-label">Control surfaces</div>
-                <div class="node client"><strong>Happy App</strong><small>Expo · iOS · Android · Web · Tauri</small></div>
-                <div class="node client"><strong>happy-agent</strong><small>headless automation and remote control</small></div>
+                <div class="node client"><strong>Talos App</strong><small>Expo · iOS · Android · Web · Tauri</small></div>
+                <div class="node client"><strong>talos-agent</strong><small>headless automation and remote control</small></div>
                 <div class="node client"><strong>Codium</strong><small>Electron renderer + isolated workers</small></div>
               </div>
               <div class="connector">encrypted HTTP<br>user-scoped socket</div>
               <div class="topo-group">
                 <div class="topo-label">Execution edge</div>
-                <div class="node compute"><strong>Happy CLI</strong><small>command router · auth · local sessions</small></div>
+                <div class="node compute"><strong>Talos CLI</strong><small>command router · auth · local sessions</small></div>
                 <div class="node compute"><strong>Machine daemon</strong><small>child lifecycle · local IPC · heartbeats</small></div>
                 <div class="node compute"><strong>Agent runners</strong><small>Claude · Codex · Gemini · OpenClaw</small></div>
               </div>
               <div class="connector">session/machine sockets<br>encrypted RPC</div>
               <div class="topo-group">
                 <div class="topo-label">Coordination core</div>
-                <div class="node server"><strong>Happy Server</strong><small>Fastify · Socket.IO · auth · sequence allocation</small></div>
+                <div class="node server"><strong>Talos Server</strong><small>Fastify · Socket.IO · auth · sequence allocation</small></div>
                 <div class="node storage"><strong>Postgres / PGlite</strong><small>accounts · sessions · messages · machines</small></div>
                 <div class="node storage"><strong>Redis + S3 / local files</strong><small>cross-replica socket bus · binary objects</small></div>
               </div>
@@ -710,7 +710,7 @@
           </figure>
         </section>
 
-        <section id="surfaces" data-search="runtime surfaces app cli daemon server happy agent codium wire logs responsibilities">
+        <section id="surfaces" data-search="runtime surfaces app cli daemon server talos agent talos-desktop wire logs responsibilities">
           <div class="section-head">
             <div class="section-number">03 / Surfaces</div>
             <div>
@@ -721,38 +721,38 @@
           <div class="grid three">
             <article class="card accent-blue">
               <span class="tag">Remote console</span>
-              <h3>Happy App</h3>
+              <h3>Talos App</h3>
               <p>One React Native/Expo codebase presents sessions, messages, permissions, machines, artifacts, voice, settings, and social features.</p>
               <ul><li>Expo Router navigation</li><li>Zustand client state</li><li>REST bootstrap + user-scoped realtime</li><li>Native, web, and Tauri targets</li></ul>
             </article>
             <article class="card accent-orange">
               <span class="tag">Execution owner</span>
-              <h3>Happy CLI + daemon</h3>
+              <h3>Talos CLI + daemon</h3>
               <p>The main local runtime authenticates the machine, launches provider adapters, owns live session sockets, and exposes controlled RPC handlers.</p>
               <ul><li>Foreground and background sessions</li><li>Local HTTP control server</li><li>Machine and session heartbeats</li><li>Provider normalization</li></ul>
             </article>
             <article class="card">
               <span class="tag">Coordination core</span>
-              <h3>Happy Server</h3>
+              <h3>Talos Server</h3>
               <p>Fastify and Socket.IO provide authentication, domain APIs, persistent update sequencing, presence, RPC routing, integrations, and metrics.</p>
               <ul><li>Postgres or embedded PGlite</li><li>Redis streams adapter when configured</li><li>S3-compatible or local files</li><li>Opaque encrypted payload storage</li></ul>
             </article>
             <article class="card accent-violet">
               <span class="tag">Automation client</span>
-              <h3>happy-agent</h3>
-              <p>A separate Commander-based CLI for listing, creating, messaging, spawning, resuming, and waiting on Happy sessions.</p>
-              <ul><li>Reuses Happy auth and encryption</li><li>Machine RPC caller</li><li>Script-friendly output</li></ul>
+              <h3>talos-agent</h3>
+              <p>A separate Commander-based CLI for listing, creating, messaging, spawning, resuming, and waiting on Talos sessions.</p>
+              <ul><li>Reuses Talos auth and encryption</li><li>Machine RPC caller</li><li>Script-friendly output</li></ul>
             </article>
             <article class="card accent-yellow">
               <span class="tag">Desktop experiment</span>
               <h3>Codium</h3>
               <p>An Electron desktop application with a React renderer, main-process IPC, persistent chat storage, terminals, worktrees, plugins, and worker-isolated agent execution.</p>
-              <ul><li>Agent worker thread</li><li>Happy auth worker thread</li><li>Anthropic, Codex, Happy plugins</li></ul>
+              <ul><li>Agent worker thread</li><li>Talos auth worker thread</li><li>Anthropic, Codex, Talos plugins</li></ul>
             </article>
             <article class="card accent-blue">
               <span class="tag">Shared contracts</span>
-              <h3>happy-wire + app-logs</h3>
-              <p><code>@slopus/happy-wire</code> holds runtime-validated message schemas. <code>happy-app-logs</code> is a small local diagnostics receiver.</p>
+              <h3>talos-wire + app-logs</h3>
+              <p><code>@talos/wire</code> holds runtime-validated message schemas. <code>talos-app-logs</code> is a small local diagnostics receiver.</p>
               <ul><li>Zod wire validation</li><li>Legacy production message format</li><li>Unified protocol is frozen and under review</li></ul>
             </article>
           </div>
@@ -774,8 +774,8 @@
             <article class="lane-step" role="listitem"><b>05 · Reconcile</b><p>The app decrypts updates, deduplicates by IDs/sequences, reduces messages into view state, and clears matching outbox entries.</p></article>
           </div>
           <div class="flow">
-            <div class="flow-head"><span>Source-level call tree</span><span>primary happy-app → server → happy-cli path</span></div>
-            <pre>User sends a message in the Happy App
+            <div class="flow-head"><span>Source-level call tree</span><span>primary talos-app → server → talos-cli path</span></div>
+            <pre>User sends a message in the Talos App
 │
 ├─ Sync.sendMessage(sessionId, text, options)
 │  ├─ pendingOutbox: Map&lt;sessionId, OutboxMessage[]&gt;
@@ -786,7 +786,7 @@
 │  └─ POST /v3/sessions/:id/messages
 │     └─ { messages: Array&lt;{ localId: string; content: SessionMessageContent }&gt; }
 │
-├─ happy-server / v3SessionRoutes
+├─ talos-server / v3SessionRoutes
 │  ├─ transaction: SessionMessage + Session.seq + Account.seq
 │  └─ eventRouter.emitUpdate({ recipientFilter: all-interested-in-session })
 │
@@ -826,7 +826,7 @@
           </div>
           <div class="flow" style="margin-top:1rem">
             <div class="flow-head"><span>Remote machine command</span><span>real method prefix and data boundary</span></div>
-            <pre>Happy App calls apiSocket.machineRPC&lt;R, A&gt;(machineId, method, params)
+            <pre>Talos App calls apiSocket.machineRPC&lt;R, A&gt;(machineId, method, params)
 │
 ├─ Encryption.getMachineEncryption(machineId)
 │  └─ encryptRaw(params) → opaque bytes
@@ -834,7 +834,7 @@
 ├─ socket.emitWithAck("rpc-call")
 │  └─ { method: `${machineId}:${method}`, params: Uint8Array }
 │
-├─ happy-server rpcHandler(userId, socket, io)
+├─ talos-server rpcHandler(userId, socket, io)
 │  ├─ resolves room: rpc:${userId}:${method}
 │  ├─ forwards "rpc-request" to registered machine socket
 │  └─ never needs to decrypt params
@@ -852,7 +852,7 @@
             <div class="section-number">06 / Trust boundary</div>
             <div>
               <h2>The server routes what it cannot read</h2>
-              <p class="section-intro">Happy’s most important architectural boundary sits before transport. Client-held secrets encrypt session messages and state; the backend operates on ciphertext and the minimum metadata needed for coordination.</p>
+              <p class="section-intro">Talos’s most important architectural boundary sits before transport. Client-held secrets encrypt session messages and state; the backend operates on ciphertext and the minimum metadata needed for coordination.</p>
             </div>
           </div>
           <div class="boundary">
@@ -899,32 +899,32 @@
                 <tr><td>Redis streams</td><td>Socket.IO cross-replica broadcast traffic.</td><td>Enables room fan-out across server replicas. Optional in standalone mode.</td><td><code>@socket.io/redis-streams-adapter</code></td></tr>
                 <tr><td>S3 / local files</td><td>Uploaded files and encrypted attachments; database retains references and metadata.</td><td>Object durability depends on configured backend. Local mode guards resolved paths.</td><td>MinIO client or filesystem adapter</td></tr>
                 <tr><td>App Zustand store</td><td>Decrypted sessions, messages, machines, artifacts, view models, drafts, socket state, settings.</td><td>REST bootstrap + realtime reduction. Selected preferences persist locally.</td><td><code>sources/sync/storage.ts</code></td></tr>
-                <tr><td>CLI local state</td><td>Credentials, settings, daemon PID/port/version, locks, logs, temporary attachment material.</td><td>Atomic local files under <code>~/.happy</code> or <code>HAPPY_HOME_DIR</code>.</td><td>persistence + daemon control files</td></tr>
+                <tr><td>CLI local state</td><td>Credentials, settings, daemon PID/port/version, locks, logs, temporary attachment material.</td><td>Atomic local files under <code>~/.talos</code> or <code>TALOS_HOME_DIR</code>.</td><td>persistence + daemon control files</td></tr>
                 <tr><td>Presence cache</td><td>Recent session/machine activity and debounce/batch state.</td><td>Transient; periodic timeout marks stale actors inactive and emits an event.</td><td>server activity cache + timeout loop</td></tr>
               </tbody>
             </table>
           </div>
         </section>
 
-        <section id="packages" data-search="package map workspace dependencies happy app cli server wire agent codium app logs">
+        <section id="packages" data-search="package map workspace dependencies talos app cli server wire agent talos-desktop app logs">
           <div class="section-head">
             <div class="section-number">08 / Package map</div>
             <div>
               <h2>Workspace boundaries</h2>
-              <p class="section-intro">The monorepo uses pnpm workspaces. <code>@slopus/happy-wire</code> is the only shared internal package declared across the main app/CLI/server boundary; most other coupling is through HTTP, Socket.IO, and duplicated compatible crypto behavior.</p>
+              <p class="section-intro">The monorepo uses pnpm workspaces. <code>@talos/wire</code> is the only shared internal package declared across the main app/CLI/server boundary; most other coupling is through HTTP, Socket.IO, and duplicated compatible crypto behavior.</p>
             </div>
           </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Workspace</th><th>Ships as</th><th>Role</th><th>Key dependencies / boundary</th></tr></thead>
               <tbody>
-                <tr><td>happy-app</td><td>Expo app, web SPA, Tauri desktop</td><td>Primary end-user remote control UI</td><td>React Native, Expo Router, Zustand, Socket.IO client, libsodium, happy-wire</td></tr>
-                <tr><td>happy-cli</td><td><code>happy</code> and <code>happy-mcp</code> binaries</td><td>Local agent wrapper and machine daemon</td><td>Provider SDKs, Fastify local control, Socket.IO client, sandbox runtime, happy-wire</td></tr>
-                <tr><td>happy-server</td><td>Hosted service or portable binary</td><td>Authenticated sync, persistence, routing, presence, integrations</td><td>Fastify, Socket.IO, Prisma, Postgres/PGlite, Redis, S3, happy-wire</td></tr>
-                <tr><td>happy-agent</td><td><code>happy-agent</code> binary</td><td>Headless session and machine controller</td><td>Commander, Axios, Socket.IO client, TweetNaCl, happy-wire</td></tr>
-                <tr><td>happy-wire</td><td>Internal/public library</td><td>Runtime-validated wire schemas and types</td><td>Zod; no runtime platform dependency</td></tr>
-                <tr><td>codium</td><td>Electron desktop app</td><td>Desktop-first agent workspace and Happy integration</td><td>Electron, React, worker threads, provider SDKs, SQLite; currently not a happy-wire consumer</td></tr>
-                <tr><td>happy-app-logs</td><td>Local Node service</td><td>Receives development logs from the app</td><td>Node HTTP only; intentionally isolated</td></tr>
+                <tr><td>talos-app</td><td>Expo app, web SPA, Tauri desktop</td><td>Primary end-user remote control UI</td><td>React Native, Expo Router, Zustand, Socket.IO client, libsodium, talos-wire</td></tr>
+                <tr><td>talos-cli</td><td><code>talos</code> and <code>talos-mcp</code> binaries</td><td>Local agent wrapper and machine daemon</td><td>Provider SDKs, Fastify local control, Socket.IO client, sandbox runtime, talos-wire</td></tr>
+                <tr><td>talos-server</td><td>Hosted service or portable binary</td><td>Authenticated sync, persistence, routing, presence, integrations</td><td>Fastify, Socket.IO, Prisma, Postgres/PGlite, Redis, S3, talos-wire</td></tr>
+                <tr><td>talos-agent</td><td><code>talos-agent</code> binary</td><td>Headless session and machine controller</td><td>Commander, Axios, Socket.IO client, TweetNaCl, talos-wire</td></tr>
+                <tr><td>talos-wire</td><td>Internal/public library</td><td>Runtime-validated wire schemas and types</td><td>Zod; no runtime platform dependency</td></tr>
+                <tr><td>talos-desktop</td><td>Electron desktop app</td><td>Desktop-first agent workspace and Talos integration</td><td>Electron, React, worker threads, provider SDKs, SQLite; uses @talos/wire for shared protocol and encryption contexts</td></tr>
+                <tr><td>talos-app-logs</td><td>Local Node service</td><td>Receives development logs from the app</td><td>Node HTTP only; intentionally isolated</td></tr>
               </tbody>
             </table>
           </div>
@@ -948,8 +948,8 @@
             <article class="card accent-violet">
               <span class="tag">Self-host / portable</span>
               <h3>Single distribution</h3>
-              <p>The standalone entry point can run migrations and serve using PGlite in a local data directory, local file storage, and an optional bundled Happy web app served by Fastify.</p>
-              <ul><li><code>happy-server migrate</code></li><li><code>happy-server serve</code></li><li>Redis optional</li><li>HTML config injection for the bundled SPA</li></ul>
+              <p>The standalone entry point can run migrations and serve using PGlite in a local data directory, local file storage, and an optional bundled Talos web app served by Fastify.</p>
+              <ul><li><code>talos-server migrate</code></li><li><code>talos-server serve</code></li><li>Redis optional</li><li>HTML config injection for the bundled SPA</li></ul>
             </article>
           </div>
           <div class="flow" style="margin-top:1rem">
@@ -983,8 +983,8 @@
             <article class="observation"><div><h3>The encryption boundary is the organizing principle.</h3><p>It explains why rich domain objects are reconstructed in clients, why the server stores opaque strings/bytes, and why RPC payloads pass through the backend without server-side interpretation.</p></div></article>
             <article class="observation"><div><h3>The app sync layer is a de facto client domain service.</h3><p><code>Sync</code> coordinates encryption keys, REST fetches, realtime subscriptions, outboxes, pagination, purchases, artifacts, friends, and notifications. It is powerful, but it concentrates many reasons to change in one long-lived singleton.</p></div></article>
             <article class="observation"><div><h3>Realtime correctness falls back to durable APIs.</h3><p>Sequence numbers, idempotent local IDs, version checks, and REST invalidation after reconnect form the recovery model. The socket is a low-latency signal path, not the sole source of truth.</p></div></article>
-            <article class="observation"><div><h3>There are two desktop strategies.</h3><p>The Happy App reaches desktop through Tauri around the Expo web target. Codium is a separate Electron architecture with its own renderer, IPC contracts, workers, plugin host, and storage. They should be treated as distinct products until their responsibilities intentionally converge.</p></div></article>
-            <article class="observation"><div><h3>Protocol unification is incomplete by design.</h3><p><code>happy-wire</code> says the newer session envelope is frozen and not the production path; legacy role-based message content remains active. The architecture should not imply that every provider already speaks one canonical event model.</p></div></article>
+            <article class="observation"><div><h3>There are two desktop strategies.</h3><p>The Talos App reaches desktop through Tauri around the Expo web target. Codium is a separate Electron architecture with its own renderer, IPC contracts, workers, plugin host, and storage. They should be treated as distinct products until their responsibilities intentionally converge.</p></div></article>
+            <article class="observation"><div><h3>Protocol unification is incomplete by design.</h3><p><code>talos-wire</code> says the newer session envelope is frozen and not the production path; legacy role-based message content remains active. The architecture should not imply that every provider already speaks one canonical event model.</p></div></article>
             <article class="observation"><div><h3>Standalone mode is more than a deployment toggle.</h3><p>PGlite, local files, static SPA serving, configuration injection, and optional Redis create a materially different operational topology that deserves its own testing and documentation path.</p></div></article>
           </div>
         </section>
@@ -999,28 +999,28 @@
           </div>
           <ul class="source-list">
             <li><strong>Workspace definition</strong>package.json · pnpm-workspace.yaml</li>
-            <li><strong>App boot and providers</strong>packages/happy-app/index.ts · sources/app/_layout.tsx</li>
-            <li><strong>App synchronization</strong>packages/happy-app/sources/sync/sync.ts</li>
-            <li><strong>App realtime client</strong>packages/happy-app/sources/sync/apiSocket.ts</li>
-            <li><strong>App state model</strong>packages/happy-app/sources/sync/storage.ts</li>
-            <li><strong>CLI router</strong>packages/happy-cli/src/index.ts</li>
-            <li><strong>CLI daemon</strong>packages/happy-cli/src/daemon/run.ts · controlServer.ts</li>
-            <li><strong>Session/machine clients</strong>packages/happy-cli/src/api/apiSession.ts · apiMachine.ts</li>
-            <li><strong>Server lifecycle</strong>packages/happy-server/sources/main.ts · sources/index.ts</li>
-            <li><strong>HTTP composition</strong>packages/happy-server/sources/app/api/api.ts</li>
-            <li><strong>Socket composition</strong>packages/happy-server/sources/app/api/socket.ts</li>
-            <li><strong>Event routing</strong>packages/happy-server/sources/app/events/eventRouter.ts</li>
-            <li><strong>Persistent data model</strong>packages/happy-server/prisma/schema.prisma</li>
-            <li><strong>Standalone server</strong>packages/happy-server/sources/standalone.ts</li>
-            <li><strong>Shared contracts</strong>packages/happy-wire/src/index.ts · messages.ts · sessionProtocol.ts</li>
-            <li><strong>Automation client</strong>packages/happy-agent/src/index.ts · session.ts · machineRpc.ts</li>
-            <li><strong>Codium renderer + main</strong>packages/codium/sources/main.tsx · boot/main/index.ts</li>
-            <li><strong>Codium worker boundaries</strong>boot/main/agent-worker · boot/main/happy-worker</li>
+            <li><strong>App boot and providers</strong>packages/talos-app/index.ts · sources/app/_layout.tsx</li>
+            <li><strong>App synchronization</strong>packages/talos-app/sources/sync/sync.ts</li>
+            <li><strong>App realtime client</strong>packages/talos-app/sources/sync/apiSocket.ts</li>
+            <li><strong>App state model</strong>packages/talos-app/sources/sync/storage.ts</li>
+            <li><strong>CLI router</strong>packages/talos-cli/src/index.ts</li>
+            <li><strong>CLI daemon</strong>packages/talos-cli/src/daemon/run.ts · controlServer.ts</li>
+            <li><strong>Session/machine clients</strong>packages/talos-cli/src/api/apiSession.ts · apiMachine.ts</li>
+            <li><strong>Server lifecycle</strong>packages/talos-server/sources/main.ts · sources/index.ts</li>
+            <li><strong>HTTP composition</strong>packages/talos-server/sources/app/api/api.ts</li>
+            <li><strong>Socket composition</strong>packages/talos-server/sources/app/api/socket.ts</li>
+            <li><strong>Event routing</strong>packages/talos-server/sources/app/events/eventRouter.ts</li>
+            <li><strong>Persistent data model</strong>packages/talos-server/prisma/schema.prisma</li>
+            <li><strong>Standalone server</strong>packages/talos-server/sources/standalone.ts</li>
+            <li><strong>Shared contracts</strong>packages/talos-wire/src/index.ts · messages.ts · sessionProtocol.ts</li>
+            <li><strong>Automation client</strong>packages/talos-agent/src/index.ts · session.ts · machineRpc.ts</li>
+            <li><strong>Talos desktop renderer + main</strong>packages/talos-desktop/sources/main.tsx · boot/main/index.ts</li>
+            <li><strong>Codium worker boundaries</strong>boot/main/agent-worker · boot/main/talos-worker</li>
           </ul>
         </section>
 
         <footer class="footer">
-          <span>Happy Architecture Atlas · generated from the repository, not from a running production environment.</span>
+          <span>Talos Architecture Atlas · generated from the repository, not from a running production environment.</span>
           <span>Self-contained HTML · no external assets or scripts.</span>
         </footer>
       </div>
@@ -1033,13 +1033,13 @@
     const noResults = document.getElementById("no-results");
     const sections = [...document.querySelectorAll("main section")];
     const navLinks = [...document.querySelectorAll("nav a")];
-    const savedTheme = localStorage.getItem("happy-architecture-theme");
+    const savedTheme = localStorage.getItem("talos-architecture-theme");
     if (savedTheme) root.dataset.theme = savedTheme;
     else if (matchMedia("(prefers-color-scheme: dark)").matches) root.dataset.theme = "dark";
 
     document.getElementById("theme").addEventListener("click", () => {
       root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
-      localStorage.setItem("happy-architecture-theme", root.dataset.theme);
+      localStorage.setItem("talos-architecture-theme", root.dataset.theme);
     });
     document.getElementById("print").addEventListener("click", () => window.print());
 

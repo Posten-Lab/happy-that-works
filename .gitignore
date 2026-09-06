@@ -10,8 +10,8 @@ web-build/
 expo-env.d.ts
 /ios
 /android
-/packages/happy-app/ios
-/packages/happy-app/android
+/packages/talos-app/ios
+/packages/talos-app/android
 
 # Native
 .kotlin/
@@ -68,11 +68,15 @@ docs/competition/opencode/traces/
 
 # scratch tooling
 .cdp-scripts/
-happy-workspaces/
+talos-workspaces/
 
-# local HAPPY_HOME_DIR for self-host testing
-.happy-fully-local/
-.happy-dev/
+# local TALOS_HOME_DIR for self-host testing
+.talos-fully-local/
+.talos-dev/
 
 # third party tools
 .supervibe/
+
+# Local Talos verification and rendered deployment manifests
+.talos-local/
+deploy/rendered/

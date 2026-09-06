@@ -1,23 +1,23 @@
-# In-cluster MinIO — object storage for happy-server attachments (namespace `happy`).
+# In-cluster MinIO — object storage for talos-server attachments (namespace `talos`).
 #
-# happy-server runs in S3 mode (S3_HOST set), so it hands the client browser /
+# talos-server runs in S3 mode (S3_HOST set), so it hands the client browser /
 # mobile app *presigned* PUT/GET URLs and never touches the bytes. Those
-# presigned URLs are signed by the minio client for host `files.happy.ahposten.com`
+# presigned URLs are signed by the minio client for host `${TALOS_FILES_HOST}`
 # (S3_HOST), so MinIO must be reachable at that public host:
 #
-#   browser/mobile ──TLS──▶ edge nginx (files.happy.ahposten.com)
-#                              └─▶ nodeIP:30903 ─▶ happy-minio Service :9000
+#   browser/mobile ──TLS──▶ edge nginx (${TALOS_FILES_HOST})
+#                              └─▶ nodeIP:${TALOS_FILES_NODE_PORT} ─▶ talos-minio Service :9000
 #
-# CORS: the web app PUTs cross-origin from happy.ahposten.com, so MinIO returns
+# CORS: the web app PUTs cross-origin from ${TALOS_WEB_HOST}, so MinIO returns
 # permissive CORS via MINIO_API_CORS_ALLOW_ORIGIN. (Native mobile ignores CORS.)
 #
-# Root creds come from Secret `happy-server-secret` (MINIO_ROOT_USER /
-# MINIO_ROOT_PASSWORD == the S3_ACCESS_KEY / S3_SECRET_KEY happy-server uses).
+# Root creds come from Secret `talos-server-secret` (MINIO_ROOT_USER /
+# MINIO_ROOT_PASSWORD == the S3_ACCESS_KEY / S3_SECRET_KEY talos-server uses).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: happy-minio-data
-  namespace: happy
+  name: talos-minio-data
+  namespace: talos
 spec:
   accessModes: ["ReadWriteOnce"]
   storageClassName: local-path
@@ -28,21 +28,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: happy-minio
-  namespace: happy
+  name: talos-minio
+  namespace: talos
   labels:
-    app: happy-minio
+    app: talos-minio
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: happy-minio
+      app: talos-minio
   template:
     metadata:
       labels:
-        app: happy-minio
+        app: talos-minio
     spec:
       nodeSelector:
         kubernetes.io/hostname: server-guru-eu
@@ -54,19 +54,19 @@ spec:
             - name: MINIO_ROOT_USER
               valueFrom:
                 secretKeyRef:
-                  name: happy-server-secret
+                  name: talos-server-secret
                   key: S3_ACCESS_KEY
             - name: MINIO_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: happy-server-secret
+                  name: talos-server-secret
                   key: S3_SECRET_KEY
             # Allow the web app origin(s) to run presigned cross-origin PUT/GET.
             - name: MINIO_API_CORS_ALLOW_ORIGIN
-              value: "https://happy.ahposten.com,http://localhost:8081,http://localhost:8082"
+              value: "https://${TALOS_WEB_HOST},http://localhost:8081,http://localhost:8082"
             # The public host clients reach MinIO through (behind the edge).
             - name: MINIO_SERVER_URL
-              value: "https://files.happy.ahposten.com"
+              value: "https://${TALOS_FILES_HOST}"
           ports:
             - name: s3
               containerPort: 9000
@@ -93,19 +93,19 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: happy-minio-data
+            claimName: talos-minio-data
 ---
 # ClusterIP for in-cluster access (server-side ops, health).
 apiVersion: v1
 kind: Service
 metadata:
-  name: happy-minio
-  namespace: happy
+  name: talos-minio
+  namespace: talos
   labels:
-    app: happy-minio
+    app: talos-minio
 spec:
   selector:
-    app: happy-minio
+    app: talos-minio
   ports:
     - name: s3
       port: 9000
@@ -114,21 +114,21 @@ spec:
       port: 9001
       targetPort: 9001
 ---
-# NodePort so the edge nginx (files.happy.ahposten.com) can reach the S3 API
-# on the public nodes. 30903 (30902 is benjamins' instrument-logos MinIO).
+# NodePort so the edge nginx (${TALOS_FILES_HOST}) can reach the S3 API
+# on the configured cluster nodes. Allocate an unused port for Talos.
 apiVersion: v1
 kind: Service
 metadata:
-  name: happy-minio-nodeport
-  namespace: happy
+  name: talos-minio-nodeport
+  namespace: talos
   labels:
-    app: happy-minio
+    app: talos-minio
 spec:
   type: NodePort
   selector:
-    app: happy-minio
+    app: talos-minio
   ports:
     - name: s3
       port: 9000
       targetPort: 9000
-      nodePort: 30903
+      nodePort: ${TALOS_FILES_NODE_PORT}

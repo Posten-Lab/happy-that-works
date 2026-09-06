@@ -1,19 +1,19 @@
-# In-cluster Redis for happy-server (namespace `happy`).
+# In-cluster Redis for talos-server (namespace `talos`).
 #
-# happy-server uses Redis for the socket.io pub/sub adapter + eventbus so that
+# talos-server uses Redis for the socket.io pub/sub adapter + eventbus so that
 # multiple server replicas stay in sync (main.ts / storage/redis.ts guard on
 # REDIS_URL). Single instance, AOF-persisted on a local-path PVC. Reached via
-# ClusterIP Service `happy-redis:6379`.
+# ClusterIP Service `talos-redis:6379`.
 apiVersion: v1
 kind: Service
 metadata:
-  name: happy-redis
-  namespace: happy
+  name: talos-redis
+  namespace: talos
   labels:
-    app: happy-redis
+    app: talos-redis
 spec:
   selector:
-    app: happy-redis
+    app: talos-redis
   ports:
     - name: redis
       port: 6379
@@ -22,8 +22,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: happy-redis-data
-  namespace: happy
+  name: talos-redis-data
+  namespace: talos
 spec:
   accessModes: ["ReadWriteOnce"]
   storageClassName: local-path
@@ -34,10 +34,10 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: happy-redis
-  namespace: happy
+  name: talos-redis
+  namespace: talos
   labels:
-    app: happy-redis
+    app: talos-redis
 spec:
   replicas: 1
   # Recreate: a local-path PVC is bound to one node; never run two pods on it.
@@ -45,11 +45,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: happy-redis
+      app: talos-redis
   template:
     metadata:
       labels:
-        app: happy-redis
+        app: talos-redis
     spec:
       nodeSelector:
         kubernetes.io/hostname: server-guru-eu
@@ -79,4 +79,4 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: happy-redis-data
+            claimName: talos-redis-data

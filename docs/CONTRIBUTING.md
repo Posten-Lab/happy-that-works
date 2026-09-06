@@ -1,6 +1,6 @@
-# Contributing to Happy
+# Contributing to Talos
 
-Happy is built by engineers who use AI coding tools all day — and we built Happy so we could use them from anywhere. Contributions that make Happy better for that workflow are welcome.
+Talos is built by engineers who use AI coding tools all day — and we built Talos so we could use them from anywhere. Contributions that make Talos better for that workflow are welcome.
 
 If you don't get a response on your PR or issue, tag **@bra1ndump**.
 
@@ -54,79 +54,79 @@ Every issue should start with a **one-paragraph summary** of the problem. Don't 
 ### Getting Started
 
 ```bash
-git clone https://github.com/slopus/happy.git
-cd happy
+git clone <your-talos-repository-url>
+cd talos
 pnpm install
 ```
 
-### Happy App (Mobile + Web)
+### Talos App (Mobile + Web)
 
 ```bash
-pnpm --filter happy-app start          # Expo dev server
-pnpm --filter happy-app ios:dev        # iOS simulator
-pnpm --filter happy-app android:dev    # Android emulator
+pnpm --filter talos-app start          # Expo dev server
+pnpm --filter talos-app ios:dev        # iOS simulator
+pnpm --filter talos-app android:dev    # Android emulator
 pnpm web                                # Browser (shortcut)
-pnpm --filter happy-app typecheck      # Run after all changes
+pnpm --filter talos-app typecheck      # Run after all changes
 ```
 
 The app has three build variants — all can be installed simultaneously on the same device:
 
 | Variant | Bundle ID | App Name | Use Case |
 |---------|-----------|----------|----------|
-| Development | `com.slopus.happy.dev` | Happy (dev) | Local development with hot reload |
-| Preview | `com.slopus.happy.preview` | Happy (preview) | Beta testing & OTA updates |
-| Production | `com.ex3ndr.happy` | Happy | App Store release |
+| Development | `com.ahposten.talos.dev` | Talos (dev) | Local development with hot reload |
+| Preview | `com.ahposten.talos.preview` | Talos (preview) | Beta testing & OTA updates |
+| Production | `com.ex3ndr.talos` | Talos | App Store release |
 
 Swap `ios:dev` for `ios:preview` or `ios:production` (same for `android:`).
 
 #### macOS Desktop (Tauri)
 
 ```bash
-pnpm --filter happy-app tauri:dev      # Run with hot reload
-pnpm --filter happy-app tauri:build:dev
+pnpm --filter talos-app tauri:dev      # Run with hot reload
+pnpm --filter talos-app tauri:build:dev
 ```
 
-### Happy CLI
+### Talos CLI
 
 ```bash
-pnpm --filter happy build
-pnpm --filter happy test
-pnpm --filter happy cli:install   # Build + link this workspace as the global `happy` + restart daemon
+pnpm --filter talos build
+pnpm --filter talos test
+pnpm --filter talos cli:install   # Build + link this workspace as the global `talos` + restart daemon
 ```
 
-`cli:install` replaces the `happy` binary installed from npm with a symlink to this workspace.
-It reuses `~/.happy/` (auth, sessions) — no separate dev home. To undo:
+`cli:install` replaces the `talos` binary installed from npm with a symlink to this workspace.
+It reuses `~/.talos/` (auth, sessions) — no separate dev home. To undo:
 
 ```bash
-npm unlink -g happy && npm i -g happy@latest
+npm unlink -g talos && npm i -g talos@latest
 ```
 
-To sandbox dev data, set `HAPPY_HOME_DIR=~/.happy-dev` in your shell before running `happy`.
+To sandbox dev data, set `TALOS_HOME_DIR=~/.talos-dev` in your shell before running `talos`.
 
-### Happy Server
+### Talos Server
 
 ```bash
-pnpm --filter happy-server standalone:dev   # Local server (no Docker needed)
+pnpm --filter talos-server standalone:dev   # Local server (no Docker needed)
 ```
 
 Runs on `localhost:3005` with embedded PGlite. To point the app at your local server:
 
 ```bash
-EXPO_PUBLIC_HAPPY_SERVER_URL=http://localhost:3005 pnpm --filter happy-app start
+EXPO_PUBLIC_TALOS_SERVER_URL=http://localhost:3005 pnpm --filter talos-app start
 ```
 
 ## Project Structure
 
 This is a monorepo with four packages:
 
-- **happy-app** — React Native + Expo mobile/web client
-- **happy-cli** — Node.js CLI that wraps Claude Code and Codex
-- **happy-agent** — Remote agent control
-- **happy-server** — Backend for encrypted sync
+- **talos-app** — React Native + Expo mobile/web client
+- **talos-cli** — Node.js CLI that wraps Claude Code and Codex
+- **talos-agent** — Remote agent control
+- **talos-server** — Backend for encrypted sync
 
-For architecture details, check the [docs/](.) folder or ask Happy itself — it knows how the project is set up.
+For architecture details, check the [docs/](.) folder or ask Talos itself — it knows how the project is set up.
 
 ## Community
 
-- [Discord](https://discord.gg/fX9WBAhyfD) — best place for questions and discussion
-- [Documentation](https://happy.engineering/docs/)
+- Use the discussion or issue tracker configured for this Talos repository.
+- [Documentation](../README.md)

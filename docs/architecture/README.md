@@ -1,4 +1,4 @@
-# Happy Architecture Atlas
+# Talos Architecture Atlas
 
 The architecture atlas is a self-contained HTML document derived from the current repository.
 

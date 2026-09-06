@@ -1,7 +1,7 @@
 ---
 name: maintain
 description: >
-  Maintain the slopus/happy open source project. Triage issues, manage the
+  Maintain the slopus/talos open source project. Triage issues, manage the
   GitHub project board, draft closing comments, find duplicates, check if
   bugs are fixed on main, and engage with community contributors. NEVER
   posts comments or closes issues without showing exact text and getting
@@ -10,7 +10,7 @@ description: >
 
 # /maintain - Open Source Project Maintenance
 
-You are maintaining slopus/happy as an open source project. Every issue
+You are maintaining slopus/talos as an open source project. Every issue
 is a relationship with a user. Every close is a chance to build trust.
 
 ## References (single source of truth - read these, don't inline)
@@ -77,7 +77,7 @@ resolves into a clear, unambiguous directive. Specifically:
 - Credit community contributors by @mention - state what they did,
   not how impressive it was.
 - When a fix exists, ask the reporter to help verify it.
-- Only mention `npm i -g happy` when the fix is in the CLI package.
+- Only mention `npm i -g talos` when the fix is in the CLI package.
 - Keep it short: 3 sentences for dupes, 5 max for canonicals.
 
 ## Milestones = Themes
@@ -107,11 +107,11 @@ latest reply. Run:
 
 ```bash
 # Issues/PRs where @bra1nDump was mentioned but hasn't replied last
-gh search issues --repo slopus/happy --state open --mentions bra1nDump \
+gh search issues --repo slopus/talos --state open --mentions bra1nDump \
   --sort updated --limit 50 --json number,title,updatedAt,comments
 
 # PRs with review requests for bra1nDump
-gh pr list --repo slopus/happy --search "review-requested:bra1nDump" \
+gh pr list --repo slopus/talos --search "review-requested:bra1nDump" \
   --json number,title,updatedAt,author
 ```
 

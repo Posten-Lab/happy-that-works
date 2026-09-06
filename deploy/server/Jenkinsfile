@@ -23,6 +23,10 @@ spec:
       value: ci
       effect: NoSchedule
   containers:
+    - name: node
+      image: node:20-alpine
+      command: ["cat"]
+      tty: true
     - name: jnlp
       image: ahmadposten/jenkins-agent-kubectl:latest
       resources:
@@ -66,10 +70,17 @@ spec:
       steps {
         script {
           // HTTPS clone of the (public) repo — capture GIT_COMMIT for the tag.
-          def scmVars = checkout([$class: 'GitSCM',
-            branches: [[name: '*/main']],
-            userRemoteConfigs: [[url: 'https://github.com/Posten-Lab/happy-that-works.git']]])
+          def scmVars = checkout scm
           env.GIT_COMMIT = scmVars.GIT_COMMIT
+        }
+      }
+    }
+
+    stage('Validate Talos configuration') {
+      steps {
+        container('node') {
+          sh 'node scripts/verify-release-config.cjs web'
+          sh 'node scripts/render-deployment.cjs deploy/server/k8s deploy/rendered/server'
         }
       }
     }
@@ -96,10 +107,10 @@ spec:
             //  Dropped --compressed-caching=false (it OOM-killed the container)
             //    and --single-snapshot (no-op here).
             sh """/kaniko/executor \
-              --context=git://github.com/Posten-Lab/happy-that-works.git#refs/heads/main \
+              --context=dir://${WORKSPACE} \
               --dockerfile=Dockerfile.server \
-              --destination=ahmadposten/happy-improved-server:latest \
-              --destination=ahmadposten/happy-improved-server:git-${shortSha} \
+              --destination=ahmadposten/talos-server:latest \
+              --destination=ahmadposten/talos-server:git-${shortSha} \
               --snapshot-mode=redo"""
           }
         }
@@ -108,7 +119,7 @@ spec:
 
     stage('Deploy') {
       // Stamp the image tag + build time into the manifests, apply, roll out.
-      // Secrets (happy-server-secret) are created out-of-band — the Jenkins
+      // Secrets (talos-server-secret) are created out-of-band — the Jenkins
       // deployer Role has no Secret access — so they are NOT applied here.
       options { retry(3) }
       steps {
@@ -117,23 +128,23 @@ spec:
             def shortSha = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'
             def buildTimeIso = new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX", TimeZone.getTimeZone('UTC'))
             sh """
-              img=ahmadposten/happy-improved-server:git-${shortSha}
-              f=deploy/server/k8s/deployment.yaml
+              img=ahmadposten/talos-server:git-${shortSha}
+              f=deploy/rendered/server/deployment.yaml
               # pin both the runtime + migrate initContainer to the immutable tag
-              sed -i "s|ahmadposten/happy-improved-server:latest|\$img|g" "\$f"
+              sed -i "s|ahmadposten/talos-server:latest|\$img|g" "\$f"
               sed -i "s|__GIT_SHA__|${shortSha}|g" "\$f"
               sed -i "s|__BUILD_TIME__|${buildTimeIso}|g" "\$f"
             """
           }
           // Datastores + storage (idempotent; safe to re-apply every deploy).
-          sh 'kubectl apply -f deploy/server/k8s/postgres.yaml -n happy'
-          sh 'kubectl apply -f deploy/server/k8s/redis.yaml -n happy'
-          sh 'kubectl apply -f deploy/server/k8s/minio.yaml -n happy'
-          sh 'kubectl apply -f deploy/server/k8s/minio-setup-job.yaml -n happy || true'
+          sh 'kubectl apply -f deploy/rendered/server/postgres.yaml -n talos'
+          sh 'kubectl apply -f deploy/rendered/server/redis.yaml -n talos'
+          sh 'kubectl apply -f deploy/rendered/server/minio.yaml -n talos'
+          sh 'kubectl apply -f deploy/rendered/server/minio-setup-job.yaml -n talos || true'
           // Server.
-          sh 'kubectl apply -f deploy/server/k8s/service.yaml -n happy'
-          sh 'kubectl apply -f deploy/server/k8s/deployment.yaml -n happy'
-          sh 'kubectl rollout status deployment/happy-server -n happy --timeout=300s'
+          sh 'kubectl apply -f deploy/rendered/server/service.yaml -n talos'
+          sh 'kubectl apply -f deploy/rendered/server/deployment.yaml -n talos'
+          sh 'kubectl rollout status deployment/talos-server -n talos --timeout=300s'
         }
       }
     }

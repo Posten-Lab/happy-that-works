@@ -1,5 +1,5 @@
 # Grants the Jenkins service account (jenkins/jenkins) permission to deploy
-# into the `happy` namespace. Mirrors the `jenkins-deployer` Role +
+# into the `talos` namespace. Mirrors the `jenkins-deployer` Role +
 # RoleBinding present in benjamins/quietplan/etc. — the Jenkins SA has only a
 # cluster-wide *reader* role, so each app namespace needs its own deployer
 # RoleBinding for the pipeline's `kubectl apply` / `rollout` to be allowed.
@@ -7,7 +7,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: jenkins-deployer
-  namespace: happy
+  namespace: talos
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
@@ -41,7 +41,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: jenkins-deployer
-  namespace: happy
+  namespace: talos
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

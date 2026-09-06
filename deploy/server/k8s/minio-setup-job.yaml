@@ -1,4 +1,4 @@
-# One-shot Job that creates the `happy` bucket in MinIO. happy-server's
+# One-shot Job that creates the `talos` bucket in MinIO. talos-server's
 # loadFiles() calls bucketExists() at boot and will fail if the bucket is
 # missing — so this must run (and succeed) before the server starts.
 #
@@ -10,15 +10,15 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: happy-minio-setup
-  namespace: happy
+  name: talos-minio-setup
+  namespace: talos
 spec:
   backoffLimit: 10
   ttlSecondsAfterFinished: 600
   template:
     metadata:
       labels:
-        app: happy-minio-setup
+        app: talos-minio-setup
     spec:
       restartPolicy: OnFailure
       containers:
@@ -28,12 +28,12 @@ spec:
             - name: S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: happy-server-secret
+                  name: talos-server-secret
                   key: S3_ACCESS_KEY
             - name: S3_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: happy-server-secret
+                  name: talos-server-secret
                   key: S3_SECRET_KEY
           command:
             - sh
@@ -41,9 +41,9 @@ spec:
             - |
               set -e
               echo "waiting for MinIO..."
-              until mc alias set happy http://happy-minio:9000 "$S3_ACCESS_KEY" "$S3_SECRET_KEY" 2>/dev/null; do
+              until mc alias set talos http://talos-minio:9000 "$S3_ACCESS_KEY" "$S3_SECRET_KEY" 2>/dev/null; do
                 sleep 3
               done
-              mc mb --ignore-existing happy/happy
-              echo "bucket ready: happy/happy"
-              mc ls happy/
+              mc mb --ignore-existing talos/talos
+              echo "bucket ready: talos/talos"
+              mc ls talos/

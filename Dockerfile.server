@@ -8,32 +8,32 @@ RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 WORKDIR /repo
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY scripts ./scripts
 COPY patches ./patches
+COPY scripts ./scripts
 
-RUN mkdir -p packages/happy-app packages/happy-server packages/happy-cli packages/happy-wire
+RUN mkdir -p packages/talos-app packages/talos-server packages/talos-cli packages/talos-wire
 
-COPY packages/happy-app/package.json packages/happy-app/
-COPY packages/happy-server/package.json packages/happy-server/
-COPY packages/happy-cli/package.json packages/happy-cli/
-COPY packages/happy-wire/package.json packages/happy-wire/
+COPY packages/talos-app/package.json packages/talos-app/
+COPY packages/talos-server/package.json packages/talos-server/
+COPY packages/talos-cli/package.json packages/talos-cli/
+COPY packages/talos-wire/package.json packages/talos-wire/
 
 # Workspace postinstall requirements
-COPY packages/happy-app/patches packages/happy-app/patches
-COPY packages/happy-server/prisma packages/happy-server/prisma
-COPY packages/happy-cli/scripts packages/happy-cli/scripts
-COPY packages/happy-cli/tools packages/happy-cli/tools
+COPY packages/talos-app/patches packages/talos-app/patches
+COPY packages/talos-server/prisma packages/talos-server/prisma
+COPY packages/talos-cli/scripts packages/talos-cli/scripts
+COPY packages/talos-cli/tools packages/talos-cli/tools
 
-RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile
+RUN ELECTRON_SKIP_BINARY_DOWNLOAD=1 SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile
 
 # Stage 2: build the server
 FROM deps AS builder
 
-COPY packages/happy-wire ./packages/happy-wire
-COPY packages/happy-server ./packages/happy-server
+COPY packages/talos-wire ./packages/talos-wire
+COPY packages/talos-server ./packages/talos-server
 
-RUN pnpm --filter @slopus/happy-wire build
-# (upstream `pnpm --filter happy-server build` dropped: it bundles the
+RUN pnpm --filter @talos/wire build
+# (upstream `pnpm --filter talos-server build` dropped: it bundles the
 #  standalone image via bun — absent here — and this server runs
 #  `tsx ./sources/main.ts` from sources, so no compile step is needed.)
 
@@ -51,12 +51,12 @@ ENV NODE_ENV=production
 
 # Copy necessary files from the builder stage
 COPY --from=builder /repo/node_modules /repo/node_modules
-COPY --from=builder /repo/packages/happy-wire /repo/packages/happy-wire
-COPY --from=builder /repo/packages/happy-server /repo/packages/happy-server
+COPY --from=builder /repo/packages/talos-wire /repo/packages/talos-wire
+COPY --from=builder /repo/packages/talos-server /repo/packages/talos-server
 
 # Expose the port the app will run on
 EXPOSE 3000
 
 # Command to run the application
 COPY --from=builder /repo/package.json /repo/pnpm-workspace.yaml /repo/
-CMD ["pnpm", "--filter", "happy-server-self-host", "start"]
+CMD ["pnpm", "--filter", "talos-server", "start"]

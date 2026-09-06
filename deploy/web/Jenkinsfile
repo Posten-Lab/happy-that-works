@@ -69,21 +69,14 @@ spec:
         // checkout() step does NOT populate env.GIT_COMMIT; capture its
         // return value for the image tag / GIT_SHA stamp below.
         script {
-          def scmVars = checkout([$class: 'GitSCM',
-            branches: [[name: '*/main']],
-            // Repo was transferred Ahmadposten -> Posten-Lab. The old URL still
-            // clones via GitHub's 301 redirect, but Jenkins' webhook trigger
-            // matching compares literal repo URLs and does NOT follow redirects,
-            // so pushes to Posten-Lab stopped triggering this job. Use the
-            // current name so trigger-matching works (mirrors deploy/server).
-            userRemoteConfigs: [[url: 'https://github.com/Posten-Lab/happy-that-works.git']]])
+          def scmVars = checkout scm
           env.GIT_COMMIT = scmVars.GIT_COMMIT
         }
       }
     }
 
     // No 'Ensure Namespace' stage: namespaces are cluster-scoped and the
-    // Jenkins SA only has a namespaced deployer Role in `happy` (which already
+    // Jenkins SA only has a namespaced deployer Role in `talos` (which already
     // exists — created at setup, tracked in deploy/web/k8s/namespace.yaml).
 
     stage('Build web bundle') {
@@ -99,12 +92,14 @@ spec:
             export PATH=/tmp/pnpm-bin:$PATH
             corepack prepare pnpm@10.11.0 --activate
             export APP_ENV=production NODE_ENV=production SHARP_IGNORE_GLOBAL_LIBVIPS=1
-            # isolated linker + filter: install only the happy-app subgraph
-            # (excludes codium/node-pty), matching Dockerfile.webapp.
-            SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happy-app... \
+            # isolated linker + filter: install only the talos-app subgraph
+            # (excludes talos-desktop/node-pty), matching Dockerfile.webapp.
+            SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter talos-app... \
               --config.node-linker=isolated --config.shamefully-hoist=false
-            pnpm --filter @slopus/happy-wire build
-            pnpm --filter happy-app exec expo export --platform web --output-dir web-dist
+            node scripts/verify-release-config.cjs web
+            node scripts/render-deployment.cjs deploy/web/k8s deploy/rendered/web
+            pnpm --filter @talos/wire build
+            pnpm --filter talos-app exec expo export --platform web --output-dir web-dist
           '''
         }
       }
@@ -120,10 +115,10 @@ spec:
             sh """/kaniko/executor \
               --context=dir://${WORKSPACE} \
               --dockerfile=${WORKSPACE}/deploy/web/Dockerfile.package \
-              --destination=ahmadposten/happy-improved-web:latest \
-              --destination=ahmadposten/happy-improved-web:git-${shortSha} \
+              --destination=ahmadposten/talos-web:latest \
+              --destination=ahmadposten/talos-web:git-${shortSha} \
               --cache=true \
-              --cache-repo=ahmadposten/happy-improved-web-cache"""
+              --cache-repo=ahmadposten/talos-web-cache"""
           }
         }
       }
@@ -137,15 +132,15 @@ spec:
             def shortSha = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'
             def buildTimeIso = new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX", TimeZone.getTimeZone('UTC'))
             sh """
-              f=deploy/web/k8s/deployment.yaml
+              f=deploy/rendered/web/deployment.yaml
               sed -i "s|__GIT_SHA__|${shortSha}|g" "\$f"
               sed -i "s|__BUILD_TIME__|${buildTimeIso}|g" "\$f"
             """
           }
-          sh 'kubectl apply -f deploy/web/k8s/service.yaml -n happy'
-          sh 'kubectl apply -f deploy/web/k8s/deployment.yaml -n happy'
-          sh 'kubectl rollout restart deployment/happy-web -n happy'
-          sh 'kubectl rollout status deployment/happy-web -n happy --timeout=300s'
+          sh 'kubectl apply -f deploy/rendered/web/service.yaml -n talos'
+          sh 'kubectl apply -f deploy/rendered/web/deployment.yaml -n talos'
+          sh 'kubectl rollout restart deployment/talos-web -n talos'
+          sh 'kubectl rollout status deployment/talos-web -n talos --timeout=300s'
         }
       }
     }

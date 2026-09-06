@@ -1,7 +1,7 @@
 pipeline {
   // Reuses the same `eas` Jenkins agent pod template that benjamins-mobile
-  // uses (Node + eas-cli). The happy app is a pnpm monorepo, so all EAS
-  // commands run from packages/happy-app after a workspace install.
+  // uses (Node + eas-cli). The talos app is a pnpm monorepo, so all EAS
+  // commands run from packages/talos-app after a workspace install.
   agent { kubernetes { label 'eas'; defaultContainer 'jnlp' } }
 
   options {
@@ -14,14 +14,14 @@ pipeline {
     // These four credentials are the SAME ones benjamins-mobile already
     // uses. App Store Connect API keys are team-wide (not per-app), so the
     // existing key works for any app under Apple team H2XR8XWZXW. EXPO_TOKEN
-    // must belong to the Expo account that owns the happy EAS project.
+    // must belong to the Expo account that owns the talos EAS project.
     EXPO_TOKEN         = credentials('expo-token')
     EXPO_ASC_KEY_ID    = credentials('asc-key-id')
     EXPO_ASC_ISSUER_ID = credentials('asc-issuer-id')
     EXPO_APPLE_TEAM_ID = 'H2XR8XWZXW'
     EXPO_APPLE_TEAM_TYPE = 'INDIVIDUAL'
     // Monorepo: EAS is driven from the app package.
-    APP_DIR = 'packages/happy-app'
+    APP_DIR = 'packages/talos-app'
     // The eas-agent runs as non-root (uid 1000) with npm prefix /usr, so
     // `corepack enable` can't symlink pnpm into /usr/bin. Install the pnpm
     // shim into a writable dir and put it on PATH for every stage. Version
@@ -36,6 +36,10 @@ pipeline {
       steps { checkout scm }
     }
 
+    stage('Validate Talos configuration') {
+      steps { sh 'node scripts/verify-release-config.cjs mobile' }
+    }
+
     stage('Install') {
       // Workspace install at the repo root. corepack installs the pnpm shim
       // into the writable /home/jenkins/.pnpm-bin (already on PATH via the
@@ -46,15 +50,15 @@ pipeline {
           mkdir -p /home/jenkins/.pnpm-bin
           corepack enable --install-directory /home/jenkins/.pnpm-bin pnpm
           corepack prepare pnpm@10.11.0 --activate
-          # Install ONLY the happy-app subgraph. The repo .npmrc defaults to
+          # Install ONLY the talos-app subgraph. The repo .npmrc defaults to
           # node-linker=hoisted, which flattens every workspace dep to root
-          # and builds codium's node-pty (needs `make`, absent here) even
+          # and builds talos-desktop's node-pty (needs `make`, absent here) even
           # with --filter. Override to isolated (exactly like
-          # Dockerfile.webapp) so the filter truly excludes codium/node-pty.
-          SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happy-app... \
+          # Dockerfile.webapp) so the filter truly excludes talos-desktop/node-pty.
+          SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter talos-app... \
             --config.node-linker=isolated --config.shamefully-hoist=false
-          # happy-app's typecheck imports @slopus/happy-wire's built output.
-          pnpm --filter @slopus/happy-wire build
+          # talos-app's typecheck imports @talos/wire's built output.
+          pnpm --filter @talos/wire build
         '''
       }
     }
@@ -97,7 +101,7 @@ pipeline {
               echo "$ASC_KEY_P8_B64" | base64 -d > /tmp/asc-key.p8
               chmod 600 /tmp/asc-key.p8
               # APP_ENV=production so app.config.js resolves the production
-              # bundle (com.ahposten.happyimproved) — without it, eas submit
+              # bundle (com.ahposten.talos) — without it, eas submit
               # defaults to APP_ENV=development, targets the .dev bundle, and
               # then fails trying to set up ASC credentials non-interactively.
               APP_ENV=production EXPO_ASC_API_KEY_PATH=/tmp/asc-key.p8 \

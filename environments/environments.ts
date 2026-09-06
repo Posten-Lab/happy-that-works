@@ -17,11 +17,11 @@ const CURRENT_ENV_PATH = path.join(ENVIRONMENTS_DATA_DIR, "current.json");
 const LAB_RAT_PROJECT_TEMPLATE_DIR = path.join(ENVIRONMENTS_ROOT, "lab-rat-todo-project");
 
 // ============================================================================
-// Name generation (expanded from packages/happy-app/sources/utils/generateWorktreeName.ts)
+// Name generation (expanded from packages/talos-app/sources/utils/generateWorktreeName.ts)
 // ============================================================================
 
 const adjectives = [
-    "clever", "happy", "swift", "bright", "calm",
+    "clever", "talos", "swift", "bright", "calm",
     "bold", "quiet", "brave", "wise", "eager",
     "gentle", "quick", "sharp", "smooth", "fresh",
     "warm", "cool", "vivid", "lucid", "nimble",
@@ -303,12 +303,12 @@ export async function createEnvironment(opts?: { noSwitch?: boolean }): Promise<
 
     console.log(`Running database migration for ${name}...`);
     const migrationEnv = buildEnvVars(envDir, serverPort, expoPort);
-    const standaloneTs = path.join(REPO_ROOT, "packages", "happy-server", "sources", "standalone.ts");
+    const standaloneTs = path.join(REPO_ROOT, "packages", "talos-server", "sources", "standalone.ts");
     const result = spawnSync(
         "tsx",
         [standaloneTs, "migrate"],
         {
-            cwd: path.join(REPO_ROOT, "packages", "happy-server"),
+            cwd: path.join(REPO_ROOT, "packages", "talos-server"),
             env: { ...process.env, ...migrationEnv },
             stdio: "inherit",
         }
@@ -338,7 +338,7 @@ export async function createEnvironment(opts?: { noSwitch?: boolean }): Promise<
     console.log(`  One-liner: ${buildCliCommand(envDir)}`);
     console.log("");
     console.log(`  source ${envShRelative}`);
-    console.log(`  happy`);
+    console.log(`  talos`);
     console.log("");
     console.log(`Full env.sh path: ${path.join(envDir, "env.sh")}`);
 
@@ -354,7 +354,7 @@ export async function startEnvironmentServices(name: string): Promise<void> {
     const serverLogFile = path.join(envDir, "server", "stdout.log");
     console.log(`Starting server on port ${config.serverPort}...`);
     const serverPid = spawnService("pnpm", ["standalone", "serve"], {
-        cwd: path.join(REPO_ROOT, "packages", "happy-server"),
+        cwd: path.join(REPO_ROOT, "packages", "talos-server"),
         env: mergedEnv,
         logFile: serverLogFile,
     });
@@ -375,7 +375,7 @@ export async function startEnvironmentServices(name: string): Promise<void> {
     fs.mkdirSync(path.join(envDir, "web"), { recursive: true });
     console.log(`Starting web on port ${config.expoPort}...`);
     const webPid = spawnService("pnpm", ["web", "--port", String(config.expoPort)], {
-        cwd: path.join(REPO_ROOT, "packages", "happy-app"),
+        cwd: path.join(REPO_ROOT, "packages", "talos-app"),
         env: { ...mergedEnv, BROWSER: "none" },
         logFile: webLogFile,
     });
@@ -469,8 +469,8 @@ export async function seedEnvironment(name: string): Promise<void> {
     const daemonEnv = { ...process.env, ...envVars };
     delete daemonEnv.CLAUDECODE;
 
-    const happyBin = path.join(REPO_ROOT, "packages", "happy-cli", "bin", "happy.mjs");
-    const daemon = spawn("node", [happyBin, "daemon", "start"], {
+    const talosBin = path.join(REPO_ROOT, "packages", "talos-cli", "bin", "talos.mjs");
+    const daemon = spawn("node", [talosBin, "daemon", "start"], {
         env: daemonEnv,
         stdio: "ignore",
         detached: true,
@@ -658,7 +658,7 @@ function commandRun(service: string, serviceArgs: string[] = []) {
                 "pnpm",
                 ["standalone", "serve"],
                 {
-                    cwd: path.join(REPO_ROOT, "packages", "happy-server"),
+                    cwd: path.join(REPO_ROOT, "packages", "talos-server"),
                     env: mergedEnv,
                     stdio: "inherit",
                 }
@@ -672,7 +672,7 @@ function commandRun(service: string, serviceArgs: string[] = []) {
                 "pnpm",
                 ["web", "--port", String(config.expoPort)],
                 {
-                    cwd: path.join(REPO_ROOT, "packages", "happy-app"),
+                    cwd: path.join(REPO_ROOT, "packages", "talos-app"),
                     // Expo treats `--web` as "open in browser". Disable that for env-managed runs.
                     env: { ...mergedEnv, BROWSER: "none" },
                     stdio: "inherit",
@@ -687,7 +687,7 @@ function commandRun(service: string, serviceArgs: string[] = []) {
                 "pnpm",
                 ["ios"],
                 {
-                    cwd: path.join(REPO_ROOT, "packages", "happy-app"),
+                    cwd: path.join(REPO_ROOT, "packages", "talos-app"),
                     env: mergedEnv,
                     stdio: "inherit",
                 }
@@ -701,7 +701,7 @@ function commandRun(service: string, serviceArgs: string[] = []) {
                 "pnpm",
                 ["android"],
                 {
-                    cwd: path.join(REPO_ROOT, "packages", "happy-app"),
+                    cwd: path.join(REPO_ROOT, "packages", "talos-app"),
                     env: mergedEnv,
                     stdio: "inherit",
                 }
@@ -711,7 +711,7 @@ function commandRun(service: string, serviceArgs: string[] = []) {
         }
         case "cli": {
             console.log(`Starting CLI for environment "${envName}"...`);
-            const cliBin = path.join(REPO_ROOT, "packages", "happy-cli", "bin", "happy.mjs");
+            const cliBin = path.join(REPO_ROOT, "packages", "talos-cli", "bin", "talos.mjs");
             const result = spawnSync(
                 "node",
                 [cliBin, ...serviceArgs],
@@ -739,7 +739,7 @@ function buildEnvVars(envDir: string, serverPort: number, expoPort: number): Rec
 
     return {
         // Server
-        HANDY_MASTER_SECRET: "happy-dev-secret",
+        TALOS_MASTER_SECRET: "talos-dev-secret",
         PORT: String(serverPort),
         NODE_ENV: "development",
         DATA_DIR: path.join(envDir, "server"),
@@ -749,16 +749,16 @@ function buildEnvVars(envDir: string, serverPort: number, expoPort: number): Rec
 
         // App (Expo)
         EXPO_PUBLIC_SERVER_URL: `http://localhost:${serverPort}`,
-        EXPO_PUBLIC_HAPPY_SERVER_URL: `http://localhost:${serverPort}`,
+        EXPO_PUBLIC_TALOS_SERVER_URL: `http://localhost:${serverPort}`,
         EXPO_PUBLIC_LOG_SERVER_URL: "http://localhost:8787",
         EXPO_PORT: String(expoPort),
 
         // CLI
-        HAPPY_SERVER_URL: `http://localhost:${serverPort}`,
-        HAPPY_WEBAPP_URL: `http://localhost:${expoPort}`,
-        HAPPY_HOME_DIR: path.join(envDir, "cli", "home"),
-        HAPPY_PROJECT_DIR: projectDir,
-        HAPPY_VARIANT: "dev",
+        TALOS_SERVER_URL: `http://localhost:${serverPort}`,
+        TALOS_WEBAPP_URL: `http://localhost:${expoPort}`,
+        TALOS_HOME_DIR: path.join(envDir, "cli", "home"),
+        TALOS_PROJECT_DIR: projectDir,
+        TALOS_VARIANT: "dev",
         DEBUG: "1",
         ...(devAuth ? {
             EXPO_PUBLIC_DEV_TOKEN: devAuth.token,
@@ -770,7 +770,7 @@ function buildEnvVars(envDir: string, serverPort: number, expoPort: number): Rec
 function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: number): string {
     const vars = buildEnvVars(envDir, serverPort, expoPort);
     const lines: string[] = [
-        `# Happy Dev Environment: ${name}`,
+        `# Talos Dev Environment: ${name}`,
         `# Generated by environments/environments.ts`,
         `# Source this file in your terminal: source ${path.join(envDir, "env.sh")}`,
         "",
@@ -778,7 +778,7 @@ function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: 
 
     // Group exports by section
     lines.push("# Server");
-    lines.push(`export HANDY_MASTER_SECRET="${vars.HANDY_MASTER_SECRET}"`);
+    lines.push(`export TALOS_MASTER_SECRET="${vars.TALOS_MASTER_SECRET}"`);
     lines.push(`export PORT=${vars.PORT}`);
     lines.push(`export NODE_ENV="${vars.NODE_ENV}"`);
     lines.push(`export DATA_DIR="${vars.DATA_DIR}"`);
@@ -789,7 +789,7 @@ function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: 
 
     lines.push("# App (Expo)");
     lines.push(`export EXPO_PUBLIC_SERVER_URL="${vars.EXPO_PUBLIC_SERVER_URL}"`);
-    lines.push(`export EXPO_PUBLIC_HAPPY_SERVER_URL="${vars.EXPO_PUBLIC_HAPPY_SERVER_URL}"`);
+    lines.push(`export EXPO_PUBLIC_TALOS_SERVER_URL="${vars.EXPO_PUBLIC_TALOS_SERVER_URL}"`);
     lines.push(`export EXPO_PUBLIC_LOG_SERVER_URL="${vars.EXPO_PUBLIC_LOG_SERVER_URL}"`);
     if (vars.EXPO_PUBLIC_DEV_TOKEN && vars.EXPO_PUBLIC_DEV_SECRET) {
         lines.push(`export EXPO_PUBLIC_DEV_TOKEN="${vars.EXPO_PUBLIC_DEV_TOKEN}"`);
@@ -799,17 +799,17 @@ function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: 
     lines.push("");
 
     lines.push("# CLI");
-    lines.push(`export HAPPY_SERVER_URL="${vars.HAPPY_SERVER_URL}"`);
-    lines.push(`export HAPPY_WEBAPP_URL="${vars.HAPPY_WEBAPP_URL}"`);
-    lines.push(`export HAPPY_HOME_DIR="${vars.HAPPY_HOME_DIR}"`);
-    lines.push(`export HAPPY_PROJECT_DIR="${vars.HAPPY_PROJECT_DIR}"`);
-    lines.push(`export HAPPY_VARIANT=dev`);
+    lines.push(`export TALOS_SERVER_URL="${vars.TALOS_SERVER_URL}"`);
+    lines.push(`export TALOS_WEBAPP_URL="${vars.TALOS_WEBAPP_URL}"`);
+    lines.push(`export TALOS_HOME_DIR="${vars.TALOS_HOME_DIR}"`);
+    lines.push(`export TALOS_PROJECT_DIR="${vars.TALOS_PROJECT_DIR}"`);
+    lines.push(`export TALOS_VARIANT=dev`);
     lines.push(`export DEBUG=1`);
     lines.push(`export PATH="${path.join(envDir, "bin")}:$PATH"`);
     lines.push("");
     lines.push("# Commands exposed by this env");
-    lines.push("# - happy");
-    lines.push("# - happy-agent");
+    lines.push("# - talos");
+    lines.push("# - talos-agent");
     lines.push("");
 
     return lines.join("\n");
@@ -821,12 +821,12 @@ function writeEnvCommands(envDir: string): void {
 
     const commands = [
         {
-            name: "happy",
-            entrypoint: path.join(REPO_ROOT, "packages", "happy-cli", "bin", "happy.mjs"),
+            name: "talos",
+            entrypoint: path.join(REPO_ROOT, "packages", "talos-cli", "bin", "talos.mjs"),
         },
         {
-            name: "happy-agent",
-            entrypoint: path.join(REPO_ROOT, "packages", "happy-agent", "bin", "happy-agent.mjs"),
+            name: "talos-agent",
+            entrypoint: path.join(REPO_ROOT, "packages", "talos-agent", "bin", "talos-agent.mjs"),
         },
     ];
 
@@ -851,7 +851,7 @@ function buildAuthenticatedWebUrl(expoPort: number, token: string, secret: strin
 }
 
 function buildCliCommand(envDir: string): string {
-    return `source "${path.join(envDir, "env.sh")}" && happy`;
+    return `source "${path.join(envDir, "env.sh")}" && talos`;
 }
 
 // ============================================================================
@@ -886,7 +886,7 @@ async function commandUp(template: Template, opts?: { noSwitch?: boolean }) {
         const envVars = buildEnvVars(envDir, config.serverPort, config.expoPort);
         const mergedEnv: Record<string, string | undefined> = { ...process.env, ...envVars };
         const buildResult = spawnSync("pnpm", ["build"], {
-            cwd: path.join(REPO_ROOT, "packages", "happy-cli"),
+            cwd: path.join(REPO_ROOT, "packages", "talos-cli"),
             env: mergedEnv,
             stdio: "inherit",
         });
@@ -1034,7 +1034,7 @@ async function main(): Promise<void> {
             commandTailscale();
             break;
         default:
-            console.log(`Happy Environment Manager
+            console.log(`Talos Environment Manager
 
 Usage:
   pnpm env:up --template <t>  Create + start everything (templates: ${VALID_TEMPLATES.join(", ")})

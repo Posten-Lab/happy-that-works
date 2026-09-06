@@ -8,7 +8,7 @@ FROM nginx:alpine
 
 # web-dist (not "dist") so the repo .dockerignore's `**/dist` rule doesn't
 # strip it from the kaniko build context. node_modules stays excluded.
-COPY packages/happy-app/web-dist /usr/share/nginx/html
+COPY packages/talos-app/web-dist /usr/share/nginx/html
 COPY deploy/web/nginx-spa.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

@@ -1,4 +1,4 @@
-# Happy-Improved web frontend Deployment.
+# Talos web frontend Deployment.
 #
 # Static Expo web export served by nginx (built by Dockerfile.webapp at the
 # repo root, in the kaniko "Build & Push" stage). Stateless — the web app is
@@ -7,10 +7,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: happy-web
-  namespace: happy
+  name: talos-web
+  namespace: talos
   labels:
-    app: happy-web
+    app: talos-web
 spec:
   replicas: 2
   strategy:
@@ -20,15 +20,15 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: happy-web
+      app: talos-web
   template:
     metadata:
       labels:
-        app: happy-web
+        app: talos-web
     spec:
       containers:
         - name: web
-          image: ahmadposten/happy-improved-web:latest
+          image: ahmadposten/talos-web:latest
           imagePullPolicy: Always
           ports:
             - name: http

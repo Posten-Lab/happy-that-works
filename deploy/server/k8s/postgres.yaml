@@ -1,23 +1,23 @@
-# In-cluster Postgres for happy-server (namespace `happy`).
+# In-cluster Postgres for talos-server (namespace `talos`).
 #
 # Single-primary StatefulSet on the cluster-default `local-path` storage class
 # (node-local PVC), mirroring the benjamins/quietplan in-cluster datastore
-# pattern. happy-server connects via the headless Service `happy-postgres:5432`.
+# pattern. talos-server connects via the headless Service `talos-postgres:5432`.
 #
-# The DB password comes from Secret `happy-server-secret` (key POSTGRES_PASSWORD),
+# The DB password comes from Secret `talos-server-secret` (key POSTGRES_PASSWORD),
 # created out-of-band (see secret.example.yaml) — the Jenkins deployer Role has
 # no access to Secrets, so this is bootstrap-only.
 apiVersion: v1
 kind: Service
 metadata:
-  name: happy-postgres
-  namespace: happy
+  name: talos-postgres
+  namespace: talos
   labels:
-    app: happy-postgres
+    app: talos-postgres
 spec:
   clusterIP: None
   selector:
-    app: happy-postgres
+    app: talos-postgres
   ports:
     - name: postgres
       port: 5432
@@ -26,20 +26,20 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: happy-postgres
-  namespace: happy
+  name: talos-postgres
+  namespace: talos
   labels:
-    app: happy-postgres
+    app: talos-postgres
 spec:
-  serviceName: happy-postgres
+  serviceName: talos-postgres
   replicas: 1
   selector:
     matchLabels:
-      app: happy-postgres
+      app: talos-postgres
   template:
     metadata:
       labels:
-        app: happy-postgres
+        app: talos-postgres
     spec:
       # Keep the DB on a stable node so its node-local PVC always binds back.
       # server-guru-eu is a public control-plane node that is always up.
@@ -53,25 +53,25 @@ spec:
               containerPort: 5432
           env:
             - name: POSTGRES_DB
-              value: happy
+              value: talos
             - name: POSTGRES_USER
-              value: happy
+              value: talos
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: happy-server-secret
+                  name: talos-server-secret
                   key: POSTGRES_PASSWORD
             # PGDATA in a subdir so the PVC root (with lost+found) isn't PGDATA.
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           readinessProbe:
             exec:
-              command: ["sh", "-c", "pg_isready -U happy -d happy"]
+              command: ["sh", "-c", "pg_isready -U talos -d talos"]
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["sh", "-c", "pg_isready -U happy -d happy"]
+              command: ["sh", "-c", "pg_isready -U talos -d talos"]
             initialDelaySeconds: 30
             periodSeconds: 20
           resources:
