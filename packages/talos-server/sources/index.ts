@@ -29,8 +29,8 @@ export async function startServer(opts: StartServerOptions): Promise<{ port: num
         await db.$disconnect();
     });
     onShutdown("activity-cache", async () => {
-        activityCache.shutdown();
-    });
+        await activityCache.shutdown();
+    }, { phase: 'work' });
 
     await initEncrypt();
     await initGithub();

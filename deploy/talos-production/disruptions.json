@@ -1,0 +1,48 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "policy/v1",
+      "kind": "PodDisruptionBudget",
+      "metadata": {
+        "name": "talos-api",
+        "namespace": "happy",
+        "labels": {
+          "app": "talos-api",
+          "product": "talos"
+        }
+      },
+      "spec": {
+        "minAvailable": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "talos-api",
+            "product": "talos"
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "policy/v1",
+      "kind": "PodDisruptionBudget",
+      "metadata": {
+        "name": "talos-web",
+        "namespace": "happy",
+        "labels": {
+          "app": "talos-web",
+          "product": "talos"
+        }
+      },
+      "spec": {
+        "minAvailable": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "talos-web",
+            "product": "talos"
+          }
+        }
+      }
+    }
+  ]
+}

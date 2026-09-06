@@ -20,6 +20,7 @@ class ActivityCache {
     private sessionCache = new Map<string, SessionCacheEntry>();
     private machineCache = new Map<string, MachineCacheEntry>();
     private batchTimer: ReturnType<typeof setInterval> | null = null;
+    private flushing: Promise<void> | null = null;
     
     // Cache TTL (30 seconds)
     private readonly CACHE_TTL = 30 * 1000;
@@ -157,7 +158,15 @@ class ActivityCache {
         return false; // No update needed
     }
 
-    private async flushPendingUpdates(): Promise<void> {
+    private flushPendingUpdates(): Promise<void> {
+        if (this.flushing) return this.flushing;
+        const flush = this.flushPendingBatch();
+        this.flushing = flush;
+        void flush.then(() => { this.flushing = null; }, () => { this.flushing = null; });
+        return flush;
+    }
+
+    private async flushPendingBatch(): Promise<void> {
         const sessionUpdates: { id: string, timestamp: number }[] = [];
         const machineUpdates: { id: string, timestamp: number, userId: string }[] = [];
         
@@ -238,14 +247,15 @@ class ActivityCache {
         }
     }
 
-    shutdown(): void {
+    async shutdown(): Promise<void> {
         if (this.batchTimer) {
             clearInterval(this.batchTimer);
             this.batchTimer = null;
         }
         
         // Flush any remaining updates
-        this.flushPendingUpdates().catch(error => {
+        if (this.flushing) await this.flushing;
+        await this.flushPendingUpdates().catch(error => {
             log({ module: 'session-cache', level: 'error' }, `Error flushing final updates: ${error}`);
         });
     }

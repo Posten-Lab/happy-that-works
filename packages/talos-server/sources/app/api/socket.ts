@@ -16,6 +16,7 @@ import { artifactUpdateHandler } from "./socket/artifactUpdateHandler";
 import { accessKeyHandler } from "./socket/accessKeyHandler";
 
 export function startSocket(app: Fastify) {
+    let checkReady = async (): Promise<void> => {};
     const io = new Server(app.server, {
         cors: {
             origin: "*",
@@ -49,6 +50,10 @@ export function startSocket(app: Fastify) {
     // Multi-process support: attach Redis streams adapter when REDIS_URL is set
     if (process.env.REDIS_URL) {
         const streamClient = new Redis(process.env.REDIS_URL);
+        checkReady = async () => {
+            if (streamClient.status !== 'ready') throw new Error('Realtime relay is unavailable');
+            await streamClient.ping();
+        };
         io.adapter(createAdapter(streamClient, { maxLen: 200000, readCount: 2000 }));
         log({ module: 'websocket' }, 'Redis streams adapter enabled for multi-process support');
 
@@ -61,7 +66,7 @@ export function startSocket(app: Fastify) {
             lastReadOffset = offset;
             return origOnRawMessage(msg, offset);
         };
-        setInterval(async () => {
+        const lagTimer = setInterval(async () => {
             try {
                 const info = await streamClient.xinfo("STREAM", "socket.io") as any[];
                 const headId = String(info[info.indexOf("last-generated-id") + 1]);
@@ -70,6 +75,10 @@ export function startSocket(app: Fastify) {
                 redisStreamLagMsGauge.set(headMs - readMs);
             } catch { /* stream may not exist yet */ }
         }, 5000);
+        onShutdown('redis-streams', async () => {
+            clearInterval(lagTimer);
+            streamClient.disconnect();
+        });
     }
 
     // Initialize event router with Socket.IO server instance
@@ -218,6 +227,7 @@ export function startSocket(app: Fastify) {
     });
 
     onShutdown('api', async () => {
-        await io.close();
-    });
+        await new Promise<void>((resolve) => io.close(() => resolve()));
+    }, { phase: 'transport' });
+    return { checkReady };
 }

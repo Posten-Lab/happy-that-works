@@ -1,33 +1,64 @@
 import { log } from "./log";
 
-const shutdownHandlers = new Map<string, Array<() => Promise<void>>>();
-const shutdownController = new AbortController();
+type ShutdownPhase = 'transport' | 'work' | 'resources';
+type ShutdownOptions = { phase?: ShutdownPhase };
 
-export const shutdownSignal = shutdownController.signal;
+/** Drain requests and pending work while their database and Redis remain usable. */
+export class ShutdownCoordinator {
+    readonly controller = new AbortController();
+    private handlers = new Set<{ name: string; callback: () => Promise<void>; phase: ShutdownPhase }>();
+    private running?: Promise<void>;
 
-export function onShutdown(name: string, callback: () => Promise<void>): () => void {
-    if (shutdownSignal.aborted) {
-        // If already shutting down, execute immediately
-        callback();
-        return () => {};
-    }
-    
-    if (!shutdownHandlers.has(name)) {
-        shutdownHandlers.set(name, []);
-    }
-    const handlers = shutdownHandlers.get(name)!;
-    handlers.push(callback);
-    
-    // Return unsubscribe function
-    return () => {
-        const index = handlers.indexOf(callback);
-        if (index !== -1) {
-            handlers.splice(index, 1);
-            if (handlers.length === 0) {
-                shutdownHandlers.delete(name);
-            }
+    register(name: string, callback: () => Promise<void>, options: ShutdownOptions = {}): () => void {
+        if (this.controller.signal.aborted) {
+            void Promise.resolve().then(callback).catch(() => log(`Late shutdown handler failed: ${name}`));
+            return () => {};
         }
-    };
+        const handler = { name, callback, phase: options.phase ?? 'resources' };
+        this.handlers.add(handler);
+        return () => { this.handlers.delete(handler); };
+    }
+
+    shutdown(timeoutMs = 45_000): Promise<void> {
+        if (!this.running) this.running = this.drain(timeoutMs);
+        return this.running;
+    }
+
+    private async drain(timeoutMs: number): Promise<void> {
+        this.controller.abort();
+        const handlers = [...this.handlers];
+        this.handlers.clear();
+        let timer: ReturnType<typeof setTimeout>;
+        const deadline = new Promise<false>((resolve) => {
+            timer = setTimeout(() => resolve(false), timeoutMs);
+        });
+        try {
+            for (const phase of ['transport', 'work', 'resources'] as const) {
+                const completed = await Promise.race([
+                    Promise.all(handlers.filter((handler) => handler.phase === phase).map(async (handler) => {
+                        try { await handler.callback(); }
+                        catch { log(`Shutdown handler failed: ${handler.name}`); }
+                    })).then(() => true),
+                    deadline,
+                ]);
+                if (!completed) {
+                    // The process owner exits after this promise settles. Do not
+                    // disconnect resources under requests that failed to drain.
+                    log(`Shutdown deadline reached while draining ${phase}`);
+                    return;
+                }
+            }
+        } finally {
+            clearTimeout(timer!);
+        }
+    }
+}
+
+const coordinator = new ShutdownCoordinator();
+export const shutdownSignal = coordinator.controller.signal;
+
+export function onShutdown(name: string, callback: () => Promise<void>, options: ShutdownOptions = {}): () => void {
+    return coordinator.register(name, callback, options);
 }
 
 export function isShutdown() {
@@ -36,50 +67,19 @@ export function isShutdown() {
 
 export async function awaitShutdown() {
     await new Promise<void>((resolve) => {
-        process.on('SIGINT', async () => {
-            log('Received SIGINT signal. Exiting...');
+        const handleSignal = () => {
+            process.off('SIGINT', handleSignal);
+            process.off('SIGTERM', handleSignal);
             resolve();
-        });
-        process.on('SIGTERM', async () => {
-            log('Received SIGTERM signal. Exiting...');
-            resolve();
-        });
+        };
+        process.once('SIGINT', handleSignal);
+        process.once('SIGTERM', handleSignal);
     });
-    shutdownController.abort();
-    
-    // Copy handlers to avoid race conditions
-    const handlersSnapshot = new Map<string, Array<() => Promise<void>>>();
-    for (const [name, handlers] of shutdownHandlers) {
-        handlersSnapshot.set(name, [...handlers]);
-    }
-    
-    // Execute all shutdown handlers concurrently
-    const allHandlers: Promise<void>[] = [];
-    let totalHandlers = 0;
-    
-    for (const [name, handlers] of handlersSnapshot) {
-        totalHandlers += handlers.length;
-        log(`Starting ${handlers.length} shutdown handlers for: ${name}`);
-        
-        handlers.forEach((handler, index) => {
-            const handlerPromise = handler().then(
-                () => {},
-                (error) => log(`Error in shutdown handler ${name}[${index}]:`, error)
-            );
-            allHandlers.push(handlerPromise);
-        });
-    }
-    
-    if (totalHandlers > 0) {
-        log(`Waiting for ${totalHandlers} shutdown handlers to complete...`);
-        const startTime = Date.now();
-        await Promise.all(allHandlers);
-        const duration = Date.now() - startTime;
-        log(`All ${totalHandlers} shutdown handlers completed in ${duration}ms`);
-    }
+    await coordinator.shutdown();
 }
 
 export async function keepAlive<T>(name: string, callback: () => Promise<T>): Promise<T> {
+    if (shutdownSignal.aborted) throw new Error('Server is shutting down');
     let completed = false;
     let result: T;
     let error: any;
@@ -90,7 +90,7 @@ export async function keepAlive<T>(name: string, callback: () => Promise<T>): Pr
                 log(`Waiting for keepAlive operation to complete: ${name}`);
                 await promise;
             }
-        });
+        }, { phase: 'work' });
         
         // Run the callback
         callback().then(

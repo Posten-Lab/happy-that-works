@@ -2,8 +2,12 @@ import { db } from "@/storage/db";
 import { Fastify } from "../types";
 import { httpRequestsCounter, httpRequestDurationHistogram, getMetricsLabelsFromRequest } from "@/app/monitoring/metrics2";
 import { log } from "@/utils/log";
+import { isShutdown } from "@/utils/shutdown";
 
-export function enableMonitoring(app: Fastify) {
+export function enableMonitoring(app: Fastify, checkRealtime = async (): Promise<void> => {}, timeoutMs = 2500) {
+    // Reuse an unresolved dependency check, rather than accumulating queries
+    // during an outage. Each HTTP request still has its own short deadline.
+    let pendingReadiness: Promise<void> | undefined;
     // Add metrics hooks
     app.addHook('onRequest', async (request, reply) => {
         request.startTime = Date.now();
@@ -25,22 +29,38 @@ export function enableMonitoring(app: Fastify) {
     });
 
     app.get('/health', async (request, reply) => {
+        if (isShutdown()) return reply.code(503).send({ status: 'draining', service: 'talos-server' });
+        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-            // Test database connectivity
-            await db.$queryRaw`SELECT 1`;
+            if (!pendingReadiness) {
+                const check = Promise.allSettled([db.$queryRaw`SELECT 1`, checkRealtime()]).then((results) => {
+                    if (results.some((result) => result.status === 'rejected')) throw new Error('Dependency unavailable');
+                });
+                pendingReadiness = check;
+                void check.then(() => { pendingReadiness = undefined; }, () => { pendingReadiness = undefined; });
+            }
+            await Promise.race([
+                pendingReadiness,
+                new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => reject(new Error('Readiness timed out')), timeoutMs);
+                }),
+            ]);
+            if (isShutdown()) return reply.code(503).send({ status: 'draining', service: 'talos-server' });
             reply.send({
                 status: 'ok',
                 timestamp: new Date().toISOString(),
                 service: 'talos-server'
             });
         } catch (error) {
-            log({ module: 'health', level: 'error' }, `Health check failed: ${error}`);
+            log({ module: 'health', level: 'error' }, 'Dependency readiness check failed');
             reply.code(503).send({
                 status: 'error',
                 timestamp: new Date().toISOString(),
                 service: 'talos-server',
-                error: 'Database connectivity failed'
+                error: 'Dependency connectivity failed'
             });
+        } finally {
+            if (timer) clearTimeout(timer);
         }
     });
 }

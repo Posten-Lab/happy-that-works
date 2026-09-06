@@ -59,7 +59,10 @@ export async function startApi(opts: StartApiOptions = {}) {
     );
 
     // Root handler — when not serving a static webapp, return a banner.
-    app.get('/v1/status', async () => ({ service: 'talos', protocol: 1 }));
+    app.get('/v1/status', async () => ({
+        service: 'talos', protocol: 1,
+        ...(/^[a-f0-9]{40}$/.test(process.env.GIT_SHA ?? '') ? { revision: process.env.GIT_SHA } : {}),
+    }));
 
     // When serving a static webapp, @fastify/static handles `/` via its index.
     if (!opts.staticDir) {
@@ -74,7 +77,8 @@ export async function startApi(opts: StartApiOptions = {}) {
     const typed = app.withTypeProvider<ZodTypeProvider>() as unknown as Fastify;
 
     // Enable features
-    enableMonitoring(typed);
+    let checkRealtime = async (): Promise<void> => { throw new Error('Realtime transport is starting'); };
+    enableMonitoring(typed, () => checkRealtime());
     enableErrorHandlers(typed, { skipNotFoundHandler: !!opts.staticDir });
     enableAuthentication(typed);
 
@@ -180,10 +184,10 @@ export async function startApi(opts: StartApiOptions = {}) {
     await app.listen({ port, host });
     onShutdown('api', async () => {
         await app.close();
-    });
+    }, { phase: 'transport' });
 
     // Start Socket
-    startSocket(typed);
+    checkRealtime = startSocket(typed).checkReady;
 
     // End
     log(`API ready on http://${host}:${port}`);

@@ -33,6 +33,11 @@
             "labels": {
               "app": "talos-api",
               "product": "talos"
+            },
+            "annotations": {
+              "prometheus.io/scrape": "true",
+              "prometheus.io/port": "9090",
+              "prometheus.io/path": "/metrics"
             }
           },
           "spec": {
@@ -104,7 +109,7 @@
                 "livenessProbe": {
                   "failureThreshold": 3,
                   "httpGet": {
-                    "path": "/health",
+                    "path": "/v1/status",
                     "port": 3005,
                     "scheme": "HTTP"
                   },
@@ -147,6 +152,26 @@
                     "cpu": "100m",
                     "memory": "384Mi"
                   }
+                },
+                "lifecycle": {
+                  "preStop": {
+                    "exec": {
+                      "command": [
+                        "sh",
+                        "-c",
+                        "sleep 10"
+                      ]
+                    }
+                  }
+                },
+                "startupProbe": {
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 3005
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 60,
+                  "timeoutSeconds": 3
                 }
               }
             ],
@@ -167,9 +192,26 @@
             "restartPolicy": "Always",
             "schedulerName": "default-scheduler",
             "securityContext": {},
-            "terminationGracePeriodSeconds": 30
+            "terminationGracePeriodSeconds": 60,
+            "affinity": {
+              "podAntiAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": [
+                  {
+                    "labelSelector": {
+                      "matchLabels": {
+                        "app": "talos-api",
+                        "product": "talos"
+                      }
+                    },
+                    "topologyKey": "kubernetes.io/hostname"
+                  }
+                ]
+              }
+            }
           }
-        }
+        },
+        "minReadySeconds": 10,
+        "progressDeadlineSeconds": 600
       }
     },
     {
@@ -278,6 +320,26 @@
                     "cpu": "20m",
                     "memory": "32Mi"
                   }
+                },
+                "lifecycle": {
+                  "preStop": {
+                    "exec": {
+                      "command": [
+                        "sh",
+                        "-c",
+                        "sleep 10"
+                      ]
+                    }
+                  }
+                },
+                "startupProbe": {
+                  "httpGet": {
+                    "path": "/",
+                    "port": 80
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 60,
+                  "timeoutSeconds": 3
                 }
               }
             ],
@@ -285,9 +347,26 @@
             "restartPolicy": "Always",
             "schedulerName": "default-scheduler",
             "securityContext": {},
-            "terminationGracePeriodSeconds": 30
+            "terminationGracePeriodSeconds": 60,
+            "affinity": {
+              "podAntiAffinity": {
+                "requiredDuringSchedulingIgnoredDuringExecution": [
+                  {
+                    "labelSelector": {
+                      "matchLabels": {
+                        "app": "talos-web",
+                        "product": "talos"
+                      }
+                    },
+                    "topologyKey": "kubernetes.io/hostname"
+                  }
+                ]
+              }
+            }
           }
-        }
+        },
+        "minReadySeconds": 10,
+        "progressDeadlineSeconds": 600
       }
     },
     {
