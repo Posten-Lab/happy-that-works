@@ -94,7 +94,9 @@ export default {
                     ? { NSAllowsLocalNetworking: true }
                     : { NSAllowsLocalNetworking: true, NSAllowsArbitraryLoads: true }
             },
-            ...(webappHost ? { associatedDomains: [`applinks:${webappHost}`] } : {}),
+            // Preserve the installed app's signing capabilities. Universal links
+            // require an association file and a matching provisioning profile;
+            // pairing currently uses the registered Talos URL scheme.
         },
         android: {
             adaptiveIcon: {

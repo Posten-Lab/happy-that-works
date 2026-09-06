@@ -10,12 +10,12 @@ function loadConfig(env) {
     const filename = path.join(appDirectory, 'app.config.js');
     const module = { exports: {} };
     const script = fs.readFileSync(filename, 'utf8').replace('export default', 'module.exports =');
-    vm.runInNewContext(script, { module, require: createRequire(filename), process: { env } }, { filename });
+    vm.runInNewContext(script, { module, require: createRequire(filename), process: { env }, URL }, { filename });
     return JSON.parse(JSON.stringify(module.exports.expo));
 }
 
 test('production updates the installed app while every visible identity uses Talos', () => {
-    const app = loadConfig({ APP_ENV: 'production' });
+    const app = loadConfig({ APP_ENV: 'production', EXPO_PUBLIC_TALOS_WEBAPP_URL: 'https://talosapp.ai' });
     assert.equal(app.name, 'Talos');
     assert.equal(app.slug, 'happy-improved');
     assert.equal(app.version, '2.0.0');
@@ -31,6 +31,7 @@ test('production updates the installed app while every visible identity uses Tal
     assert.equal(app.owner, 'posten-lab');
     // Existing default keychain access and SecureStore plugin remain intact.
     assert.equal(app.ios.entitlements?.['keychain-access-groups'], undefined);
+    assert.equal(app.ios.associatedDomains, undefined);
     assert.ok(app.plugins.includes('expo-secure-store'));
     assert.equal(app.icon, './sources/assets/images/icon.png');
 });

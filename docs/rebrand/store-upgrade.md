@@ -16,6 +16,8 @@ The default MMKV store and the `server-config` store retain their identifiers an
 
 The production binary registers `talos` and the installed `happy` URL scheme. New links use Talos. Account linking and terminal QR scanning also accept valid previously issued links; malformed routes and public keys are rejected. Development and preview do not claim the older scheme.
 
+The actual distributed build 14 and its provisioning profile have no associated-domains entitlement. The Talos update preserves those signing capabilities; configuring its web URL does not silently request an unsupported entitlement. Universal links require a separately configured domain association and matching provisioning profile.
+
 Uncached session history still requires the full account secret held by an authenticated app. The CLI's imported local session-key index alone does not reconstruct that secret or grant access to uncached history.
 
 ## Release verification still required
