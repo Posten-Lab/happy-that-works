@@ -209,6 +209,7 @@
     "@stablelib/hex": "^2.0.1",
     "@types/react": "~19.1.10",
     "babel-plugin-transform-remove-console": "^6.9.4",
+    "babel-preset-expo": "55.0.12",
     "cross-env": "^10.1.0",
     "patch-package": "^8.0.0",
     "react-test-renderer": "19.0.0",
