@@ -23,6 +23,7 @@ import {
     ForkSourceMissingError,
 } from '@/claude/utils/claudeSessionFork';
 import { CodexAppServerClient } from '@/codex/codexAppServerClient';
+import { discoverClaudeModels } from '@/claude/claudeModels';
 import {
     CodexForkRewindPointNotFoundError,
     forkCodexThread,
@@ -293,6 +294,11 @@ export class ApiMachineClient {
                 };
             });
         });
+
+        this.rpcHandlerManager.registerHandler('claude-list-models', async () => ({
+            type: 'success',
+            models: await discoverClaudeModels(),
+        }));
 
         // Query the installed Codex provider directly instead of making the app
         // guess from a bundled list. This is machine-scoped so the new-session

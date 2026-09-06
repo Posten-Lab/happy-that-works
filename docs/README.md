@@ -3,6 +3,7 @@
 This folder documents how Happy works internally, with a focus on protocol, backend architecture, deployment, and the CLI tool. Start here.
 
 ## Index
+- architecture/index.html: Visual, source-backed system atlas covering runtime surfaces, core flows, trust boundaries, storage, packages, and deployment modes.
 - protocol.md: Wire protocol (WebSocket), payload formats, sequencing, and concurrency rules.
 - realtime-sync-and-rpc.md: High-level overview of realtime socket management and RPC control flow.
 - api.md: HTTP endpoints and authentication flows.

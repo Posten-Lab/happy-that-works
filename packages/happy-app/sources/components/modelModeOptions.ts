@@ -168,7 +168,7 @@ export function getAvailableModels(
 ): ModelMode[] {
     const metadataModels = mapMetadataOptions(metadata?.models);
     if (metadataModels.length > 0) {
-        if (flavor === 'codex' && !metadataModels.some((model) => model.key === 'default')) {
+        if ((flavor === 'codex' || flavor === 'claude') && !metadataModels.some((model) => model.key === 'default')) {
             return [{ key: 'default', name: 'default model', description: null }, ...metadataModels];
         }
         return metadataModels;
@@ -264,14 +264,7 @@ export function getEffortLevelsForModel(
     modelKey: string,
     metadata?: ModelMetadata | null,
 ): EffortLevel[] {
-    // Claude and Codex expose effort/thought levels regardless of which
-    // specific model is picked — the same low/medium/high/max scale applies
-    // to the whole flavor (mirrors how Codex already worked, which the user
-    // asked Claude to match).
-    if (flavor === 'claude') {
-        return getClaudeEffortLevels();
-    }
-    if (flavor === 'codex') {
+    if (flavor === 'claude' || flavor === 'codex') {
         const metadataModels = mapMetadataOptions(metadata?.models);
         const selectedModel = modelKey === 'default'
             ? metadataModels.find((model) => model.isDefault)
@@ -279,7 +272,7 @@ export function getEffortLevelsForModel(
         if (selectedModel?.supportedReasoningEfforts) {
             return selectedModel.supportedReasoningEfforts;
         }
-        return getCodexEffortLevels();
+        return flavor === 'claude' ? getClaudeEffortLevels() : getCodexEffortLevels();
     }
     return [];
 }
