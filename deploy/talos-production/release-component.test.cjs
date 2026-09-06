@@ -148,3 +148,39 @@ test('Jenkins recovery is idempotent and refuses mismatched receipts', async () 
         await assert.rejects(release({ ...f.options, revision: 'b'.repeat(40), recover: true }, deps), /Receipt identity/);
     } finally { f.cleanup(); }
 });
+
+test('recovery rechecks rollout and previous revision after interruption following the rollback patch', async () => {
+    const f = fixture();
+    const oldRevision = 'b'.repeat(40);
+    f.current.spec.template.spec.containers[0].env.push({ name: 'GIT_SHA', value: oldRevision });
+    let rollouts = 0;
+    const checks = [];
+    const run = args => {
+        if (args[2] === 'rollout' && ++rollouts <= 2) throw Error('interrupted during rollout');
+        return f.run(args);
+    };
+    try {
+        await assert.rejects(release(f.options, { run, health: async () => {} }), /interrupted during rollout/);
+        assert.equal(JSON.parse(fs.readFileSync(path.join(f.directory, 'release.json'))).status, 'pending');
+        const patches = f.calls.filter(args => args[2] === 'patch').length;
+        const result = await release({ ...f.options, recover: true }, { run, health: async (_config, revision) => checks.push(revision) });
+        assert.equal(result.status, 'unchanged');
+        assert.equal(rollouts, 3);
+        assert.deepEqual(checks, [oldRevision]);
+        assert.equal(f.calls.filter(args => args[2] === 'patch').length, patches);
+    } finally { f.cleanup(); }
+});
+
+test('an already-restored template stays pending if its public health still fails', async () => {
+    const f = fixture();
+    try {
+        await assert.rejects(release(f.options, { run: args => {
+            if (args[2] === 'patch') throw Error('patch rejected');
+            return f.run(args);
+        }, sleep: async () => {}, health: async () => { throw Error('public health unavailable'); } }), /public health unavailable/);
+        assert.equal(JSON.parse(fs.readFileSync(path.join(f.directory, 'release.json'))).status, 'pending');
+        await assert.rejects(release({ ...f.options, recover: true }, { run: f.run, sleep: async () => {},
+            health: async () => { throw Error('still unhealthy'); } }), /still unhealthy/);
+        assert.equal(JSON.parse(fs.readFileSync(path.join(f.directory, 'release.json'))).status, 'pending');
+    } finally { f.cleanup(); }
+});

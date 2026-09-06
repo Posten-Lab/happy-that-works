@@ -1,4 +1,4 @@
-import { onShutdown } from "@/utils/shutdown";
+import { isShutdown, onShutdown } from "@/utils/shutdown";
 import { Fastify } from "./types";
 import { buildMachineActivityEphemeral, ClientConnection, eventRouter } from "@/app/events/eventRouter";
 import { Server } from "socket.io";
@@ -14,8 +14,10 @@ import { sessionUpdateHandler } from "./socket/sessionUpdateHandler";
 import { machineUpdateHandler } from "./socket/machineUpdateHandler";
 import { artifactUpdateHandler } from "./socket/artifactUpdateHandler";
 import { accessKeyHandler } from "./socket/accessKeyHandler";
+import { SocketWorkTracker, trackSocketHandlers } from './socket/socketWork';
 
 export function startSocket(app: Fastify) {
+    const work = new SocketWorkTracker();
     let checkReady = async (): Promise<void> => {};
     const io = new Server(app.server, {
         cors: {
@@ -89,6 +91,7 @@ export function startSocket(app: Fastify) {
     // callback creates a window where client events (rpc-register, rpc-call)
     // arrive before handlers are attached — and get silently dropped.
     io.use(async (socket, next) => {
+        if (isShutdown()) { socket.conn.close(); return; }
         const token = socket.handshake.auth.token as string;
         const clientType = socket.handshake.auth.clientType as 'session-scoped' | 'user-scoped' | 'machine-scoped' | undefined;
         const sessionId = socket.handshake.auth.sessionId as string | undefined;
@@ -113,6 +116,7 @@ export function startSocket(app: Fastify) {
         }
 
         const verified = await auth.verifyToken(token);
+        if (isShutdown()) { socket.conn.close(); return; }
         if (!verified) {
             log({ module: 'websocket' }, `Invalid token provided`);
             next(new Error('Invalid authentication token'));
@@ -214,13 +218,15 @@ export function startSocket(app: Fastify) {
         });
 
         // Handlers
-        rpcHandler(userId, socket, io);
-        usageHandler(userId, socket);
-        sessionUpdateHandler(userId, socket, connection);
-        pingHandler(socket);
-        machineUpdateHandler(userId, socket);
-        artifactUpdateHandler(userId, socket);
-        accessKeyHandler(userId, socket);
+        trackSocketHandlers(socket, work, () => {
+            rpcHandler(userId, socket, io);
+            usageHandler(userId, socket);
+            sessionUpdateHandler(userId, socket, connection);
+            pingHandler(socket);
+            machineUpdateHandler(userId, socket);
+            artifactUpdateHandler(userId, socket);
+            accessKeyHandler(userId, socket);
+        });
 
         // Ready
         log({ module: 'websocket' }, `User connected: ${userId}`);
@@ -228,6 +234,9 @@ export function startSocket(app: Fastify) {
 
     onShutdown('api', async () => {
         await new Promise<void>((resolve) => io.close(() => resolve()));
+        // Accepted socket work must finish before activity-cache's work-phase
+        // flush and before database/Redis resource cleanup.
+        await work.drain();
     }, { phase: 'transport' });
     return { checkReady };
 }

@@ -142,7 +142,12 @@ async function release({ component, image, revision, directory, recover = false 
     }
     const rollback = async () => {
         const current = get();
+        const oldRevision = before.spec.template.spec.containers[0].env?.find(item => item.name === 'GIT_SHA')?.value;
         if (isDeepStrictEqual(current.spec.template, before.spec.template)) {
+            // A previous recovery may have patched the old template and then
+            // been interrupted before that ReplicaSet became ready.
+            rollout();
+            await check(oldRevision);
             receipt.status = 'unchanged'; write(directory, 'release.json', receipt); return;
         }
         if (!isDeepStrictEqual(current.spec.template, expected)) {
@@ -151,7 +156,6 @@ async function release({ component, image, revision, directory, recover = false 
         }
         replace(current, before.spec.template);
         rollout();
-        const oldRevision = before.spec.template.spec.containers[0].env?.find(item => item.name === 'GIT_SHA')?.value;
         await check(oldRevision);
         receipt.status = 'rolled-back'; write(directory, 'release.json', receipt);
     };
