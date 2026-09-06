@@ -46,7 +46,13 @@ def decode_profile(content):
     return plistlib.loads(result.stdout)
 
 
-def inspect_ipa(ipa, profile_decoder=decode_profile, now=None):
+def inspect_ipa(ipa, *, expected_version, expected_runtime, profile_decoder=decode_profile, now=None):
+    require(isinstance(expected_version, str) and
+            bool(re.fullmatch(r'(?:0|[1-9][0-9]{0,8})(?:\.(?:0|[1-9][0-9]{0,8})){2}', expected_version)),
+            'Expected version must be a reviewed three-part numeric release version')
+    require(isinstance(expected_runtime, str) and
+            bool(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}', expected_runtime)),
+            'Expected runtime must be a reviewed explicit runtime string')
     now = now or datetime.datetime.now(datetime.timezone.utc)
     ipa = pathlib.Path(ipa)
     require(0 < ipa.stat().st_size <= MAX_IPA_BYTES, 'IPA exceeds size limit or is empty')
@@ -79,11 +85,11 @@ def inspect_ipa(ipa, profile_decoder=decode_profile, now=None):
         ent = profile.get('Entitlements', {})
         require(info.get('CFBundleIdentifier') == BUNDLE_ID, 'Bundle identifier would create a different installed app')
         require(info.get('CFBundleDisplayName') == 'Talos', 'Installed display name must be Talos')
-        require(info.get('CFBundleShortVersionString') == '2.0.0', 'Installed version must be 2.0.0')
+        require(info.get('CFBundleShortVersionString') == expected_version, 'Installed version differs from the reviewed checkout')
         number = str(info.get('CFBundleVersion', ''))
         require(bool(re.fullmatch(r'[1-9][0-9]{0,8}', number)) and int(number) > BASELINE_BUILD,
                 'Native build number must advance beyond distributed build 14')
-        require(expo.get('EXUpdatesRuntimeVersion') == 'talos-1', 'Runtime must be talos-1')
+        require(expo.get('EXUpdatesRuntimeVersion') == expected_runtime, 'Runtime differs from the reviewed checkout')
         require(expo.get('EXUpdatesEnabled') is True, 'Production OTA configuration must remain enabled')
         require(ent.get('application-identifier') == APP_ID, 'Profile application identifier differs from the installed app')
         require(ent.get('com.apple.developer.team-identifier') == TEAM, 'Profile entitlement team differs from the installed app')
@@ -135,17 +141,19 @@ def inspect_ipa(ipa, profile_decoder=decode_profile, now=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('ipa')
+    parser.add_argument('--expected-version', required=True, help='Version from the reviewed checkout production Expo config')
+    parser.add_argument('--expected-runtime', required=True, help='Explicit runtime string from the reviewed checkout production Expo config')
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     try:
-        report = inspect_ipa(args.ipa)
+        report = inspect_ipa(args.ipa, expected_version=args.expected_version, expected_runtime=args.expected_runtime)
     except (ValueError, KeyError, OSError, zipfile.BadZipFile, plistlib.InvalidFileException, subprocess.SubprocessError) as error:
         # Do not expose raw OpenSSL output, archive content, URLs, or credentials.
         message = str(error) if isinstance(error, ValueError) else type(error).__name__
         print('IPA continuity verification failed: ' + message, file=sys.stderr)
         return 1
     pathlib.Path(args.output).write_text(json.dumps(report, indent=2) + '\n')
-    print('IPA continuity verification passed: Talos 2.0.0, retained app/profile identity, runtime talos-1.')
+    print(f"IPA continuity verification passed: Talos {report['version']}, retained app/profile identity, runtime {report['runtimeVersion']}.")
     return 0
 
 

@@ -4,6 +4,7 @@ import importlib.util
 import pathlib
 import plistlib
 import subprocess
+import sys
 import tempfile
 import unittest
 import warnings
@@ -51,8 +52,40 @@ class IpaGateTest(unittest.TestCase):
                     warnings.simplefilter('ignore', UserWarning)
                     archive.writestr(*extra)
 
-    def inspect(self):
-        return checker.inspect_ipa(self.path, profile_decoder=lambda _: self.profile, now=NOW)
+    def inspect(self, expected_version='2.0.0', expected_runtime='talos-1'):
+        return checker.inspect_ipa(self.path, expected_version=expected_version, expected_runtime=expected_runtime,
+                                   profile_decoder=lambda _: self.profile, now=NOW)
+
+    def test_future_release_uses_reviewed_version_and_runtime(self):
+        self.info['CFBundleShortVersionString'] = '2.1.0'
+        self.expo['EXUpdatesRuntimeVersion'] = 'talos-2'
+        self.write()
+        report = self.inspect(expected_version='2.1.0', expected_runtime='talos-2')
+        self.assertTrue(report['passed'])
+        self.assertEqual(report['version'], '2.1.0')
+        self.assertEqual(report['runtimeVersion'], 'talos-2')
+        with self.assertRaisesRegex(ValueError, 'version differs'):
+            self.inspect(expected_version='2.0.0', expected_runtime='talos-2')
+        with self.assertRaisesRegex(ValueError, 'Runtime differs'):
+            self.inspect(expected_version='2.1.0', expected_runtime='talos-1')
+
+    def test_release_expectations_are_required_and_validated(self):
+        self.write()
+        for version in ['', '2.0', '02.0.0', '2.0.0-beta', '2.0.0\n', None, 2]:
+            with self.subTest(version=version):
+                with self.assertRaisesRegex(ValueError, 'Expected version'):
+                    self.inspect(expected_version=version)
+        for runtime in ['', ' talos-2', 'talos-2\n', 'file:fingerprint', 'x' * 129, None, {'policy': 'fingerprint'}]:
+            with self.subTest(runtime=runtime):
+                with self.assertRaisesRegex(ValueError, 'Expected runtime'):
+                    self.inspect(expected_runtime=runtime)
+        for flags in [[], ['--expected-version', '2.0.0'], ['--expected-runtime', 'talos-1']]:
+            with self.subTest(flags=flags):
+                result = subprocess.run([sys.executable, str(pathlib.Path(checker.__file__)), str(self.path),
+                                         '--output', str(pathlib.Path(self.directory.name) / 'report.json'), *flags],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('required', result.stderr)
 
     def test_valid_metadata_retains_identity_and_sanitizes_report(self):
         self.profile['private-test-field'] = 'must-not-appear'
@@ -128,7 +161,7 @@ class IpaGateTest(unittest.TestCase):
                        capture_output=True, check=True, timeout=15)
         content = signed.read_bytes()
         self.write(profile_bytes=content)
-        self.assertTrue(checker.inspect_ipa(self.path, now=NOW)['passed'])
+        self.assertTrue(checker.inspect_ipa(self.path, expected_version='2.0.0', expected_runtime='talos-1', now=NOW)['passed'])
         self.assertIn(checker.TEAM.encode(), content)
         tampered = content.replace(checker.TEAM.encode(), b'XXXXXXXXXX', 1)
         with self.assertRaisesRegex(ValueError, 'CMS integrity'):
