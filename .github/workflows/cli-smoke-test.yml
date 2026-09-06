@@ -21,6 +21,10 @@ on:
       - '.github/workflows/cli-smoke-test.yml'
   workflow_dispatch:
 
+concurrency:
+  group: talos-packaged-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   packaged-cli:
     strategy:

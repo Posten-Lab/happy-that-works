@@ -11,5 +11,8 @@
   "publicListingState": "PREPARE_FOR_SUBMISSION",
   "nextDelivery": "existing TestFlight installation",
   "nameUpdateVerified": true,
-  "exactShortNameRejectedAsUnavailable": true
+  "exactShortNameRejectedAsUnavailable": true,
+  "testFlightDescriptionUpdated": true,
+  "testFlightMarketingUrl": "https://talosapp.ai",
+  "existingInternalGroupAutomaticallyReceivesBuilds": true
 }
