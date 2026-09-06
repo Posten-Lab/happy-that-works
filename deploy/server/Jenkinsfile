@@ -86,7 +86,9 @@ spec:
         sh '''
           sh deploy/talos-production/prepare-ci.sh kubectl
           node scripts/verify-release-config.cjs web
-            SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter @ahmadposten/talos-server... \
+            # Machine contract tests import the real app update schema.
+            SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile \
+              --filter @ahmadposten/talos-server... --filter talos-app... \
               --config.node-linker=isolated --config.shamefully-hoist=false
             pnpm verify:brand
             node --test deploy/talos-production/release-component.test.cjs
