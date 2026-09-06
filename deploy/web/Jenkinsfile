@@ -64,7 +64,11 @@ spec:
       options { retry(3) }
       steps {
         script {
-          def revision = checkout scm
+          // The build container has no SSH host-key configuration. The public
+          // canonical repository can be checked out over HTTPS; retain the
+          // branch selected by the job for validation and production alike.
+          def revision = checkout([$class: 'GitSCM', branches: scm.branches,
+            userRemoteConfigs: [[url: 'https://github.com/Posten-Lab/happy-that-works.git']]])
           env.GIT_BRANCH = revision.GIT_BRANCH
           env.GIT_COMMIT = revision.GIT_COMMIT
           if (!(env.GIT_COMMIT ==~ /[0-9a-f]{40}/)) error('An exact checkout commit is required')
