@@ -9,6 +9,7 @@ export function classifyPath(path) {
   if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(path) ||
       /^(docs|\.agents|\.github|deploy|environments)\//.test(path) ||
       /\.md$/.test(path) ||
+      /^Dockerfile\.(server|webapp)$/.test(path) ||
       /^packages\/(talos-cli|talos-server|talos-agent|talos-app-logs|talos-desktop)\//.test(path) ||
       /^packages\/talos-app\/(src-tauri|public)\//.test(path)) return 'none';
   if (/^packages\/talos-app\/(sources\/|index\.[jt]sx?$)/.test(path) ||
