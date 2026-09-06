@@ -1,23 +1,28 @@
 {
   "date": "2026-09-06",
   "suites": {
-    "app": 737,
+    "app": 742,
     "cli": 797,
     "agent": 230,
     "wire": 29,
-    "server": 83,
+    "server": 101,
     "desktop": 102,
-    "releaseScripts": 8
+    "releaseScripts": 61
   },
-  "totalTests": 1986,
+  "totalTests": 2062,
   "nativeBuilds": {
     "iosSimulatorRelease": "passed, ad-hoc signed",
     "androidArm64Release": "passed",
     "tauriMacOSBundle": "passed"
   },
   "publicActivation": {
-    "dns": "blocked by Route53 IAM access",
-    "npm": "blocked by registry publishing authentication; no package published"
+    "dns": "verified INSYNC; ordinary DNS and trusted HTTPS passed",
+    "web": "https://talosapp.ai",
+    "api": "https://api.talosapp.ai",
+    "files": "https://files.talosapp.ai",
+    "npm": "blocked by registry publishing authentication; no package published",
+    "jenkins": "renaming and live validation in progress",
+    "native": "installed-over-existing validation in progress; no new store binary submitted"
   },
   "preservation": {
     "originalUserFilesUnchanged": 26,
@@ -53,8 +58,8 @@
     {
       "name": "@ahmadposten/talos-agent",
       "version": "0.1.0",
-      "tarballBytes": 24032,
-      "sha256": "cdda6369f8b25e15264c9bfc89d2c7a49f4c013ae4c62d8271923f29b500f690",
+      "tarballBytes": 24040,
+      "sha256": "082e041da22a3315b0e56880fbead58749b82f39a8ec7c0964a74758d20dadca",
       "fileCount": 8,
       "wireDependency": "0.1.0",
       "peerDependencies": {},
@@ -64,8 +69,8 @@
     {
       "name": "@ahmadposten/talos-server",
       "version": "1.0.0",
-      "tarballBytes": 24304345,
-      "sha256": "1746291b6ce354b36a01f59c5b89064f46d9d299f4fff75b062e0fe5de2db6de",
+      "tarballBytes": 24305851,
+      "sha256": "ce0e7222fcbbdcee58d30e84657efe954ad74b6d6971a55c9a125be18c38a8be",
       "fileCount": 977,
       "wireDependency": "0.1.0",
       "peerDependencies": {},
@@ -75,8 +80,8 @@
     {
       "name": "@ahmadposten/talos-wire",
       "version": "0.1.0",
-      "tarballBytes": 18290,
-      "sha256": "5c0bc58c76e604d378a160893b1047808b7bc4f22b79207dce79b86eeccf206f",
+      "tarballBytes": 18294,
+      "sha256": "b4a0fc654c208beb64f014e7b4fd55e7d65d4f24177717f854b226a38f792be2",
       "fileCount": 7,
       "wireDependency": null,
       "peerDependencies": {},
@@ -96,5 +101,28 @@
       "licenseIncluded": true,
       "runtimePrismaClientIncluded": false
     }
-  ]
+  ],
+  "validationScope": {
+    "integratedCommit": "d555cc8e36482f23dd615f26edb47ba041b2bce8",
+    "rerunSuites": [
+      "app",
+      "cli",
+      "server",
+      "wire",
+      "releaseScripts"
+    ],
+    "unchangedPreviouslyPassedSuites": [
+      "agent",
+      "desktop"
+    ],
+    "packagedInstallScenarios": [
+      "isolated-cli-only",
+      "hoisted-cli-only",
+      "isolated",
+      "hoisted",
+      "hoisted-cached"
+    ],
+    "registryPublicationPerformed": false,
+    "hostedChecks": "running; Windows build failures under investigation"
+  }
 }

@@ -10,7 +10,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+// Resolve pnpm's .cmd launcher on Windows as well as native Unix executables.
+const { sync: spawnSync } = require('cross-spawn');
 
 const PACKAGE_DIR = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(PACKAGE_DIR, '..', '..');
@@ -25,6 +26,7 @@ function run(cmd, args, opts = {}) {
     console.log(`  $ ${cmd} ${args.join(' ')}`);
     const result = spawnSync(cmd, args, { stdio: 'inherit', ...opts });
     if (result.status !== 0) {
+        if (result.error) console.error(`Unable to start ${cmd}: ${result.error.message}`);
         process.exit(result.status ?? 1);
     }
 }
