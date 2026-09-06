@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -72,5 +72,42 @@ test('submission rejects stale or failed artifacts and extracts only exact finis
       { ...build, platform: 'ANDROID' }, { ...build, buildProfile: 'preview' }, [build, build]]) {
       assert.throws(() => run(bad));
     }
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('runtime compatibility requires an exact finished production binary', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'happy-runtime-test-'));
+  const hash = 'a'.repeat(40);
+  const build = { status: 'FINISHED', platform: 'IOS', buildProfile: 'production', distribution: 'STORE', runtimeVersion: hash };
+  const run = builds => {
+    writeFileSync(join(cwd, 'compatible-builds.json'), JSON.stringify(builds));
+    return execFileSync(process.execPath, [new URL('./compatible-runtime.cjs', import.meta.url).pathname],
+      { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  };
+  try {
+    writeFileSync(join(cwd, 'fingerprint-result.json'), JSON.stringify({ hash }));
+    assert.equal(run([build]), 'yes');
+    for (const builds of [[], [{ ...build, status: 'CANCELED' }], [{ ...build, runtimeVersion: '21' }],
+      [{ ...build, buildProfile: 'preview' }], [{ ...build, distribution: 'INTERNAL' }]]) {
+      assert.equal(run(builds), 'no');
+    }
+    assert.throws(() => run({ error: 'EAS unavailable' }));
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('submit configuration uses Jenkins credential IDs without changing build settings', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'happy-submit-test-'));
+  try {
+    const config = { build: { production: { channel: 'production' } },
+      submit: { production: { ios: { ascAppId: '6787151946' } } } };
+    writeFileSync(join(cwd, 'eas.json'), JSON.stringify(config));
+    execFileSync(process.execPath, [new URL('./prepare-submit.cjs', import.meta.url).pathname],
+      { cwd, env: { ...process.env, EXPO_ASC_KEY_ID: 'test-id', EXPO_ASC_ISSUER_ID: 'test-issuer' } });
+    const result = JSON.parse(readFileSync(join(cwd, 'eas.json'), 'utf8'));
+    assert.deepEqual(result.build, config.build);
+    assert.equal(result.submit.production.ios.ascAppId, '6787151946');
+    assert.equal(result.submit.production.ios.ascApiKeyId, 'test-id');
+    assert.equal(result.submit.production.ios.ascApiKeyIssuerId, 'test-issuer');
+    assert.equal(result.submit.production.ios.ascApiKeyPath, '/tmp/asc-key.p8');
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
