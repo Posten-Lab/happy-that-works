@@ -1,0 +1,176 @@
+{
+  "recordedAt": "2026-09-06T18:04:44.720189+00:00",
+  "result": "passed",
+  "scope": "Actual original-source and Talos-source native iOS simulator applications, installed sequentially without uninstall; synthetic account and local relay only.",
+  "device": {
+    "id": "2CFA393C-15AF-4F93-B32B-986E052C65DC",
+    "name": "Talos-Rebrand-Review",
+    "model": "iPhone 17 Pro",
+    "os": "iOS 26.1"
+  },
+  "artifacts": [
+    {
+      "role": "legacy",
+      "sourceCommit": "4780b7b244c4311992a41a407e21be512042a459",
+      "info": {
+        "CFBundleIdentifier": "com.ahposten.happyimproved",
+        "CFBundleDisplayName": "Happy-Improved",
+        "CFBundleShortVersionString": "1.7.0",
+        "CFBundleVersion": "1",
+        "CFBundleExecutable": "HappyImproved"
+      },
+      "runtimeVersion": "file:fingerprint",
+      "updatesEnabled": false,
+      "entitlements": {},
+      "files": [
+        {
+          "name": "HappyImproved",
+          "bytes": 75229200,
+          "sha256": "4d3713b89cd898d4c06c82f52c82782b22d0b2db3c276e9491275b1c7ec632fc"
+        },
+        {
+          "name": "main.jsbundle",
+          "bytes": 26060758,
+          "sha256": "93dc73c3804f630e32b39282a02f019ac334fab06274a237e7eff39aab9325af"
+        }
+      ]
+    },
+    {
+      "role": "talos",
+      "sourceCommit": "f4e4c10044ccb38fda4d16f11ac152a00fa8b044",
+      "info": {
+        "CFBundleIdentifier": "com.ahposten.happyimproved",
+        "CFBundleDisplayName": "Talos",
+        "CFBundleShortVersionString": "2.0.0",
+        "CFBundleVersion": "1",
+        "CFBundleExecutable": "Talos"
+      },
+      "runtimeVersion": "talos-1",
+      "updatesEnabled": false,
+      "entitlements": {},
+      "files": [
+        {
+          "name": "Talos",
+          "bytes": 75218064,
+          "sha256": "30afe8a15fe65a1134ca6ee35eb5abe1ebe6dcca0d12fec1e89caf12e6ac4cc8"
+        },
+        {
+          "name": "main.jsbundle",
+          "bytes": 26065649,
+          "sha256": "237c2f9122a00fd36c66001dfd9d1f8314e0b905a7a444645a83a2562bafaed4"
+        }
+      ]
+    }
+  ],
+  "candidateConfigCorrection": {
+    "commit": "7d0d34f26c5c00d442523648a9016338e6f1d795",
+    "description": "Removed generated associated-domains entitlement to match the final production configuration and the baseline store profile. This is the only app source change after the candidate snapshot."
+  },
+  "fixtureOverrides": {
+    "APP_ENV": "production",
+    "api": "http://127.0.0.1:3465",
+    "web": "http://127.0.0.1:3466",
+    "otaUpdatesEnabled": false,
+    "nativeBuildConfiguration": "Release",
+    "sdk": "iphonesimulator",
+    "signing": "ad hoc with empty entitlements",
+    "nativeBuildNumbers": "Local prebuild value 1 on both simulator fixtures; production build numbering is EAS-managed.",
+    "dependencies": "Existing installed monorepo dependencies via temporary snapshot symlinks. Native package versions match the original-source baseline.",
+    "metro": "Temporary snapshot watch folders and canonical entry paths for symlinked dependencies."
+  },
+  "checks": {
+    "inPlaceNativeInstall": true,
+    "uninstalledBetweenVersions": false,
+    "accountCreationOnlyInLegacyApp": true,
+    "authenticatedImmediatelyAfterUpgrade": true,
+    "oldEncryptedMessageDecrypted": true,
+    "nativeComposerMessagePersistedToSameSession": true,
+    "bothMessagesDecryptedAfterTerminateAndRelaunch": true,
+    "lightPreferenceRetained": true,
+    "systemAppearance": "dark",
+    "sameBundleIdentifier": true,
+    "sameStorageSource": [
+      {
+        "relativePath": "sources/auth/tokenStorage.ts",
+        "byteIdentical": true,
+        "sha256": "931fbfd2ebdd1b129b156051ac0fc468d45dea9ecf0a7041f054e81bd1dc67e3"
+      },
+      {
+        "relativePath": "sources/sync/persistence.ts",
+        "byteIdentical": true,
+        "sha256": "c616b58333ef00bdc1831558c7b59bfd990cd828ed02cef0197f94a9036112a1"
+      }
+    ]
+  },
+  "sessionBefore": {
+    "sessionId": "cmtq3pt8100npmj9ppls3qw8w",
+    "messageCount": 2,
+    "sequences": [
+      2,
+      1
+    ]
+  },
+  "sessionAfter": {
+    "sessionId": "cmtq3pt8100npmj9ppls3qw8w",
+    "messageCount": 3,
+    "sequences": [
+      3,
+      2,
+      1
+    ]
+  },
+  "storage": {
+    "containerUuidChanged": true,
+    "note": "Simulator installation reallocated the data container and retained its contents. Default MMKV bytes changed as the upgraded app loaded and sent a message; the server-config store remained byte-identical.",
+    "mmkv": [
+      {
+        "path": "Documents/mmkv/server-config.crc",
+        "beforeSha256": "1743df59de7e36d35fc29c6ddb51a01b7011fbb0a4d9cd4da3e5ab0df6dbdd53",
+        "afterSha256": "1743df59de7e36d35fc29c6ddb51a01b7011fbb0a4d9cd4da3e5ab0df6dbdd53",
+        "existsAfter": true,
+        "bytesAfter": 16384,
+        "byteIdentical": true
+      },
+      {
+        "path": "Documents/mmkv/mmkv.default",
+        "beforeSha256": "a1df0da9e103a8d928312bedba9fe60d0cfa7225d453bdb8ee5c5066aada8408",
+        "afterSha256": "f4d30b8c3db3e499d41d6604b7fa00c7f88a4c6988149e9f6f8072a06690b07b",
+        "existsAfter": true,
+        "bytesAfter": 16384,
+        "byteIdentical": false
+      },
+      {
+        "path": "Documents/mmkv/mmkv.default.crc",
+        "beforeSha256": "683e3c6cfe9925c044671f5717d1bbe0a451b8a643bfcdc0b4592a4ec43a608a",
+        "afterSha256": "c8e27def8e76b73db9a7f0a776d41fd0ee01445ac60b2b9475ee3777e5ae84dd",
+        "existsAfter": true,
+        "bytesAfter": 16384,
+        "byteIdentical": false
+      },
+      {
+        "path": "Documents/mmkv/server-config",
+        "beforeSha256": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "afterSha256": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "existsAfter": true,
+        "bytesAfter": 16384,
+        "byteIdentical": true
+      }
+    ]
+  },
+  "automation": {
+    "oldAccountFlow": "passed",
+    "legacySchemeCliPairing": "passed; actual Talos CLI auth login completed after approval in the old native app through happy://terminal",
+    "oldSessionFlow": "passed",
+    "upgradeHistoryFlow": "passed",
+    "nativeContinuation": "passed; native composer sent plaintext, real relay stored encrypted message, same session count increased 2 to 3",
+    "upgradeRelaunchFlow": "passed",
+    "preferenceInspection": "passed; visible native Appearance control reports Always use light theme / Light",
+    "sessionPresenceFixture": "A socket authenticated with the isolated synthetic CLI token emitted session-alive for the existing session during continuation. No model execution or daemon launch was performed."
+  },
+  "limitations": [
+    "The simulator binaries are rebuilt from source, not the downloaded App Store IPA. The actual store IPA was inspected separately in baseline-signing.json.",
+    "Ad hoc simulator signing does not validate App Store provisioning or keychain access-group enforcement. Compare the final EAS distribution artifact with the verified baseline before submission.",
+    "This evidence does not assert a physical-device TestFlight upgrade or Android signing/upgrade test.",
+    "No paid model run was performed; continuation proves native encryption, transport, persistence, and decryption of a message in the retained session."
+  ]
+}

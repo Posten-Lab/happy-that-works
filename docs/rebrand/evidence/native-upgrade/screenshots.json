@@ -1,0 +1,46 @@
+{
+  "screenshots": [
+    {
+      "file": "legacy-welcome.png",
+      "sha256": "567d907fedac9e5f3e464f0575406c60624c0c756111ae2dd9186c5afcbd0ae1",
+      "bytes": 124634,
+      "description": "Original-source 1.7.0 native welcome before creating the synthetic account.",
+      "data": "Synthetic account only"
+    },
+    {
+      "file": "legacy-session-before-upgrade.png",
+      "sha256": "dce34a953af07495ba9ab93b4f6746a6feeea2a06281200ed0e9463ab13ab8b0",
+      "bytes": 119051,
+      "description": "Original-source native app decrypts the synthetic pre-upgrade session.",
+      "data": "Synthetic account only"
+    },
+    {
+      "file": "legacy-light-preference.png",
+      "sha256": "be1fb3681f96aee9b83a5923d703c75a8ac1b1b5f3a4dd88a88f0eea152d39aa",
+      "bytes": 300179,
+      "description": "Original-source native app saves Light as an explicit local preference.",
+      "data": "Synthetic account only"
+    },
+    {
+      "file": "talos-after-upgrade.png",
+      "sha256": "d567482da0147da009542a98f20d9348508327bd8c4dc97d3b238063f1b75e95",
+      "bytes": 156365,
+      "description": "Talos opens the existing synthetic account and lists the same session immediately after installation over the old app.",
+      "data": "Synthetic account only"
+    },
+    {
+      "file": "talos-session-after-relaunch.png",
+      "sha256": "0df98878d8a4c2c06f675a7c25fc59c06d9b55f27caaa3834389cd707f0b6373",
+      "bytes": 128246,
+      "description": "After native termination and relaunch, Talos decrypts the original message and the new message sent from its native composer.",
+      "data": "Synthetic account only"
+    },
+    {
+      "file": "talos-light-preference.png",
+      "sha256": "f8b1e891ce72ec01b2d10c81604fd522ac92d1b1a34affb7727abb1d50065e28",
+      "bytes": 318013,
+      "description": "Talos retains the explicit Light preference while system appearance is Dark.",
+      "data": "Synthetic account only"
+    }
+  ]
+}
