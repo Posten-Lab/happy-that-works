@@ -7,13 +7,16 @@
     "wire": 29,
     "server": 101,
     "desktop": 102,
-    "releaseScripts": 61
+    "releaseScripts": 66,
+    "iosArtifactGate": 14
   },
-  "totalTests": 2062,
+  "totalTests": 2081,
   "nativeBuilds": {
     "iosSimulatorRelease": "passed, ad-hoc signed",
     "androidArm64Release": "passed",
-    "tauriMacOSBundle": "passed"
+    "tauriMacOSBundle": "passed",
+    "iosInstallOverExisting": "passed: retained account/history/preferences, same-session message persisted and decrypted after native restart; simulator ad hoc signing",
+    "existingDistributionExecutable": "Build14 actual executable passed both Mac and Linux signed-identity checks; XML/DER match Apple codesign; altered copy rejected"
   },
   "publicActivation": {
     "dns": "verified INSYNC; ordinary DNS and trusted HTTPS passed",
@@ -21,8 +24,8 @@
     "api": "https://api.talosapp.ai",
     "files": "https://files.talosapp.ai",
     "npm": "blocked by registry publishing authentication; no package published",
-    "jenkins": "renaming and live validation in progress",
-    "native": "installed-over-existing validation in progress; no new store binary submitted"
+    "jenkins": "Three canonical jobs renamed with history retained; web66/server58/mobile21 validation passed; final executable-gate mobile validation running",
+    "native": "In-place simulator upgrade passed; final EAS/TestFlight binary delivery follows PR merge"
   },
   "preservation": {
     "originalUserFilesUnchanged": 26,
@@ -69,8 +72,8 @@
     {
       "name": "@ahmadposten/talos-server",
       "version": "1.0.0",
-      "tarballBytes": 24305851,
-      "sha256": "ce0e7222fcbbdcee58d30e84657efe954ad74b6d6971a55c9a125be18c38a8be",
+      "tarballBytes": 24302705,
+      "sha256": "e05265800c36d4107101bd28357df229a11f0e06d25021fe7e29f12a41463855",
       "fileCount": 977,
       "wireDependency": "0.1.0",
       "peerDependencies": {},
@@ -91,8 +94,8 @@
     {
       "name": "talosapp",
       "version": "1.0.0",
-      "tarballBytes": 104963866,
-      "sha256": "02cb264efff168035eba6f86de3da22e59c715e6e08f4a24a311d8bb154ab1ce",
+      "tarballBytes": 104964613,
+      "sha256": "1d0e522a4000f5ad3de4206ff127af0f3f42068fc59b32b29ecac956d78bb1d9",
       "fileCount": 65,
       "wireDependency": "0.1.0",
       "peerDependencies": {
@@ -103,7 +106,7 @@
     }
   ],
   "validationScope": {
-    "integratedCommit": "d555cc8e36482f23dd615f26edb47ba041b2bce8",
+    "integratedCommit": "0acc3656",
     "rerunSuites": [
       "app",
       "cli",
@@ -123,6 +126,9 @@
       "hoisted-cached"
     ],
     "registryPublicationPerformed": false,
-    "hostedChecks": "running; Windows build failures under investigation"
-  }
+    "hostedChecks": "All four Linux/Windows Node20/24 packaging jobs passed at c418582d; final mobile gate checks also passed in the actual EAS Linux image.",
+    "targetedCliLauncherChecks": 11
+  },
+  "recordScope": "Initial cutover and pre-release validation; final production receipts and access status are maintained in PR12 and archived Jenkins release evidence.",
+  "releaseRecord": "https://github.com/Posten-Lab/happy-that-works/pull/12"
 }
