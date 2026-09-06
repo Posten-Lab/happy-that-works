@@ -35,7 +35,7 @@
     "test:integration": "$npm_execpath run build && vitest run --config vitest.integration.config.ts",
     "dev": "tsx src/index.ts",
     "prepublishOnly": "$npm_execpath run build && $npm_execpath test",
-    "release": "npx --no-install release-it"
+    "release": "node ../../scripts/release.cjs agent"
   },
   "dependencies": {
     "@ahmadposten/talos-wire": "workspace:*",

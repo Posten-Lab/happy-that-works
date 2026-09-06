@@ -30,7 +30,7 @@
     "build": "shx rm -rf dist && tsc --noEmit && pkgroll",
     "test": "pnpm run build && vitest run",
     "prepublishOnly": "pnpm run build && pnpm run test",
-    "release": "npx --no-install release-it"
+    "release": "node ../../scripts/release.cjs wire"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^2.2.2",

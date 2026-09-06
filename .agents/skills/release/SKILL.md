@@ -32,7 +32,18 @@ The server owns the self-host runtime and bundled web app. Keep `tools/server` a
 
 ## Publish
 
-Publish wire first, then server/agent, then CLI. From each package directory:
+The root release command defaults to a local plan and never prompts or invokes `release-it`:
+
+```sh
+pnpm release all --plan
+pnpm release wire --publish
+```
+
+Targets are `wire`, `server`, `agent`, `cli`, and `all`; `--dry-run` also prints only a local plan. `--publish` is required to upload. `all` publishes wire, server, agent, then CLI sequentially. Use `--tag next` (or the requested tag) for a non-default channel. Package-local wire/agent `release` scripts dispatch to these same fixed root targets.
+
+The command verifies the npm publisher, registry, package identities, unpublished versions, and required wire dependency before uploading. Server publication requires `APP_ENV=production` and Bun on PATH. Every upload runs `pnpm publish` with its complete prepublish hooks; the command does not bump versions, create git tags, push branches, or retry failed uploads. Complete the build/packaging checks above before choosing `--publish`.
+
+For a reviewed manual publication, run from the package directory:
 
 ```sh
 pnpm publish --access public --tag latest --no-git-checks
