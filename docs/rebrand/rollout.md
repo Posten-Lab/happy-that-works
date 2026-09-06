@@ -1,6 +1,6 @@
 # Talos rollout — 6 September 2026
 
-The rebrand and local account migration are implemented. Talos web and API deployments are healthy alongside the existing production services. Public DNS/TLS activation and npm publication are awaiting external account access.
+The rebrand and local account migration are implemented. Talos web and API deployments are healthy alongside the existing production services. Public DNS/TLS activation is complete. npm publication is awaiting corrected publishing authorization; production automation and the existing iOS app upgrade are in progress.
 
 ## Session continuity
 
@@ -16,7 +16,7 @@ The app's account linking defaults to Talos. Selecting **Connect an existing ins
 
 ## Local command
 
-The verified CLI candidate is installed at `~/.local/share/talos/releases/1.0.0-candidate-02cb264efff1`. Both `~/.local/bin/talos` and `talos-mcp` point into that immutable installation; `talos --version` reports 1.0.0. Only CLI and wire packages are installed there. The command uses the migrated account and currently retains its working relay until Talos DNS is activated.
+The verified CLI candidate is installed at `~/.local/share/talos/releases/1.0.0-candidate-02cb264efff1`. Both `~/.local/bin/talos` and `talos-mcp` point into that immutable installation; `talos --version` reports 1.0.0. Only CLI and wire packages are installed there. The command uses the migrated account and its verified public Talos API/web URLs. Changing only those two saved URLs preserved the other settings, credentials, key index and original daemon.
 
 Activation preserved the existing command, credentials, settings, key index, receipt and running daemon. No new daemon was started. When switching to a registry installation, remove only activation links still pointing to this recorded candidate; retain its release directory while any running process uses it. Its private installation record and tarballs are retained in the release directory.
 
@@ -31,7 +31,7 @@ Immutable images:
 
 Both images were built for Linux amd64. Their checked build contexts, hashes and logs are retained under `/tmp/talos-evidence`. The API snapshot predates npm-only Prisma packaging support; its source runtime and schema are unchanged and its Prisma generation and live account checks passed.
 
-The new HTTP certificate-challenge route is installed on the existing edge and was verified externally with explicit host resolution. nginx was validated and gracefully reloaded. Existing host configurations were preserved. The API currently retains the working object-storage hostname until Talos DNS/TLS is available; the final rendered manifest switches it to `files.talosapp.ai` afterward.
+The three Talos DNS A records point to the existing edge, and a trusted certificate covers the web/API/files names through 5 December 2026. Webroot renewal and the existing nginx reload hook are configured. nginx was validated and gracefully reloaded; existing host configurations were preserved. Both Talos API replicas now use `files.talosapp.ai`, and all Talos deployments are healthy.
 
 ## Publication preparation and remaining access
 
@@ -43,9 +43,11 @@ No npm package was published. The registry rejected the first wire-package publi
 
 Publishing authorization must be corrected before another attempt. The [local token setup helper](../../scripts/configure-npm-publishing.py) accepts replacement credentials without displaying them. Publish wire first, then server/agent, then CLI; retain all prepublish checks. Server publication needs the verified Bun executable available on PATH.
 
-The default AWS profile resolves to IAM user `quietplan-backend` and is denied Route53 access. `talosapp.ai` has public Route53 delegation but no A records yet. Use an authorized identity for its hosted zone, then follow the [additive production runbook](../../deploy/talos-production/README.md) and [prepared DNS change batch](../../deploy/talos-production/route53-records.json).
+The default AWS profile resolves to IAM user `quietplan-backend`. After the user granted its DNS permissions, the verified public zone `Z07313861V4CRG5EG7OMH` accepted the three new records; change `C0626508363V3HC8OSIPO` is INSYNC. The [additive production runbook](../../deploy/talos-production/README.md) records the deployment and rollback route.
 
-Completion still requires DNS records, a valid Talos TLS certificate, the files/CORS route, final API storage-host configuration, HTTPS/browser/attachment checks, npm publication and a real registry installation check. After the new URLs pass account-continuity checks, update only the Talos installation's saved URLs. Keep original endpoints available for running clients.
+Normal DNS and trusted HTTPS passed in a fresh browser, including cross-origin API/files access. All 40 imported session keys decrypted through the public Talos API and an encrypted read-only RPC reached the original daemon. A new opaque test attachment passed presigned multipart upload, signed download, CORS and byte/decryption checks; only that exact verification object was then removed. Original account files, daemon and all seven original production pods remained unchanged. Only the Talos installation's saved API/web URLs were updated. [Public rollout evidence](evidence/public-rollout.json) records the results.
+
+Completion now also includes hardened Jenkins pipelines and runtime rollout, canonical npm installation/connection on MacBook and Dell, and a Talos native update to the existing iOS app. npm publishing still needs a token satisfying its 2FA requirement. Apple rejected the exact listing name `Talos` as already used by another account; an alternative listing title is awaiting user choice. The installed app display name remains Talos.
 
 ## Validation
 

@@ -101,7 +101,7 @@ Variants:
 
     development    com.ahposten.talos.dev       # hot reload, internal
     preview        com.ahposten.talos.preview   # OTA / beta testing
-    production     com.ahposten.talos           # App Store
+    production     existing store identifier  # In-place App Store update; store-identity.cjs
 
 ### Rebuild and reinstall the desktop .app
 

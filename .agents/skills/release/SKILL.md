@@ -58,8 +58,8 @@ See `docs/rebrand/migration.md` for explicit account and session-key import. Mig
 
 ## Native and OTA
 
-Use `packages/talos-app/app.config.js`, `.env.talos.example`, and `scripts/verify-release-config.cjs` as the source of native identities and signing configuration. Current bundle identifiers are `com.ahposten.talos`, `com.ahposten.talos.preview`, and `com.ahposten.talos.dev`.
+Use `packages/talos-app/app.config.js`, `store-identity.cjs`, `.env.talos.example`, and `scripts/verify-release-config.cjs` as the source of native identities and signing configuration. Production retains the existing store bundle identifier in `store-identity.cjs` so installed apps receive an update and preserve their accounts. Preview and development use `com.ahposten.talos.preview` and `com.ahposten.talos.dev`.
 
-A native/store or OTA release requires the matching Talos-owned EAS project, owner, signing/store configuration, and the user's selected target/channel. Do not reuse historical upstream Apple, Firebase, Expo, voice, or payment credentials. The OTA package scripts run the release preflight; use those scripts rather than bypassing it with a raw update command. Native build and submission are distinct targets from deploying the mobile API.
+A native/store or OTA release requires the existing user-owned EAS project, owner, signing/store configuration, and the user's selected target/channel. Its immutable project slug and store identifier are compatibility values described in `docs/rebrand/store-upgrade.md`; the installed name and artwork are Talos. Do not reuse unrelated upstream Apple, Firebase, Expo, voice, or payment credentials. The first Talos release requires a native update with runtime `talos-1`. Subsequent OTA releases must match both the installed runtime and native fingerprint. Use the guarded mobile pipeline and submit its exact build ID. Native build, TestFlight delivery, and public App Store review are separate actions.
 
 Update the in-app changelog with concise user-visible Talos changes, then generate its JSON through `sources/scripts/parseChangelog.ts`. Keep implementation history and release evidence in the repository release record.
