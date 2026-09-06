@@ -127,7 +127,8 @@ pipeline {
     stage('Export iOS bundle') {
       steps {
         dir("${APP_DIR}") {
-          sh 'pnpm exec expo export --platform ios --output-dir dist-ci'
+          sh 'node ../../deploy/mobile/check-babel.cjs'
+          sh 'pnpm exec expo export --platform ios --output-dir dist-ci --clear'
         }
       }
     }
