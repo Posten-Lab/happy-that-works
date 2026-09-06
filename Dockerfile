@@ -25,6 +25,7 @@ COPY packages/talos-wire/package.json packages/talos-wire/
 # Workspace postinstall requirements
 COPY packages/talos-app/patches packages/talos-app/patches
 COPY packages/talos-server/prisma packages/talos-server/prisma
+COPY packages/talos-server/scripts/generate-runtime-client.cjs packages/talos-server/scripts/generate-runtime-client.cjs
 COPY packages/talos-cli/scripts packages/talos-cli/scripts
 COPY packages/talos-cli/tools packages/talos-cli/tools
 
@@ -38,8 +39,8 @@ COPY packages/talos-server ./packages/talos-server
 # Server contract tests type-check against the client API types.
 COPY packages/talos-app/sources ./packages/talos-app/sources
 
-RUN pnpm --filter @talos/wire build
-RUN pnpm --filter talos-server build
+RUN pnpm --filter @ahmadposten/talos-wire build
+RUN pnpm --filter @ahmadposten/talos-server build
 
 # Stage 3: runtime
 FROM node:20-slim AS runner

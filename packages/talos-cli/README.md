@@ -7,10 +7,12 @@ Free. Open source. Code anywhere.
 ## Installation
 
 ```bash
-pnpm --filter talos cli:install
+npm install -g talosapp
 ```
 
-Talos is currently built from this repository. A public npm namespace and production services must be configured before publishing; do not assume an existing registry package belongs to this project.
+The npm package is `talosapp`; the command is `talos`. Open [talosapp.ai](https://talosapp.ai) to connect your browser or phone.
+
+For local relay hosting, install `@ahmadposten/talos-server` alongside `talosapp` and run `talos server`.
 
 ## Usage
 
@@ -114,8 +116,8 @@ talos connect status
 
 | Variable | Description |
 |----------|-------------|
-| `TALOS_SERVER_URL` | Custom server URL (default: `http://localhost:3005`) |
-| `TALOS_WEBAPP_URL` | Custom web app URL (default: `http://localhost:8081`) |
+| `TALOS_SERVER_URL` | Custom server URL (default: `https://api.talosapp.ai`) |
+| `TALOS_WEBAPP_URL` | Custom web app URL (default: `https://talosapp.ai`) |
 | `TALOS_HOME_DIR` | Custom home directory for Talos data (default: `~/.talos`) |
 | `TALOS_DISABLE_CAFFEINATE` | Disable macOS sleep prevention |
 | `TALOS_EXPERIMENTAL` | Enable experimental features |
@@ -133,10 +135,10 @@ talos sandbox disable
 ### Building from source
 
 ```bash
-git clone ../../README.md
-cd talos-cli
-yarn install
-yarn workspace talos cli --help
+pnpm install --frozen-lockfile
+pnpm --filter @ahmadposten/talos-wire build
+pnpm --filter talosapp build
+node packages/talos-cli/bin/talos.mjs --help
 ```
 
 ## Requirements

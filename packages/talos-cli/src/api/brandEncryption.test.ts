@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encryptionContexts } from '@talos/wire';
+import { encryptionContexts } from '@ahmadposten/talos-wire';
 import { deriveKey } from '@/utils/deriveKey';
 
 /** Fixed vectors generated with the original implementation at the pre-rebrand checkpoint. */

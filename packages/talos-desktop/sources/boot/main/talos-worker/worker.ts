@@ -1,4 +1,4 @@
-import { encryptionContexts } from '@talos/wire';
+import { encryptionContexts } from '@ahmadposten/talos-wire';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { createHash, createHmac, randomBytes } from 'node:crypto'

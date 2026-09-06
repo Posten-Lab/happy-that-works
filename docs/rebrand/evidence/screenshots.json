@@ -78,6 +78,27 @@
       "width": 1206,
       "height": 2622,
       "sha256": "f0b5ed8e20f24e7e31ac26a13ca02a1c6d5dab8e2398967027d6e4bb887b4817"
+    },
+    {
+      "file": "restore-bridge-default-mobile.png",
+      "sha256": "d57540a87f4ab807ac77cef53c7b31906d4d467daaa7dc7d1f0a9c3774ecd2e9",
+      "width": 390,
+      "height": 844,
+      "description": "Talos account linking on a phone-width browser, with Talos QR selected by default."
+    },
+    {
+      "file": "restore-bridge-existing-mobile.png",
+      "sha256": "652eddc3fe10883218cbb814eae9e5bd8e9da98a3c0cae137ed60724d4df52ec",
+      "width": 390,
+      "height": 844,
+      "description": "Explicit compatibility option for account approval from an existing mobile installation."
+    },
+    {
+      "file": "restore-bridge-authenticated-mobile.png",
+      "sha256": "d27bc9d402e4ccb23ce153b15cdadfe009fbb558ac361c5158b15a96ed54b7f4",
+      "width": 390,
+      "height": 844,
+      "description": "Talos workspace after successfully decrypting the approved synthetic account."
     }
   ]
 }

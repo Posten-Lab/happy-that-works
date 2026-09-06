@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'packages/talos-cli/**'
+      - 'packages/talos-agent/**'
       - 'packages/talos-server/**'
       - 'packages/talos-wire/**'
       - 'scripts/verify-packed-cli.cjs'
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - 'packages/talos-cli/**'
+      - 'packages/talos-agent/**'
       - 'packages/talos-server/**'
       - 'packages/talos-wire/**'
       - 'scripts/verify-packed-cli.cjs'
@@ -39,10 +41,11 @@ jobs:
         with:
           bun-version: '1.4.2'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @talos/wire build
-      - run: pnpm --filter talos build
-      - run: pnpm --filter talos-server build
-      - run: pnpm --filter talos-server bundle:webapp
+      - run: pnpm --filter @ahmadposten/talos-wire build
+      - run: pnpm --filter talosapp build
+      - run: pnpm --filter @ahmadposten/talos-agent build
+      - run: pnpm --filter @ahmadposten/talos-server build
+      - run: pnpm --filter @ahmadposten/talos-server bundle:webapp
       # Install the local Talos tarballs with a local wire override. The new
       # namespace does not need to be published for this distribution check.
       - run: pnpm verify:packaged

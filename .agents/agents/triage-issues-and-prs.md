@@ -23,7 +23,7 @@ When drafting comments that will be posted as the maintainer:
 - Never repeat what the PR/issue body already says — the contributor knows what they wrote.
 - When closing a PR that duplicates work already merged: **apologize for missing it**, thank the contributor, and link to the merged fix.
 - When closing duplicates: link to the canonical issue, keep it brief.
-- Always mention version info when relevant: "update to latest / `npm i -g talos`"
+- Always mention version info when relevant: "update to latest / `npm i -g talosapp`"
 - Never use template-sounding language. No "Thank you for your contribution to the project." Just be a human.
 
 ## Capabilities

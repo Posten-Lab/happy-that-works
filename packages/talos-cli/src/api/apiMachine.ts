@@ -1,4 +1,4 @@
-import { normalizeMetadata, toWireMetadata, rpcMethods } from '@talos/wire';
+import { normalizeMetadata, toWireMetadata, rpcMethods } from '@ahmadposten/talos-wire';
 /**
  * WebSocket client for machine/daemon communication with Talos server
  * Similar to ApiSessionClient but for machine-scoped connections

@@ -89,16 +89,16 @@ pnpm --filter talos-app tauri:build:dev
 ### Talos CLI
 
 ```bash
-pnpm --filter talos build
-pnpm --filter talos test
-pnpm --filter talos cli:install   # Build + link this workspace as the global `talos` + restart daemon
+pnpm --filter talosapp build
+pnpm --filter talosapp test
+pnpm --filter talosapp cli:install   # Build + link this workspace as the global `talos` + restart daemon
 ```
 
 `cli:install` replaces the `talos` binary installed from npm with a symlink to this workspace.
 It reuses `~/.talos/` (auth, sessions) — no separate dev home. To undo:
 
 ```bash
-npm unlink -g talos && npm i -g talos@latest
+npm unlink -g talosapp && npm i -g talosapp@latest
 ```
 
 To sandbox dev data, set `TALOS_HOME_DIR=~/.talos-dev` in your shell before running `talos`.
@@ -106,7 +106,7 @@ To sandbox dev data, set `TALOS_HOME_DIR=~/.talos-dev` in your shell before runn
 ### Talos Server
 
 ```bash
-pnpm --filter talos-server standalone:dev   # Local server (no Docker needed)
+pnpm --filter @ahmadposten/talos-server standalone:dev   # Local server (no Docker needed)
 ```
 
 Runs on `localhost:3005` with embedded PGlite. To point the app at your local server:

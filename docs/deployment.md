@@ -67,11 +67,11 @@ The deployment config expects:
 
 ## Local dev helpers
 The server package includes scripts for local infrastructure:
-- `pnpm --filter talos-server db` (Postgres in Docker)
-- `pnpm --filter talos-server redis`
-- `pnpm --filter talos-server s3` + `s3:init`
+- `pnpm --filter @ahmadposten/talos-server db` (Postgres in Docker)
+- `pnpm --filter @ahmadposten/talos-server redis`
+- `pnpm --filter @ahmadposten/talos-server s3` + `s3:init`
 
-Use `.env`/`.env.dev` to load local settings when running `pnpm --filter talos-server dev`.
+Use `.env`/`.env.dev` to load local settings when running `pnpm --filter @ahmadposten/talos-server dev`.
 
 ## Implementation references
 - Entrypoint: `packages/talos-server/sources/main.ts`

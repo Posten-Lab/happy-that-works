@@ -1,5 +1,5 @@
 import { getMasterSecret } from '@/config/masterSecret';
-import { encryptionContexts } from '@talos/wire';
+import { encryptionContexts } from '@ahmadposten/talos-wire';
 import { KeyTree, crypto } from "privacy-kit";
 
 let keyTree: KeyTree | null = null;

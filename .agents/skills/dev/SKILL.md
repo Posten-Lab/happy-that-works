@@ -15,17 +15,17 @@ Talos is a pnpm monorepo. Everything uses pnpm workspaces — do not use `npm` o
 
 ```bash
 pnpm install                       # installs deps for every package
-pnpm --filter talos cli:install    # builds talos-cli + links it as the global `talos` binary
+pnpm --filter talosapp cli:install    # builds talos-cli + links it as the global `talos` binary
 ```
 
 `cli:install` replaces whatever `talos` is on your PATH (npm-installed or not) with a symlink to `packages/talos-cli/`. Daemon is restarted as part of the script. Uses `~/.talos/` — same as production.
 
-To undo: `npm unlink -g talos && npm i -g talos@latest`.
+To undo: `npm unlink -g talosapp && npm i -g talosapp@latest`.
 
 ## Packages
 
     packages/talos-cli     # the `talos` CLI and daemon, published to npm
-    packages/talos-server  # Node + Prisma server, deployed via TeamCity
+    packages/talos-server  # Node + Prisma server, deployed using the root deployment configuration
     packages/talos-app     # Expo app: iOS, Android, web, Tauri desktop
     packages/talos-agent   # agent runtime
     packages/talos-wire    # shared Zod schemas + wire types
@@ -44,7 +44,7 @@ To undo: `npm unlink -g talos && npm i -g talos@latest`.
 Work loop:
 
 ```bash
-pnpm --filter talos cli:install   # rebuild + relink + restart daemon
+pnpm --filter talosapp cli:install   # rebuild + relink + restart daemon
 talos daemon status               # confirm your build is running
 talos doctor                      # list all talos processes
 tail -f ~/.talos/logs/$(ls -t ~/.talos/logs/ | head -1)
@@ -53,13 +53,13 @@ tail -f ~/.talos/logs/$(ls -t ~/.talos/logs/ | head -1)
 Run a single test file quickly:
 
 ```bash
-pnpm --filter talos exec vitest run src/path/to/file.test.ts
+pnpm --filter talosapp exec vitest run src/path/to/file.test.ts
 ```
 
 Unit-only (fast, ~1 min):
 
 ```bash
-pnpm --filter talos exec vitest run --project unit
+pnpm --filter talosapp exec vitest run --project unit
 ```
 
 Integration tests hit real APIs and are flaky — run on demand, never in the release gate.
@@ -82,7 +82,7 @@ TALOS_SERVER_URL=http://localhost:3005 talos daemon start
 ## talos-server
 
 ```bash
-pnpm --filter talos-server standalone:dev   # localhost:3005, embedded PGlite, no Docker
+pnpm --filter @ahmadposten/talos-server standalone:dev   # localhost:3005, embedded PGlite, no Docker
 ```
 
 App auto-reloads on source changes. Point the CLI or the Expo app at it with `TALOS_SERVER_URL=http://localhost:3005` / `EXPO_PUBLIC_TALOS_SERVER_URL=...`.
@@ -99,9 +99,9 @@ pnpm --filter talos-app tauri:dev       # macOS desktop app
 
 Variants:
 
-    development    com.slopus.talos.dev       # hot reload, internal
-    preview        com.slopus.talos.preview   # OTA / beta testing
-    production     com.ex3ndr.talos           # App Store
+    development    com.ahposten.talos.dev       # hot reload, internal
+    preview        com.ahposten.talos.preview   # OTA / beta testing
+    production     com.ahposten.talos           # App Store
 
 ### Rebuild and reinstall the desktop .app
 
@@ -160,7 +160,7 @@ togglable from the dev settings screen).
 ## Cross-cutting
 
 - **Hoisted deps:** pnpm hoists node_modules to the repo root. `packages/*/node_modules/` is mostly empty. Node's resolution walks up, so imports work transparently.
-- **Workspace deps:** `"@talos/wire": "workspace:*"` resolves to `packages/talos-wire/` — edits are picked up live.
+- **Workspace deps:** `"@ahmadposten/talos-wire": "workspace:*"` resolves to `packages/talos-wire/` — edits are picked up live.
 - **`$npm_execpath`:** legacy; talos-cli uses `pnpm` literally. Windows cmd.exe doesn't expand `$VAR`.
 - **Build before tests:** tests spawn the built CLI binary (for daemon integration), so `pnpm test` runs `build` first. Do not remove.
 
@@ -170,7 +170,7 @@ Do not publish by hand. Use `/release` — it handles npm publish, git tags, Git
 
 ## Troubleshooting
 
-    talos: command not found     → pnpm --filter talos cli:install
+    talos: command not found     → pnpm --filter talosapp cli:install
     daemon won't start           → talos daemon stop; rm ~/.talos/daemon.state.json.lock; talos daemon start
     wrong `talos` version        → which talos && ls -la $(which talos) — confirms where it resolves to
     tools/unpacked missing       → pnpm install (postinstall re-extracts)

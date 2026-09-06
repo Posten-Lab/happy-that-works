@@ -22,7 +22,7 @@ describe('independent Talos installation', () => {
         vi.stubEnv('HAPPY_HOME_DIR', old);
         const { configuration } = await import('./configuration');
         expect(configuration.talosHomeDir).toBe(join(state.home, '.talos'));
-        expect(configuration.serverUrl).toBe('http://localhost:3005');
+        expect(configuration.serverUrl).toBe('https://api.talosapp.ai');
         expect(readFileSync(join(old, 'access.key'), 'utf8')).toBe('credential-canary');
         expect(JSON.parse(readFileSync(join(old, 'settings.json'), 'utf8')).serverUrl).toBe('https://earlier.example');
     });

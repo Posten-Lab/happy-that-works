@@ -1,4 +1,4 @@
-import { encryptionContexts } from '@talos/wire';
+import { encryptionContexts } from '@ahmadposten/talos-wire';
 import { deriveKey } from "@/encryption/deriveKey";
 import { AES256Encryption, BoxEncryption, SecretBoxEncryption, Encryptor, Decryptor } from "./encryptor";
 import { encodeHex } from "@/encryption/hex";

@@ -1,8 +1,10 @@
 # `talos server` — bundled self-host mode
 
+Status: historical design. The current distribution separates `talosapp` from `@ahmadposten/talos-server`; follow [the server installation guide](../../packages/talos-server/README.md) for the supported package layout.
+
 ## Goal
 
-Ship a zero-network, fully self-hosted Talos in the regular `npm i -g talos` package. One foreground command — `talos server` — runs the sync server + web app on `localhost` and writes the local URL into `~/.talos/settings.json`. Every other Talos process (daemon, `talos claude`, etc.) reads that URL from settings. No analytics, no external endpoints, no extra installs.
+Ship a zero-network, fully self-hosted Talos in the regular `npm i -g talosapp` package. One foreground command — `talos server` — runs the sync server + web app on `localhost` and writes the local URL into `~/.talos/settings.json`. Every other Talos process (daemon, `talos claude`, etc.) reads that URL from settings. No analytics, no external endpoints, no extra installs.
 
 ## Bootstrap (the v1 user flow)
 

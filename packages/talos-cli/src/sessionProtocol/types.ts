@@ -1,1 +1,1 @@
-export * from '@talos/wire';
+export * from '@ahmadposten/talos-wire';

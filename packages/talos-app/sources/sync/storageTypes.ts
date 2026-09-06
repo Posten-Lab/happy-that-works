@@ -1,4 +1,4 @@
-import { normalizeMetadata } from '@talos/wire';
+import { normalizeMetadata } from '@ahmadposten/talos-wire';
 import { z } from "zod";
 
 //

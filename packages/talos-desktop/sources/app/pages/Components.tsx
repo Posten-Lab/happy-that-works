@@ -314,7 +314,7 @@ export function ComponentsPage() {
                     >
                         <PermissionPrompt
                             question="Do you want to allow a local verification command?"
-                            command="pnpm --filter talos typecheck"
+                            command="pnpm --filter talosapp typecheck"
                         />
                     </Sample>
                     <Sample

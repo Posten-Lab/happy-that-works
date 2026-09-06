@@ -128,6 +128,9 @@ export async function handleResumeCommand(args: string[]): Promise<void> {
     }
 
     const session = await resolveTalosSession(parsed.sessionId);
+    if (session.active) {
+        throw new Error('This session is still running. Continue in its existing terminal or the Talos app; a duplicate agent was not started.');
+    }
     const launch = buildResumeLaunch(session);
 
     if (!existsSync(launch.cwd)) {

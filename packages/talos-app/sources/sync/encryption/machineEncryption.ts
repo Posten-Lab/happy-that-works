@@ -1,4 +1,4 @@
-import { toWireMetadata } from '@talos/wire';
+import { toWireMetadata } from '@ahmadposten/talos-wire';
 import { decodeBase64, encodeBase64 } from '@/encryption/base64';
 import { MachineMetadata, MachineMetadataSchema } from '../storageTypes';
 import { EncryptionCache } from './encryptionCache';

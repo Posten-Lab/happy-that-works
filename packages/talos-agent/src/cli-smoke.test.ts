@@ -7,7 +7,9 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { execFileSync } from 'child_process';
-import { resolve, dirname } from 'path';
+import { resolve, dirname, join } from 'path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'url';
 import tweetnacl from 'tweetnacl';
 import {
@@ -548,17 +550,21 @@ describe('Smoke: Full test suite runs', () => {
     it('config loads with correct defaults', () => {
         const origUrl = process.env.TALOS_SERVER_URL;
         const origHome = process.env.TALOS_HOME_DIR;
+        const emptyHome = mkdtempSync(join(tmpdir(), 'talos-agent-default-config-'));
         delete process.env.TALOS_SERVER_URL;
-        delete process.env.TALOS_HOME_DIR;
+        process.env.TALOS_HOME_DIR = join(emptyHome, '.talos');
 
         try {
             const config = loadConfig();
-            expect(config.serverUrl).toBe('http://localhost:3005');
+            expect(config.serverUrl).toBe('https://api.talosapp.ai');
             expect(config.homeDir).toContain('.talos');
             expect(config.credentialPath).toContain('agent.key');
         } finally {
+            rmSync(emptyHome, { recursive: true, force: true });
             if (origUrl !== undefined) process.env.TALOS_SERVER_URL = origUrl;
+            else delete process.env.TALOS_SERVER_URL;
             if (origHome !== undefined) process.env.TALOS_HOME_DIR = origHome;
+            else delete process.env.TALOS_HOME_DIR;
         }
     });
 });

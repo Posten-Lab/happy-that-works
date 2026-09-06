@@ -5,7 +5,7 @@ import {
     ApiUpdateNewMessageSchema,
     ApiUpdateSessionStateSchema,
     type ApiMessage,
-} from '@talos/wire';
+} from '@ahmadposten/talos-wire';
 import { GitHubProfileSchema, ImageRefSchema } from './profile';
 import { RelationshipStatusSchema, UserProfileSchema } from './friendTypes';
 import { FeedBodySchema } from './feedTypes';

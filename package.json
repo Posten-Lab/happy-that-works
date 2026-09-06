@@ -2,7 +2,7 @@
     "name": "monorepo",
     "private": true,
     "scripts": {
-        "cli": "pnpm --filter talos cli",
+        "cli": "pnpm --filter talosapp cli",
         "release": "node ./scripts/release.cjs",
         "web": "pnpm --filter talos-app web",
         "desktop": "pnpm --filter talos-desktop dev",

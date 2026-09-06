@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ApiSessionClient } from '@/api/apiSession';
-import { createEnvelope } from '@talos/wire';
+import { createEnvelope } from '@ahmadposten/talos-wire';
 
 import { publishLocalImage } from './startTalosServer';
 

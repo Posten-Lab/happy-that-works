@@ -25,6 +25,17 @@ export const rpcMethods = {
     resumeSession: 'resume-happy-session',
 } as const;
 
+/** Read only when the user explicitly requests a local account migration. */
+export const legacyInstallation = {
+    accountLinkPrefix: 'happy:///account?',
+    homeDirectory: '.happy',
+    homeEnvironment: 'HAPPY_HOME_DIR',
+    serverEnvironment: 'HAPPY_SERVER_URL',
+    webappEnvironment: 'HAPPY_WEBAPP_URL',
+    defaultServerUrl: 'https://api.happy.ahposten.com',
+    defaultWebappUrl: 'https://app.happy.engineering',
+} as const;
+
 const metadataAliases = {
     happyCliVersion: 'talosCliVersion',
     happyHomeDir: 'talosHomeDir',

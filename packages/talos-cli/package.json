@@ -1,6 +1,6 @@
 {
-  "name": "talos",
-  "version": "1.1.11",
+  "name": "talosapp",
+  "version": "1.0.0",
   "description": "Talos \u2014 secure control of your coding agents from any device",
   "author": "Ahmed Posten",
   "license": "MIT",
@@ -72,7 +72,7 @@
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.1",
     "@paralleldrive/cuid2": "^2.2.2",
-    "@talos/wire": "workspace:*",
+    "@ahmadposten/talos-wire": "workspace:*",
     "@stablelib/base64": "^2.0.1",
     "@stablelib/hex": "^2.0.1",
     "@types/cross-spawn": "^6.0.6",
@@ -119,8 +119,17 @@
     "vitest": "^3.2.4"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "packageManager": "pnpm@10.11.0",
-  "private": true
+  "homepage": "https://talosapp.ai",
+  "peerDependencies": {
+    "@ahmadposten/talos-server": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@ahmadposten/talos-server": {
+      "optional": true
+    }
+  }
 }

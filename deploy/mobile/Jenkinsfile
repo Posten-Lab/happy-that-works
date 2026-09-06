@@ -57,8 +57,8 @@ pipeline {
           # Dockerfile.webapp) so the filter truly excludes talos-desktop/node-pty.
           SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter talos-app... \
             --config.node-linker=isolated --config.shamefully-hoist=false
-          # talos-app's typecheck imports @talos/wire's built output.
-          pnpm --filter @talos/wire build
+          # talos-app's typecheck imports @ahmadposten/talos-wire's built output.
+          pnpm --filter @ahmadposten/talos-wire build
         '''
       }
     }

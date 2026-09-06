@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
-import { normalizeMetadata, toWireMetadata } from '@talos/wire';
-import type { SessionMessage as WireSessionMessage } from '@talos/wire';
+import { normalizeMetadata, toWireMetadata } from '@ahmadposten/talos-wire';
+import type { SessionMessage as WireSessionMessage } from '@ahmadposten/talos-wire';
 import type { Config } from './config';
 import type { Credentials } from './credentials';
 import {

@@ -21,6 +21,7 @@ COPY packages/talos-wire/package.json packages/talos-wire/
 # Workspace postinstall requirements
 COPY packages/talos-app/patches packages/talos-app/patches
 COPY packages/talos-server/prisma packages/talos-server/prisma
+COPY packages/talos-server/scripts/generate-runtime-client.cjs packages/talos-server/scripts/generate-runtime-client.cjs
 COPY packages/talos-cli/scripts packages/talos-cli/scripts
 COPY packages/talos-cli/tools packages/talos-cli/tools
 
@@ -32,8 +33,8 @@ FROM deps AS builder
 COPY packages/talos-wire ./packages/talos-wire
 COPY packages/talos-server ./packages/talos-server
 
-RUN pnpm --filter @talos/wire build
-# (upstream `pnpm --filter talos-server build` dropped: it bundles the
+RUN pnpm --filter @ahmadposten/talos-wire build
+# (upstream `pnpm --filter @ahmadposten/talos-server build` dropped: it bundles the
 #  standalone image via bun — absent here — and this server runs
 #  `tsx ./sources/main.ts` from sources, so no compile step is needed.)
 
@@ -59,4 +60,4 @@ EXPOSE 3000
 
 # Command to run the application
 COPY --from=builder /repo/package.json /repo/pnpm-workspace.yaml /repo/
-CMD ["pnpm", "--filter", "talos-server", "start"]
+CMD ["pnpm", "--filter", "@ahmadposten/talos-server", "start"]

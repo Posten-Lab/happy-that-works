@@ -8,7 +8,7 @@ export const brand = {
     supportUrl: process.env.EXPO_PUBLIC_TALOS_SUPPORT_URL || null,
     privacyUrl: process.env.EXPO_PUBLIC_TALOS_PRIVACY_URL || null,
     termsUrl: process.env.EXPO_PUBLIC_TALOS_TERMS_URL || null,
-    installCommand: process.env.EXPO_PUBLIC_TALOS_INSTALL_COMMAND || null,
+    installCommand: process.env.EXPO_PUBLIC_TALOS_INSTALL_COMMAND || 'npm install -g talosapp',
 } as const;
 
 export const talosPalette = {

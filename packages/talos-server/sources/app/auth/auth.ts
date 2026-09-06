@@ -1,5 +1,5 @@
 import { getMasterSecret } from '@/config/masterSecret';
-import { authenticationContexts } from '@talos/wire';
+import { authenticationContexts } from '@ahmadposten/talos-wire';
 import * as privacyKit from "privacy-kit";
 import { log } from "@/utils/log";
 

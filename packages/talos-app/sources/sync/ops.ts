@@ -1,4 +1,4 @@
-import { rpcMethods } from '@talos/wire';
+import { rpcMethods } from '@ahmadposten/talos-wire';
 /**
  * Session operations for remote procedure calls
  * Provides strictly typed functions for all session-related RPC operations

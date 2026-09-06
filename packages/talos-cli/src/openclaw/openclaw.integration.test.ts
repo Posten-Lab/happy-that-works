@@ -25,7 +25,7 @@ import { OpenClawBackend } from './OpenClawBackend';
 import { resetIdentityCache } from './openclawAuth';
 import { AcpSessionManager } from '@/agent/acp/AcpSessionManager';
 import type { AgentMessage } from '@/agent/core/AgentBackend';
-import type { SessionEnvelope } from '@talos/wire';
+import type { SessionEnvelope } from '@ahmadposten/talos-wire';
 import { getIntegrationEnv } from '@/testing/currentIntegrationEnv';
 import {
   listDaemonSessions,

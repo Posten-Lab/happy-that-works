@@ -98,7 +98,7 @@ spec:
               --config.node-linker=isolated --config.shamefully-hoist=false
             node scripts/verify-release-config.cjs web
             node scripts/render-deployment.cjs deploy/web/k8s deploy/rendered/web
-            pnpm --filter @talos/wire build
+            pnpm --filter @ahmadposten/talos-wire build
             pnpm --filter talos-app exec expo export --platform web --output-dir web-dist
           '''
         }

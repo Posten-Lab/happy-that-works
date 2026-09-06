@@ -3,7 +3,7 @@ import {
     VoiceUsageResponseSchema,
     type VoiceConversationResponse,
     type VoiceUsageResponse,
-} from '@talos/wire';
+} from '@ahmadposten/talos-wire';
 import { AuthCredentials } from '@/auth/tokenStorage';
 import { getServerUrl } from './serverConfig';
 import { getTalosClientId } from './apiSocket';

@@ -24,7 +24,7 @@ export async function findAllTalosProcesses(): Promise<Array<{ pid: number, comm
       // An earlier installation may be running its own dist/index.mjs daemon.
       const normalizedCommand = cmd.replace(/\\/g, '/');
       const isNodeRuntime = /^(?:node|tsx)(?:\.exe)?$/i.test(name);
-      const hasTalosEntrypoint = /(?:^|[\s"'/])(?:talos-cli|talos)\/(?:dist\/index\.(?:mjs|cjs)|src\/index\.ts)(?=$|[\s"'])/.test(normalizedCommand)
+      const hasTalosEntrypoint = /(?:^|[\s"'/])(?:talos-cli|talos|talosapp)\/(?:dist\/index\.(?:mjs|cjs)|src\/index\.ts)(?=$|[\s"'])/.test(normalizedCommand)
         || /(?:^|[\s"'/])talos\.mjs(?=$|[\s"'])/.test(normalizedCommand);
       const isTalos = isNodeRuntime && hasTalosEntrypoint;
 

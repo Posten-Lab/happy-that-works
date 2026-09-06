@@ -1,5 +1,5 @@
-import { normalizeMetadata, toWireMetadata } from '@talos/wire';
-import { encryptionContexts } from '@talos/wire';
+import { normalizeMetadata, toWireMetadata } from '@ahmadposten/talos-wire';
+import { encryptionContexts } from '@ahmadposten/talos-wire';
 import { logger } from '@/ui/logger'
 import { EventEmitter } from 'node:events'
 import { io, Socket } from 'socket.io-client'
@@ -15,7 +15,7 @@ import { RpcHandlerManager } from './rpc/RpcHandlerManager';
 import { registerCommonHandlers } from '../modules/common/registerCommonHandlers';
 import { calculateCost } from '@/utils/pricing';
 import { shouldReconnect } from '@/utils/lidState';
-import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope, type SessionRole, type SessionTurnEndStatus } from '@talos/wire';
+import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope, type SessionRole, type SessionTurnEndStatus } from '@ahmadposten/talos-wire';
 import {
     closeClaudeTurnWithStatus,
     mapClaudeLogMessageToSessionEnvelopes,

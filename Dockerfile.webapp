@@ -45,7 +45,7 @@ ENV TALOS_BUILD_COMMIT_TIMESTAMP=$TALOS_BUILD_COMMIT_TIMESTAMP
 COPY packages/talos-wire ./packages/talos-wire
 COPY packages/talos-app ./packages/talos-app
 
-RUN pnpm --filter @talos/wire build
+RUN pnpm --filter @ahmadposten/talos-wire build
 RUN pnpm --filter talos-app exec expo export --platform web --output-dir dist
 
 # Stage 3: runtime with Nginx

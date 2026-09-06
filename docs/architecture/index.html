@@ -752,7 +752,7 @@
             <article class="card accent-blue">
               <span class="tag">Shared contracts</span>
               <h3>talos-wire + app-logs</h3>
-              <p><code>@talos/wire</code> holds runtime-validated message schemas. <code>talos-app-logs</code> is a small local diagnostics receiver.</p>
+              <p><code>@ahmadposten/talos-wire</code> holds runtime-validated message schemas. <code>talos-app-logs</code> is a small local diagnostics receiver.</p>
               <ul><li>Zod wire validation</li><li>Legacy production message format</li><li>Unified protocol is frozen and under review</li></ul>
             </article>
           </div>
@@ -911,7 +911,7 @@
             <div class="section-number">08 / Package map</div>
             <div>
               <h2>Workspace boundaries</h2>
-              <p class="section-intro">The monorepo uses pnpm workspaces. <code>@talos/wire</code> is the only shared internal package declared across the main app/CLI/server boundary; most other coupling is through HTTP, Socket.IO, and duplicated compatible crypto behavior.</p>
+              <p class="section-intro">The monorepo uses pnpm workspaces. <code>@ahmadposten/talos-wire</code> is the only shared internal package declared across the main app/CLI/server boundary; most other coupling is through HTTP, Socket.IO, and duplicated compatible crypto behavior.</p>
             </div>
           </div>
           <div class="table-wrap">
@@ -923,7 +923,7 @@
                 <tr><td>talos-server</td><td>Hosted service or portable binary</td><td>Authenticated sync, persistence, routing, presence, integrations</td><td>Fastify, Socket.IO, Prisma, Postgres/PGlite, Redis, S3, talos-wire</td></tr>
                 <tr><td>talos-agent</td><td><code>talos-agent</code> binary</td><td>Headless session and machine controller</td><td>Commander, Axios, Socket.IO client, TweetNaCl, talos-wire</td></tr>
                 <tr><td>talos-wire</td><td>Internal/public library</td><td>Runtime-validated wire schemas and types</td><td>Zod; no runtime platform dependency</td></tr>
-                <tr><td>talos-desktop</td><td>Electron desktop app</td><td>Desktop-first agent workspace and Talos integration</td><td>Electron, React, worker threads, provider SDKs, SQLite; uses @talos/wire for shared protocol and encryption contexts</td></tr>
+                <tr><td>talos-desktop</td><td>Electron desktop app</td><td>Desktop-first agent workspace and Talos integration</td><td>Electron, React, worker threads, provider SDKs, SQLite; uses @ahmadposten/talos-wire for shared protocol and encryption contexts</td></tr>
                 <tr><td>talos-app-logs</td><td>Local Node service</td><td>Receives development logs from the app</td><td>Node HTTP only; intentionally isolated</td></tr>
               </tbody>
             </table>

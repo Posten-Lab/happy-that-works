@@ -4,7 +4,7 @@ import {
     createEnvelope,
     type SessionEnvelope,
     type SessionTurnEndStatus,
-} from '@talos/wire';
+} from '@ahmadposten/talos-wire';
 
 export type ClaudeSessionProtocolState = {
     currentTurnId: string | null;

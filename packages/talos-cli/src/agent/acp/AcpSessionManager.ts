@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope } from '@talos/wire';
+import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope } from '@ahmadposten/talos-wire';
 import type { AgentMessage } from '@/agent/core';
 
 function turnOptions(turnId: string | null, time: number): CreateEnvelopeOptions {

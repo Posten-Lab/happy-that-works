@@ -1,0 +1,100 @@
+{
+  "date": "2026-09-06",
+  "suites": {
+    "app": 737,
+    "cli": 797,
+    "agent": 230,
+    "wire": 29,
+    "server": 83,
+    "desktop": 102,
+    "releaseScripts": 8
+  },
+  "totalTests": 1986,
+  "nativeBuilds": {
+    "iosSimulatorRelease": "passed, ad-hoc signed",
+    "androidArm64Release": "passed",
+    "tauriMacOSBundle": "passed"
+  },
+  "publicActivation": {
+    "dns": "blocked by Route53 IAM access",
+    "npm": "blocked by registry publishing authentication; no package published"
+  },
+  "preservation": {
+    "originalUserFilesUnchanged": 26,
+    "originalProductionPodsUnchanged": 7,
+    "originalCredentialsAndSettingsUnchanged": true,
+    "originalDaemonAlive": true
+  },
+  "accountMigration": {
+    "credentialsIdentical": true,
+    "sourceFilesPreserved": true,
+    "separateMachineIdentity": true,
+    "originalDaemonAlive": true,
+    "authenticatedSessionList": true,
+    "returnedSessions": 150
+  },
+  "sessionKeys": {
+    "importedKeys": 40,
+    "matchingAccountSessions": 40,
+    "decryptedSessionMetadata": 40,
+    "providerResumeMetadata": 28,
+    "actualResolverSucceeded": true,
+    "noSessionControlRequests": true
+  },
+  "liveRpc": {
+    "talosApiConnectedToExistingDaemon": true,
+    "encryptedRpcRoundTrip": true,
+    "readOnlyMethod": "listDirectory",
+    "existingDaemonPathPolicyEnforced": true,
+    "originalDaemonAlive": true,
+    "sessionControlRequests": 0
+  },
+  "packages": [
+    {
+      "name": "@ahmadposten/talos-agent",
+      "version": "0.1.0",
+      "tarballBytes": 24032,
+      "sha256": "cdda6369f8b25e15264c9bfc89d2c7a49f4c013ae4c62d8271923f29b500f690",
+      "fileCount": 8,
+      "wireDependency": "0.1.0",
+      "peerDependencies": {},
+      "licenseIncluded": true,
+      "runtimePrismaClientIncluded": false
+    },
+    {
+      "name": "@ahmadposten/talos-server",
+      "version": "1.0.0",
+      "tarballBytes": 24304345,
+      "sha256": "1746291b6ce354b36a01f59c5b89064f46d9d299f4fff75b062e0fe5de2db6de",
+      "fileCount": 977,
+      "wireDependency": "0.1.0",
+      "peerDependencies": {},
+      "licenseIncluded": true,
+      "runtimePrismaClientIncluded": true
+    },
+    {
+      "name": "@ahmadposten/talos-wire",
+      "version": "0.1.0",
+      "tarballBytes": 18290,
+      "sha256": "5c0bc58c76e604d378a160893b1047808b7bc4f22b79207dce79b86eeccf206f",
+      "fileCount": 7,
+      "wireDependency": null,
+      "peerDependencies": {},
+      "licenseIncluded": true,
+      "runtimePrismaClientIncluded": false
+    },
+    {
+      "name": "talosapp",
+      "version": "1.0.0",
+      "tarballBytes": 104963866,
+      "sha256": "02cb264efff168035eba6f86de3da22e59c715e6e08f4a24a311d8bb154ab1ce",
+      "fileCount": 65,
+      "wireDependency": "0.1.0",
+      "peerDependencies": {
+        "@ahmadposten/talos-server": "^1.0.0"
+      },
+      "licenseIncluded": true,
+      "runtimePrismaClientIncluded": false
+    }
+  ]
+}

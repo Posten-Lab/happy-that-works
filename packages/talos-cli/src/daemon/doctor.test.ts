@@ -27,6 +27,7 @@ describe('Talos process isolation', () => {
       'node /work/packages/talos-cli/src/index.ts daemon start-sync',
       'node /work/renamed-checkout/bin/talos.mjs daemon start-sync',
       'node.exe "C:\\Program Files\\node_modules\\talos\\dist\\index.mjs" daemon start-sync',
+      'node /usr/local/lib/node_modules/talosapp/dist/index.mjs daemon start-sync',
     ];
     vi.mocked(psList).mockResolvedValue(commands.map((cmd, index) => ({
       pid: 92001 + index, ppid: 1, name: index === 3 ? 'node.exe' : 'node', cmd,

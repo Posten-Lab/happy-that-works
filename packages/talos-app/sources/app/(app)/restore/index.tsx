@@ -12,6 +12,8 @@ import { Modal } from '@/modal';
 import { t } from '@/text';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { QRCode } from '@/components/qr/QRCode';
+import { Switch } from '@/components/Switch';
+import { buildAccountLink } from '@/auth/accountLink';
 
 const stylesheet = StyleSheet.create((theme) => ({
     scrollView: {
@@ -49,6 +51,20 @@ const stylesheet = StyleSheet.create((theme) => ({
         textAlign: 'center',
         ...Typography.default(),
     },
+    installationChoice: {
+        width: '100%',
+        maxWidth: 440,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+        marginBottom: 24,
+    },
+    installationLabel: {
+        flex: 1,
+        fontSize: 16,
+        color: theme.colors.text,
+        ...Typography.default(),
+    },
     textInput: {
         backgroundColor: theme.colors.input.background,
         padding: 16,
@@ -71,6 +87,7 @@ export default function Restore() {
     const [isWaitingForAuth, setIsWaitingForAuth] = useState(false);
     const [authReady, setAuthReady] = useState(false);
     const [waitingDots, setWaitingDots] = useState(0);
+    const [existingInstallation, setExistingInstallation] = useState(false);
     const isCancelledRef = useRef(false);
 
     // Memoize keypair generation to prevent re-creating on re-renders
@@ -137,11 +154,19 @@ export default function Restore() {
 
                 <View style={{justifyContent: 'flex-end' }}>
                     <Text style={styles.secondInstructionText}>
-                        1. Open Talos on your mobile device{'\n'}
+                        1. Open the app already signed in on your mobile device{'\n'}
                         2. Go to Settings → Account{'\n'}
                         3. Tap "Link New Device"{'\n'}
                         4. Scan this QR code
                     </Text>
+                </View>
+                <View style={styles.installationChoice}>
+                    <Text style={styles.installationLabel}>Connect an existing installation</Text>
+                    <Switch
+                        accessibilityLabel="Connect an existing installation"
+                        value={existingInstallation}
+                        onValueChange={setExistingInstallation}
+                    />
                 </View>
                 {!authReady && (
                     <View style={{ width: 200, height: 200, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center' }}>
@@ -150,7 +175,7 @@ export default function Restore() {
                 )}
                 {authReady && (
                     <QRCode
-                        data={'talos:///account?' + encodeBase64(keypair.publicKey, 'base64url')}
+                        data={buildAccountLink(keypair.publicKey, existingInstallation)}
                         size={300}
                         foregroundColor={'black'}
                         backgroundColor={'white'}

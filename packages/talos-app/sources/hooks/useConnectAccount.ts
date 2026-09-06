@@ -8,6 +8,7 @@ import { authAccountApprove } from '@/auth/authAccountApprove';
 import { useCheckScannerPermissions } from '@/hooks/useCheckCameraPermissions';
 import { Modal } from '@/modal';
 import { t } from '@/text';
+import { parseAccountLink } from '@/auth/accountLink';
 
 interface UseConnectAccountOptions {
     onSuccess?: () => void;
@@ -20,15 +21,14 @@ export function useConnectAccount(options?: UseConnectAccountOptions) {
     const checkScannerPermissions = useCheckScannerPermissions();
 
     const processAuthUrl = React.useCallback(async (url: string) => {
-        if (!url.startsWith('talos:///account?')) {
+        const publicKey = parseAccountLink(url);
+        if (!publicKey) {
             Modal.alert(t('common.error'), t('modals.invalidAuthUrl'), [{ text: t('common.ok') }]);
             return false;
         }
         
         setIsLoading(true);
         try {
-            const tail = url.slice('talos:///account?'.length);
-            const publicKey = decodeBase64(tail, 'base64url');
             const response = encryptBox(decodeBase64(auth.credentials!.secret, 'base64url'), publicKey);
             await authAccountApprove(auth.credentials!.token, publicKey, response);
             
@@ -70,7 +70,7 @@ export function useConnectAccount(options?: UseConnectAccountOptions) {
         if (CameraView.isModernBarcodeScannerAvailable) {
             const subscription = CameraView.onModernBarcodeScanned(async (event) => {
                 if (isProcessingRef.current) return;
-                if (event.data.startsWith('talos:///account?')) {
+                if (parseAccountLink(event.data)) {
                     isProcessingRef.current = true;
                     try {
                         if (Platform.OS === 'ios') {

@@ -1,4 +1,4 @@
-import { normalizeMetadata } from '@talos/wire';
+import { normalizeMetadata } from '@ahmadposten/talos-wire';
 import { EventEmitter } from 'node:events';
 import { io, Socket } from 'socket.io-client';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from './encryption';

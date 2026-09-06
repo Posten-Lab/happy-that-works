@@ -11,7 +11,7 @@
  *   5. verify by running `talos --version`
  *
  * Reuses ~/.talos/ — no separate dev home dir. Auth and sessions carry over.
- * To undo: `npm unlink -g talos`.
+ * To undo: `npm unlink -g talosapp`.
  */
 
 const { spawnSync } = require('child_process');
@@ -73,7 +73,7 @@ function main() {
     run('talos', ['--version'], { env: cleanDaemonEnv });
 
     console.log(`\n✓ Installed from ${PACKAGE_DIR}`);
-    console.log('  To undo: npm unlink -g talos');
+    console.log('  To undo: npm unlink -g talosapp');
 }
 
 if (require.main === module) {

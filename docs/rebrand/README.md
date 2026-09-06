@@ -40,3 +40,6 @@ The original checkout's 26 modified/untracked user files matched the pre-work ba
 ## Authorized production rollout
 
 The user subsequently authorized `talosapp.ai`, npm publication, and migration of ongoing accounts and sessions. Deployment must add Talos endpoints alongside the current services, share the existing database, keys, Redis, and object storage, and retain the old endpoints for running clients. Migration must preserve account encryption, leave source credentials unchanged, and never stop existing daemons. Production verification and any remaining external access requirements will be recorded separately.
+
+
+The [production rollout record](rollout.md) contains the verified session migration, deployed image digests, final suite counts, and remaining AWS/npm access requirements.

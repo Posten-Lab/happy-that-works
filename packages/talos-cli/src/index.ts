@@ -27,6 +27,7 @@ import { handleAuthCommand } from './commands/auth'
 import { handleConnectCommand } from './commands/connect'
 import { handleSandboxCommand } from './commands/sandbox'
 import { handleServerCommand } from './commands/server'
+import { handleMigrateCommand } from './commands/migrate'
 import { spawnTalosCLI } from './utils/spawnTalosCLI'
 import { claudeCliPath } from './claude/claudeLocal'
 import { execFileSync } from 'node:child_process'
@@ -39,6 +40,13 @@ import { sweepAttachmentsDir } from '@/claude/utils/attachmentRouter'
 
 (async () => {
   const args = process.argv.slice(2)
+
+  // Version checks are also used by daemon discovery and must never authenticate
+  // an account, start a daemon, or invoke a coding agent.
+  if (args.length === 1 && (args[0] === '--version' || args[0] === '-v')) {
+    console.log(`talos version: ${packageJson.version}`)
+    return
+  }
 
   // If --version is passed - do not log, its likely daemon inquiring about our version
   if (!args.includes('--version')) {
@@ -57,7 +65,15 @@ import { sweepAttachmentsDir } from '@/claude/utils/attachmentRouter'
   if (!args.includes('--version')) {
   }
 
-  if (subcommand === 'doctor') {
+  if (subcommand === 'migrate') {
+    try {
+      await handleMigrateCommand(args.slice(1));
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Account migration failed');
+      process.exitCode = 1;
+    }
+    return;
+  } else if (subcommand === 'doctor') {
     // Check for clean subcommand
     if (args[1] === 'clean') {
       if (args.slice(2).some(a => a === '--help' || a === '-h')) {
@@ -682,6 +698,7 @@ ${chalk.bold('talos')} - Your agents. Your command.
 ${chalk.bold('Usage:')}
   talos [options]         Start Claude with mobile control
   talos auth              Manage authentication
+  talos migrate           Import an existing account without interrupting sessions
   talos resume            Resume a previous Talos session by Talos session ID
   talos codex             Start Codex mode
   talos gemini            Start Gemini mode (ACP)
@@ -736,7 +753,7 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
     // Show version
     if (showVersion) {
       console.log(`talos version: ${packageJson.version}`)
-      // Don't exit - continue to pass --version to Claude Code
+      return
     }
 
     // Normal flow - auth and machine setup

@@ -56,11 +56,11 @@ class Configuration {
     this.serverUrl =
       process.env.TALOS_SERVER_URL ||
       readSettingsStringSync(this.settingsFile, 'serverUrl') ||
-      'http://localhost:3005'
+      'https://api.talosapp.ai'
     this.webappUrl =
       process.env.TALOS_WEBAPP_URL ||
       readSettingsStringSync(this.settingsFile, 'webappUrl') ||
-      'http://localhost:8081'
+      'https://talosapp.ai'
 
     this.isExperimentalEnabled = ['true', '1', 'yes'].includes(process.env.TALOS_EXPERIMENTAL?.toLowerCase() || '');
     this.disableCaffeinate = ['true', '1', 'yes'].includes(process.env.TALOS_DISABLE_CAFFEINATE?.toLowerCase() || '');

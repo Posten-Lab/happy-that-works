@@ -333,4 +333,4 @@ Agent is considered idle when ALL of these are true:
 
 **Distribution:**
 - Package can be published to npm as `talos-agent`
-- Alternatively, users install from monorepo via `yarn workspace talos-agent build`
+- Alternatively, users install from monorepo via `yarn workspace @ahmadposten/talos-agent build`

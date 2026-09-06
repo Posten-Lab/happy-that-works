@@ -791,7 +791,7 @@ export async function startDaemon(): Promise<void> {
     logger.debug('[DAEMON RUN] Daemon state written');
 
     // Capture the bundled CLI's mtime at startup so the heartbeat can detect
-    // when npm replaces `dist/index.mjs` on disk (= the user ran `npm i -g talos`).
+    // when npm replaces `dist/index.mjs` on disk (= the user ran `npm i -g talosapp`).
     // We previously compared disk `package.json.version` to our bundled version,
     // but that produced infinite restart loops (#1107) when the manifest version
     // diverged from the bundled version (e.g. `talos-coder@0.13.1` deprecation

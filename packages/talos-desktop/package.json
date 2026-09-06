@@ -121,7 +121,7 @@
     "yjs": "^13.6.30",
     "zod": "4.4.3",
     "zod-to-json-schema": "^3.25.2",
-    "@talos/wire": "workspace:*"
+    "@ahmadposten/talos-wire": "workspace:*"
   },
   "description": "Talos desktop workspace"
 }

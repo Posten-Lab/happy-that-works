@@ -1,4 +1,4 @@
-import { encryptionContexts } from '@talos/wire';
+import { encryptionContexts } from '@ahmadposten/talos-wire';
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
 import tweetnacl from 'tweetnacl';
 

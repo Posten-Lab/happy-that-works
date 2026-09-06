@@ -2,21 +2,15 @@
 
 CLI client for controlling Talos agents remotely.
 
-Unlike `talos-cli` which both runs and controls agents, `talos-agent` only controls them — listing machines, spawning sessions on a machine, creating sessions, sending messages, reading history, monitoring state, and stopping sessions.
+Unlike `talosapp` which both runs and controls agents, `talos-agent` only controls them — listing machines, spawning sessions on a machine, creating sessions, sending messages, reading history, monitoring state, and stopping sessions.
 
 ## Installation
 
-From the monorepo:
-
 ```bash
-yarn workspace talos-agent build
+npm install -g @ahmadposten/talos-agent
 ```
 
-Or link globally:
-
-```bash
-cd packages/talos-agent && npm link
-```
+The installed command is `talos-agent`. For source development, run `pnpm --filter @ahmadposten/talos-agent build` from the monorepo.
 
 ## Authentication
 
@@ -171,9 +165,9 @@ All machine and session data is end-to-end encrypted. New records use AES-256-GC
 
 ## Preparing a release
 
-Publication is disabled until the Talos package namespace and repository are confirmed. The package is private, and `.release-it.json` disables release commits, tags, pushes, GitHub releases, and npm publication. Maintainers must configure the confirmed Talos destinations and deliberately enable these actions before releasing.
+Publish the wire dependency first, then use `pnpm publish --access public --no-git-checks` from this package directory. The prepublish script builds and tests the release. `.release-it.json` remains a local versioning helper; repository pushes and hosted releases are configured separately.
 
-For local verification, run `pnpm --filter talos-agent build` and `pnpm --filter talos-agent test`. See [the rebrand release requirements](../../docs/rebrand/README.md).
+For local verification, run `pnpm --filter @ahmadposten/talos-agent build` and `pnpm --filter @ahmadposten/talos-agent test`. See [the rebrand release requirements](../../docs/rebrand/README.md).
 
 ## License
 

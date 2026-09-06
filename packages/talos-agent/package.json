@@ -1,5 +1,5 @@
 {
-  "name": "talos-agent",
+  "name": "@ahmadposten/talos-agent",
   "version": "0.1.0",
   "description": "CLI client for controlling Talos agents remotely",
   "author": "Kirill Dubovitskiy",
@@ -38,7 +38,7 @@
     "release": "npx --no-install release-it"
   },
   "dependencies": {
-    "@talos/wire": "workspace:*",
+    "@ahmadposten/talos-wire": "workspace:*",
     "axios": "^1.13.2",
     "chalk": "^5.6.2",
     "commander": "^13.1.0",
@@ -56,8 +56,9 @@
     "vitest": "^3.2.4"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "packageManager": "pnpm@10.11.0",
-  "private": true
+  "homepage": "https://talosapp.ai"
 }

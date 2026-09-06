@@ -1,7 +1,7 @@
 import { getMasterSecret } from '@/config/masterSecret';
 import { z } from "zod";
 import * as crypto from "crypto";
-import { VoiceConversationResponseSchema, VoiceUsageResponseSchema } from "@talos/wire";
+import { VoiceConversationResponseSchema, VoiceUsageResponseSchema } from "@ahmadposten/talos-wire";
 import { type Fastify } from "../types";
 import { log } from "@/utils/log";
 

@@ -1513,7 +1513,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createEnvelope } from '@talos/wire';
+import { createEnvelope } from '@ahmadposten/talos-wire';
 
 vi.mock('@/ui/logger', () => ({
     logger: { debug: vi.fn() },
@@ -1679,8 +1679,8 @@ Create `packages/talos-cli/src/codex/utils/threadImageBackfill.ts`:
 ```ts
 import { readFile } from 'node:fs/promises';
 
-import type { SessionEnvelope } from '@talos/wire';
-import { createEnvelope } from '@talos/wire';
+import type { SessionEnvelope } from '@ahmadposten/talos-wire';
+import { createEnvelope } from '@ahmadposten/talos-wire';
 
 import type { Thread, ThreadItem, ThreadTurn } from '../codexAppServerTypes';
 import { detectSupportedImageType } from './imageInput';
@@ -1898,11 +1898,11 @@ Expected: `git diff --check` prints nothing. `git status --short` shows only int
 Start the local server, CLI daemon, and web app in separate terminals:
 
 ```bash
-pnpm --filter talos-server-self-host standalone:dev
+pnpm --filter @ahmadposten/talos-server standalone:dev
 ```
 
 ```bash
-pnpm --filter talos cli:install
+pnpm --filter talosapp cli:install
 TALOS_HOME_DIR=~/.talos-dev TALOS_SERVER_URL=http://localhost:3005 talos daemon stop
 TALOS_HOME_DIR=~/.talos-dev TALOS_SERVER_URL=http://localhost:3005 talos daemon start
 TALOS_HOME_DIR=~/.talos-dev TALOS_SERVER_URL=http://localhost:3005 talos auth

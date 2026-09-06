@@ -1,4 +1,4 @@
-# @talos/wire
+# @ahmadposten/talos-wire
 
 Canonical wire specification package for Talos clients and services.
 
@@ -102,7 +102,7 @@ Wire-level encrypted container (same for legacy and new):
 
 ## Purpose
 
-`@talos/wire` centralizes definitions for:
+`@ahmadposten/talos-wire` centralizes definitions for:
 - encrypted message/update payloads
 - session protocol envelope and event stream
 - helper for creating valid session envelopes
@@ -111,7 +111,7 @@ The goal is to keep CLI/app/server/agent on the same wire contract and avoid sch
 
 ## Package Identity
 
-- Name: `@talos/wire`
+- Name: `@ahmadposten/talos-wire`
 - Workspace path: `packages/talos-wire`
 - Entry: `src/index.ts`
 - Runtime deps: `zod`, `@paralleldrive/cuid2`
@@ -667,7 +667,7 @@ Output:
 import {
   CoreUpdateContainerSchema,
   sessionEnvelopeSchema,
-} from '@talos/wire';
+} from '@ahmadposten/talos-wire';
 
 const maybeUpdate = CoreUpdateContainerSchema.safeParse(input);
 if (!maybeUpdate.success) {
@@ -704,10 +704,10 @@ Published files:
 
 ## Monorepo Build Dependency Behavior
 
-In this repository, consumer workspaces import `@talos/wire` through package exports that point at `dist/*`.
+In this repository, consumer workspaces import `@ahmadposten/talos-wire` through package exports that point at `dist/*`.
 
 That means on a clean checkout:
-1. Build wire first: `yarn workspace @talos/wire build`
+1. Build wire first: `pnpm --filter @ahmadposten/talos-wire build`
 2. Then build/typecheck dependents.
 
 After publishing to npm, dependents consume prebuilt artifacts from the published tarball.
@@ -724,8 +724,8 @@ When modifying wire schemas:
 
 ```bash
 # from repository root
-pnpm --filter @talos/wire build
-pnpm --filter @talos/wire test
+pnpm --filter @ahmadposten/talos-wire build
+pnpm --filter @ahmadposten/talos-wire test
 ```
 
 ## Release Commands (maintainers)
@@ -735,7 +735,7 @@ pnpm --filter @talos/wire test
 pnpm release
 
 # direct release invocation
-pnpm --filter @talos/wire release
+pnpm --filter @ahmadposten/talos-wire release
 ```
 
-Publication is disabled until the Talos package namespace and repository are confirmed. The package is private, and `.release-it.json` disables release commits, tags, pushes, GitHub releases, and npm publication. These commands can prepare a local version change; they do not publish it. See [the rebrand release requirements](../../docs/rebrand/README.md) before enabling publication.
+Publish with `pnpm publish --access public --no-git-checks` from this package directory before publishing dependent packages. The prepublish script builds and tests the release. `.release-it.json` remains a local versioning helper; repository pushes and hosted releases are configured separately. See [the rebrand release requirements](../../docs/rebrand/README.md).

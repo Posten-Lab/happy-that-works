@@ -20,7 +20,7 @@ const PRISMA_QUERY_ENGINE_FILES: Record<string, string> = {
     'x64-linux': 'libquery_engine-debian-openssl-3.0.x.so.node',
     'x64-win32': 'query_engine-windows.dll.node',
 };
-const SERVER_PACKAGE_NAME = 'talos-server';
+const SERVER_PACKAGE_NAME = '@ahmadposten/talos-server';
 const SETTINGS_WRITE_CONFIRM_FLAG = '--i-understand-this-will-modify-default-talos-settings';
 
 interface ServerOptions {
@@ -129,8 +129,8 @@ export async function handleServerCommand(args: string[]): Promise<void> {
                 console.error(chalk.gray(`  Expected ${SERVER_PACKAGE_NAME} to install @prisma/engines.`));
                 console.error(chalk.gray(`  Try reinstalling ${SERVER_PACKAGE_NAME}, then run \`talos server\` again.`));
             } else {
-                console.error(chalk.gray('  Expected @prisma/engines to be available near the talos package.'));
-                console.error(chalk.gray('  Try reinstalling talos, then run `talos server` again.'));
+                console.error(chalk.gray('  Expected @prisma/engines to be available near the talosapp package.'));
+                console.error(chalk.gray('  Try reinstalling talosapp, then run `talos server` again.'));
             }
             process.exit(1);
         }

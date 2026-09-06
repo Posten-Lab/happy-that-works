@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import type { ReasoningOutput } from './reasoningProcessor';
 import type { DiffToolCall, DiffToolResult } from './diffProcessor';
-import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope } from '@talos/wire';
+import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope } from '@ahmadposten/talos-wire';
 import type { Thread, ThreadItem, ThreadTurn } from '../codexAppServerTypes';
 
 export type CodexTurnState = {

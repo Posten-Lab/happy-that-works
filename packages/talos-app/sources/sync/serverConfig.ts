@@ -5,8 +5,8 @@ const serverConfigStorage = new MMKV({ id: 'server-config' });
 
 const SERVER_KEY = 'custom-server-url';
 const LOG_SERVER_KEY = 'log-server-url';
-// The local relay is the development default; native deployments supply their relay URL.
-const DEFAULT_SERVER_URL = process.env.EXPO_PUBLIC_TALOS_SERVER_URL || 'http://localhost:3005';
+// Deployments and self-hosted installations can override the Talos relay.
+const DEFAULT_SERVER_URL = process.env.EXPO_PUBLIC_TALOS_SERVER_URL || 'https://api.talosapp.ai';
 
 export function getServerUrl(): string {
     return serverConfigStorage.getString(SERVER_KEY) ||

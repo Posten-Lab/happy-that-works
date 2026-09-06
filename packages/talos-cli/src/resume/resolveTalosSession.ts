@@ -1,4 +1,4 @@
-import { normalizeMetadata } from '@talos/wire';
+import { normalizeMetadata } from '@ahmadposten/talos-wire';
 import axios, { AxiosError } from 'axios';
 import tweetnacl from 'tweetnacl';
 import { z } from 'zod';
@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { decodeBase64, decryptLegacy, decryptWithDataKey } from '@/api/encryption';
 import type { Metadata } from '@/api/types';
 import { configuration } from '@/configuration';
+import { readCredentials } from '@/persistence';
+import { readImportedSessionKeys } from './importedSessionKeys';
 import {
     getLocalTalosAgentCredentialPath,
     readLocalTalosAgentCredentials,
@@ -108,8 +110,7 @@ function resolveSessionEncryption(session: RawSession, credentials: LocalTalosAg
     };
 }
 
-function decryptSessionMetadata(session: RawSession, credentials: LocalTalosAgentCredentials): Metadata {
-    const encryption = resolveSessionEncryption(session, credentials);
+function decryptSessionMetadata(session: RawSession, encryption: RecordEncryption): Metadata {
     const encryptedMetadata = decodeBase64(session.metadata);
     const metadata = encryption.variant === 'dataKey'
         ? decryptWithDataKey(encryptedMetadata, encryption.key)
@@ -126,13 +127,14 @@ function decryptSessionMetadata(session: RawSession, credentials: LocalTalosAgen
     }
 }
 
-async function fetchSessions(credentials: LocalTalosAgentCredentials): Promise<RawSession[]> {
+async function fetchSessions(credentials: { token: string }): Promise<RawSession[]> {
     try {
         const response = await axios.get(`${configuration.serverUrl}/v1/sessions`, {
             headers: {
                 Authorization: `Bearer ${credentials.token}`,
                 'X-Talos-Client': `cli-coding-session/${configuration.currentCliVersion}`,
             },
+            timeout: 10_000,
         });
         return (response.data as { sessions: RawSession[] }).sessions;
     } catch (error) {
@@ -146,26 +148,41 @@ async function fetchSessions(credentials: LocalTalosAgentCredentials): Promise<R
     }
 }
 
+async function resolveEncryptedSession(sessionId: string): Promise<{ matched: RawSession; encryption: RecordEncryption }> {
+    const agent = readLocalTalosAgentCredentials();
+    if (agent) {
+        const matched = resolveSessionRecordByPrefix(await fetchSessions(agent), sessionId);
+        return { matched, encryption: resolveSessionEncryption(matched, agent) };
+    }
+    const credentials = await readCredentials();
+    if (!credentials) { readAgentCredentials(); throw new Error('Talos account credentials are unavailable.'); }
+    // Resolve against the authenticated account first. An archive alone cannot make a foreign session accessible.
+    const matched = resolveSessionRecordByPrefix(await fetchSessions(credentials), sessionId);
+    const archive = await readImportedSessionKeys(configuration.talosHomeDir, credentials);
+    const key = archive && Object.hasOwn(archive.sessions, matched.id) ? archive.sessions[matched.id] : undefined;
+    if (!key) {
+        throw new Error('No imported key is available for this session. Run `talos migrate --import-session-keys` or `talos-agent auth login`.');
+    }
+    const expectedVariant = matched.dataEncryptionKey ? 'dataKey' : 'legacy';
+    if (key.encryptionVariant !== expectedVariant) throw new Error('The imported key does not match this session encryption format.');
+    return { matched, encryption: { key: decodeBase64(key.encryptionKey), variant: key.encryptionVariant } };
+}
+
 export async function resolveTalosSession(sessionId: string): Promise<ResumableTalosSession> {
-    const credentials = readAgentCredentials();
-    const sessions = await fetchSessions(credentials);
-    const matched = resolveSessionRecordByPrefix(sessions, sessionId);
+    const { matched, encryption } = await resolveEncryptedSession(sessionId);
     return {
         id: matched.id,
         active: matched.active,
-        metadata: decryptSessionMetadata(matched, credentials),
+        metadata: decryptSessionMetadata(matched, encryption),
     };
 }
 
 export async function resolveReconnectableSession(sessionId: string): Promise<ReconnectableTalosSession> {
-    const credentials = readAgentCredentials();
-    const sessions = await fetchSessions(credentials);
-    const matched = resolveSessionRecordByPrefix(sessions, sessionId);
-    const encryption = resolveSessionEncryption(matched, credentials);
+    const { matched, encryption } = await resolveEncryptedSession(sessionId);
     return {
         id: matched.id,
         active: matched.active,
-        metadata: decryptSessionMetadata(matched, credentials),
+        metadata: decryptSessionMetadata(matched, encryption),
         seq: matched.seq,
         metadataVersion: matched.metadataVersion,
         agentStateVersion: matched.agentStateVersion,

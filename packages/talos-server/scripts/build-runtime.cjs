@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { generateRuntimeClient } = require('./generate-runtime-client.cjs');
 
 const root = path.resolve(__dirname, '..');
 const pkg = require(path.join(root, 'package.json'));
@@ -10,6 +11,7 @@ const dist = path.join(root, 'dist');
 
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
+generateRuntimeClient(root);
 
 const args = [
   'build',
@@ -23,9 +25,8 @@ const args = [
 ];
 
 const bundledDependencies = new Set([
-  // The published 0.1.0 package does not include the newest voice schemas yet.
-  // Keep the server release unblocked by bundling the workspace copy.
-  '@talos/wire',
+  // Keep the standalone relay schemas aligned with the exact workspace build.
+  '@ahmadposten/talos-wire',
 ]);
 
 for (const dependency of Object.keys(pkg.dependencies ?? {})) {
@@ -41,5 +42,11 @@ const result = spawnSync('bun', args, {
 if (result.error) {
   throw result.error;
 }
+if (result.status !== 0) process.exit(result.status ?? 1);
+
+const entry = path.join(dist, 'standalone.mjs');
+const runtime = fs.readFileSync(entry, 'utf8');
+if (!runtime.includes('from "@prisma/client"')) throw new Error('Review the standalone Prisma import before publishing.');
+fs.writeFileSync(entry, runtime.replaceAll('from "@prisma/client"', 'from "./prisma-client/index.js"'));
 
 process.exit(result.status ?? 1);

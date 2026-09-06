@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { verifyServer } from './verifyServer';
-import { legacyServerBanner } from '@talos/wire';
+import { legacyServerBanner } from '@ahmadposten/talos-wire';
 
 describe('Talos relay verification', () => {
     it('checks the API identity instead of the web root', async () => {

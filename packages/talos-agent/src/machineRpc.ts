@@ -1,4 +1,4 @@
-import { rpcMethods } from '@talos/wire';
+import { rpcMethods } from '@ahmadposten/talos-wire';
 import { io, Socket } from 'socket.io-client';
 import type { Config } from './config';
 import type { DecryptedMachine } from './api';

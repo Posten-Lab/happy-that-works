@@ -1,4 +1,4 @@
-import { normalizeMetadata, toWireMetadata } from '@talos/wire';
+import { normalizeMetadata, toWireMetadata } from '@ahmadposten/talos-wire';
 import axios from 'axios'
 import { logger } from '@/ui/logger'
 import type { AgentState, CreateSessionResponse, Metadata, Session, Machine, MachineMetadata, DaemonState } from '@/api/types'
