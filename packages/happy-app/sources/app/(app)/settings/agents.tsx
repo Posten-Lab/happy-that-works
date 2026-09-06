@@ -22,6 +22,7 @@ import {
 } from '@/sync/agentDefaults';
 import { t } from '@/text';
 import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
+import { useClaudeProviderModels } from '@/hooks/useClaudeProviderModels';
 import { isMachineOnline } from '@/utils/machineUtils';
 
 type ExpandedField = {
@@ -60,6 +61,10 @@ export default function AgentDefaultsSettingsScreen() {
         [machines],
     );
     const liveCodexModels = useCodexProviderModels(onlineMachineIds);
+    const liveClaudeModels = useClaudeProviderModels(onlineMachineIds);
+    const claudeModelMetadata = React.useMemo(() => (
+        liveClaudeModels?.length ? { models: liveClaudeModels } : undefined
+    ), [liveClaudeModels]);
     const codexModelMetadata = React.useMemo(() => (
         liveCodexModels && liveCodexModels.length > 0
             ? { models: liveCodexModels }
@@ -156,11 +161,12 @@ export default function AgentDefaultsSettingsScreen() {
                 const codeDefaults = getCodeAgentDefaults(agent);
                 const effectiveDefaults = resolveAgentDefaultConfig(agentDefaultOverrides, agent);
                 const permissionOptions = getHardcodedPermissionModes(agent, t);
-                const modelOptions = getAgentDefaultModelOptions(agent, codexModelMetadata, t);
+                const providerMetadata = agent === 'claude' ? claudeModelMetadata : agent === 'codex' ? codexModelMetadata : undefined;
+                const modelOptions = getAgentDefaultModelOptions(agent, providerMetadata, t);
                 const effortOptions = getAgentDefaultEffortOptions(
                     agent,
                     effectiveDefaults.modelMode,
-                    codexModelMetadata,
+                    providerMetadata,
                 );
                 const fields: FieldConfig[] = [
                     {

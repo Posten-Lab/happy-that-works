@@ -11,21 +11,21 @@ type Translate = (key: any) => string;
 
 export function getAgentDefaultModelOptions(
     agent: AgentKey,
-    codexMetadata: ModelMetadata | null | undefined,
+    providerMetadata: ModelMetadata | null | undefined,
     translate: Translate,
 ): ModelMode[] {
-    return getAvailableModels(agent, agent === 'codex' ? codexMetadata : undefined, translate)
+    return getAvailableModels(agent, providerMetadata, translate)
         .filter((option) => option.key !== 'default');
 }
 
 export function getAgentDefaultEffortOptions(
     agent: AgentKey,
     modelKey: string,
-    codexMetadata: ModelMetadata | null | undefined,
+    providerMetadata: ModelMetadata | null | undefined,
 ): EffortLevel[] {
     return getEffortLevelsForModel(
         agent,
         modelKey,
-        agent === 'codex' ? codexMetadata : undefined,
+        providerMetadata,
     );
 }

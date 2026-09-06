@@ -23,6 +23,7 @@ import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useDocumentPicker } from '@/hooks/useDocumentPicker';
 import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
+import { useClaudeProviderModels } from '@/hooks/useClaudeProviderModels';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { getCurrentVoiceConversationId, getCurrentVoiceSessionDurationSeconds, startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
@@ -453,11 +454,16 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
         machineId ? [machineId] : [],
         flavor === 'codex',
     );
+    const liveClaudeModels = useClaudeProviderModels(
+        machineId ? [machineId] : [],
+        !flavor || flavor === 'claude',
+    );
+    const liveModels = flavor === 'codex' ? liveCodexModels : liveClaudeModels;
     const modelMetadata = React.useMemo(() => (
-        liveCodexModels && session.metadata
-            ? { ...session.metadata, models: liveCodexModels }
+        liveModels && session.metadata
+            ? { ...session.metadata, models: liveModels }
             : session.metadata
-    ), [session.metadata, liveCodexModels]);
+    ), [session.metadata, liveModels]);
     const availableModels = React.useMemo(() => (
         getAvailableModels(flavor, modelMetadata, t)
     ), [flavor, modelMetadata]);

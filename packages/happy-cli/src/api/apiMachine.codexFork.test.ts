@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { codexClientMethods } = vi.hoisted(() => ({
+const { codexClientMethods, discoverClaudeModels } = vi.hoisted(() => ({
+    discoverClaudeModels: vi.fn(),
     codexClientMethods: {
         connect: vi.fn(),
         disconnect: vi.fn(),
@@ -11,6 +12,8 @@ const { codexClientMethods } = vi.hoisted(() => ({
         listModels: vi.fn(),
     },
 }));
+
+vi.mock('@/claude/claudeModels', () => ({ discoverClaudeModels }));
 
 vi.mock('@/codex/codexAppServerClient', () => ({
     CodexAppServerClient: vi.fn().mockImplementation(() => codexClientMethods),
@@ -127,6 +130,15 @@ describe('ApiMachineClient Codex fork RPCs', () => {
             threadId: 'thread-source',
             includeTurns: true,
         });
+    });
+
+    it('exposes the Claude provider catalog through a machine RPC', async () => {
+        const models = [{ code: 'future', value: 'Future Claude', supportedReasoningEfforts: [] }];
+        discoverClaudeModels.mockResolvedValue(models);
+        const { ApiMachineClient } = await import('./apiMachine');
+        const client = new ApiMachineClient('token', machineClient());
+        client.setRPCHandlers({ spawnSession: vi.fn(), stopSession: vi.fn(), requestShutdown: vi.fn() });
+        expect(await handlersFrom(client).get('machine-1:claude-list-models')?.({})).toEqual({ type: 'success', models });
     });
 
     it('lists live Codex models for app model pickers', async () => {
