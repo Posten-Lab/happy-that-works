@@ -5,12 +5,11 @@ import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import {
-    getEffortLevelsForModel,
-    getHardcodedModelModes,
     getHardcodedPermissionModes,
     type ModeOption,
 } from '@/components/modelModeOptions';
-import { useSettingMutable } from '@/sync/storage';
+import { getAgentDefaultEffortOptions, getAgentDefaultModelOptions } from '@/components/agentDefaultOptions';
+import { useAllMachines, useSettingMutable } from '@/sync/storage';
 import {
     agentKeys,
     getCodeAgentDefaults,
@@ -22,6 +21,8 @@ import {
     type AgentKey,
 } from '@/sync/agentDefaults';
 import { t } from '@/text';
+import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
+import { isMachineOnline } from '@/utils/machineUtils';
 
 type ExpandedField = {
     agent: AgentKey;
@@ -45,6 +46,7 @@ const agentLabels: Record<AgentKey, string> = {
 
 function optionName(options: ModeOption[], key: string | null | undefined): string {
     if (!key) return 'none';
+    if (key === 'default') return 'provider default';
     return options.find((option) => option.key === key)?.name ?? key;
 }
 
@@ -52,6 +54,17 @@ export default function AgentDefaultsSettingsScreen() {
     const { theme } = useUnistyles();
     const [agentDefaultOverrides, setAgentDefaultOverrides] = useSettingMutable('agentDefaultOverrides');
     const [expanded, setExpanded] = React.useState<ExpandedField>(null);
+    const machines = useAllMachines({ includeOffline: true });
+    const onlineMachineIds = React.useMemo(
+        () => machines.filter(isMachineOnline).map((machine) => machine.id),
+        [machines],
+    );
+    const liveCodexModels = useCodexProviderModels(onlineMachineIds);
+    const codexModelMetadata = React.useMemo(() => (
+        liveCodexModels && liveCodexModels.length > 0
+            ? { models: liveCodexModels }
+            : undefined
+    ), [liveCodexModels]);
 
     const updateOverride = React.useCallback((
         agent: AgentKey,
@@ -143,8 +156,12 @@ export default function AgentDefaultsSettingsScreen() {
                 const codeDefaults = getCodeAgentDefaults(agent);
                 const effectiveDefaults = resolveAgentDefaultConfig(agentDefaultOverrides, agent);
                 const permissionOptions = getHardcodedPermissionModes(agent, t);
-                const modelOptions = getHardcodedModelModes(agent, t).filter((option) => option.key !== 'default');
-                const effortOptions = getEffortLevelsForModel(agent, effectiveDefaults.modelMode);
+                const modelOptions = getAgentDefaultModelOptions(agent, codexModelMetadata, t);
+                const effortOptions = getAgentDefaultEffortOptions(
+                    agent,
+                    effectiveDefaults.modelMode,
+                    codexModelMetadata,
+                );
                 const fields: FieldConfig[] = [
                     {
                         field: 'permissionMode',

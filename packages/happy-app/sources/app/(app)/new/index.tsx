@@ -36,7 +36,7 @@ import { useAllMachines, useLocalSetting, useSessions, useSetting, storage } fro
 import type { NewSessionAgentType } from '@/sync/persistence';
 import { sync } from '@/sync/sync';
 import { isMachineOnline } from '@/utils/machineUtils';
-import { codexListModels, machineSpawnNewSession, type CodexProviderModel } from '@/sync/ops';
+import { machineSpawnNewSession } from '@/sync/ops';
 import { createWorktree, listWorktrees } from '@/utils/worktree';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { formatPathRelativeToHome, formatLastSeen } from '@/utils/sessionUtils';
@@ -44,6 +44,7 @@ import { useNavigateToSession } from '@/hooks/useNavigateToSession';
 import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useDocumentPicker } from '@/hooks/useDocumentPicker';
+import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
 import { AgentInputAttachmentStrip } from '@/components/AgentInputAttachmentStrip';
 import { useShallow } from 'zustand/react/shallow';
 import type { MultiTextInputHandle } from '@/components/MultiTextInput';
@@ -51,7 +52,6 @@ import { Modal } from '@/modal';
 import type { Machine, Session } from '@/sync/storageTypes';
 import {
     getHardcodedPermissionModes,
-    getHardcodedModelModes,
     getAvailableModels,
     getEffortLevelsForModel,
     getSupportsWorktree,
@@ -748,36 +748,20 @@ function NewSessionScreen() {
         () => getHardcodedPermissionModes(selectedAgent, t),
         [selectedAgent],
     );
-    const [liveCodexModels, setLiveCodexModels] = React.useState<CodexProviderModel[] | null>(null);
     const canDiscoverCodexModels = Boolean(selectedMachine && isMachineOnline(selectedMachine));
-
-    React.useEffect(() => {
-        if (selectedAgent !== 'codex' || !selectedMachineId || !canDiscoverCodexModels) {
-            setLiveCodexModels(null);
-            return;
-        }
-
-        setLiveCodexModels(null);
-        let cancelled = false;
-        const refresh = async () => {
-            const result = await codexListModels(selectedMachineId);
-            if (!cancelled && result.type === 'success' && result.models.length > 0) {
-                setLiveCodexModels(result.models);
-            }
-        };
-        void refresh();
-        const interval = setInterval(() => { void refresh(); }, 60_000);
-        return () => {
-            cancelled = true;
-            clearInterval(interval);
-        };
-    }, [selectedAgent, selectedMachineId, canDiscoverCodexModels]);
+    const liveCodexModels = useCodexProviderModels(
+        selectedMachineId ? [selectedMachineId] : [],
+        selectedAgent === 'codex' && canDiscoverCodexModels,
+    );
+    const codexModelMetadata = React.useMemo(() => (
+        liveCodexModels && liveCodexModels.length > 0
+            ? { models: liveCodexModels }
+            : undefined
+    ), [liveCodexModels]);
 
     const modelModes = React.useMemo<ModelMode[]>(
-        () => liveCodexModels
-            ? getAvailableModels('codex', { models: liveCodexModels } as any, t)
-            : getHardcodedModelModes(selectedAgent, t),
-        [selectedAgent, liveCodexModels],
+        () => getAvailableModels(selectedAgent, codexModelMetadata, t),
+        [selectedAgent, codexModelMetadata],
     );
 
     const currentModel = modelModes[modelIndex] ?? modelModes[0];
@@ -787,9 +771,9 @@ function NewSessionScreen() {
         () => getEffortLevelsForModel(
             selectedAgent,
             currentModelKey,
-            liveCodexModels ? { models: liveCodexModels } as any : undefined,
+            codexModelMetadata,
         ),
-        [selectedAgent, currentModelKey, liveCodexModels],
+        [selectedAgent, currentModelKey, codexModelMetadata],
     );
     const effectiveAgentDefaults = React.useMemo(() => (
         resolveAgentDefaultConfig(agentDefaultOverrides, selectedAgent)

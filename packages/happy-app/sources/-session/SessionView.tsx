@@ -22,11 +22,12 @@ import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useDocumentPicker } from '@/hooks/useDocumentPicker';
+import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { getCurrentVoiceConversationId, getCurrentVoiceSessionDurationSeconds, startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { gitStatusSync } from '@/sync/gitStatusSync';
-import { codexListModels, sessionAbort, sessionGoalAction, type CodexProviderModel } from '@/sync/ops';
+import { sessionAbort, sessionGoalAction } from '@/sync/ops';
 import { storage, useIsDataReady, useLocalSetting, useRealtimeStatus, useSessionMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
@@ -448,28 +449,10 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     const isAcknowledged = machineId && acknowledgedCliVersions[machineId] === cliVersion;
     const shouldShowCliWarning = isCliOutdated && !isAcknowledged;
     const flavor = session.metadata?.flavor;
-    const [liveCodexModels, setLiveCodexModels] = React.useState<CodexProviderModel[] | null>(null);
-    React.useEffect(() => {
-        if (flavor !== 'codex' || !machineId) {
-            setLiveCodexModels(null);
-            return;
-        }
-
-        setLiveCodexModels(null);
-        let cancelled = false;
-        const refresh = async () => {
-            const result = await codexListModels(machineId);
-            if (!cancelled && result.type === 'success' && result.models.length > 0) {
-                setLiveCodexModels(result.models);
-            }
-        };
-        void refresh();
-        const interval = setInterval(() => { void refresh(); }, 60_000);
-        return () => {
-            cancelled = true;
-            clearInterval(interval);
-        };
-    }, [flavor, machineId]);
+    const liveCodexModels = useCodexProviderModels(
+        machineId ? [machineId] : [],
+        flavor === 'codex',
+    );
     const modelMetadata = React.useMemo(() => (
         liveCodexModels && session.metadata
             ? { ...session.metadata, models: liveCodexModels }

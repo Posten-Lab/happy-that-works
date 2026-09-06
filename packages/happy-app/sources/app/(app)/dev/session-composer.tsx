@@ -24,7 +24,7 @@ import { useHeaderHeight } from '@/utils/responsive';
 import { t } from '@/text';
 import {
     getHardcodedPermissionModes,
-    getHardcodedModelModes,
+    getAvailableModels,
     getEffortLevelsForModel,
     getDefaultEffortKeyForModel,
     getDefaultPermissionModeKey,
@@ -294,7 +294,9 @@ function SessionComposerDemo() {
         [selectedAgent],
     );
     const modelModes = React.useMemo<ModelMode[]>(
-        () => getHardcodedModelModes(selectedAgent, t),
+        // This dev-only composer uses fake machines, so provider metadata is
+        // intentionally absent; still exercise the same canonical resolver.
+        () => getAvailableModels(selectedAgent, undefined, t),
         [selectedAgent],
     );
 

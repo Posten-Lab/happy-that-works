@@ -31,6 +31,8 @@ type MetadataOption = {
     isDefault?: boolean;
 };
 
+export type ModelMetadata = Pick<Metadata, 'models'>;
+
 const GEMINI_MODEL_FALLBACKS: ModelMode[] = [
     { key: 'gemini-3.1-pro-preview', name: 'gemini 3.1 pro', description: 'latest & most capable' },
     { key: 'gemini-3-flash-preview', name: 'gemini 3 flash', description: 'latest & fast' },
@@ -161,7 +163,7 @@ export function getHardcodedModelModes(flavor: AgentFlavor, _translate: Translat
 
 export function getAvailableModels(
     flavor: AgentFlavor,
-    metadata: Metadata | null | undefined,
+    metadata: ModelMetadata | null | undefined,
     translate: Translate,
 ): ModelMode[] {
     const metadataModels = mapMetadataOptions(metadata?.models);
@@ -260,7 +262,7 @@ export function getDefaultEffortKey(flavor: AgentFlavor): string | null {
 export function getEffortLevelsForModel(
     flavor: AgentFlavor,
     modelKey: string,
-    metadata?: Metadata | null,
+    metadata?: ModelMetadata | null,
 ): EffortLevel[] {
     // Claude and Codex expose effort/thought levels regardless of which
     // specific model is picked — the same low/medium/high/max scale applies
