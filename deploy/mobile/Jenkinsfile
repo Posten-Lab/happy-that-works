@@ -8,6 +8,16 @@ pipeline {
     timeout(time: 180, unit: 'MINUTES')
     buildDiscarder(logRotator(numToKeepStr: '10'))
     disableConcurrentBuilds()
+    skipDefaultCheckout(true)
+  }
+
+  triggers { pollSCM('H/5 * * * *') }
+
+  parameters {
+    choice(name: 'MOBILE_RELEASE_MODE', choices: ['auto', 'native', 'ota', 'none'],
+      description: 'Auto selects from changes since the last successful delivery. Unsafe overrides fail.')
+    booleanParam(name: 'VALIDATE_ONLY', defaultValue: false,
+      description: 'Run checks and export the iOS bundle without publishing or building.')
   }
 
   environment {
@@ -22,6 +32,13 @@ pipeline {
     EXPO_APPLE_TEAM_TYPE = 'INDIVIDUAL'
     // Monorepo: EAS is driven from the app package.
     APP_DIR = 'packages/talos-app'
+    APP_ENV = 'production'
+    CI = '1'
+    TALOS_EAS_PROJECT_ID = '4445e993-5eaa-4a1a-8754-7068e8565e64'
+    TALOS_EXPO_OWNER = 'posten-lab'
+    EXPO_PUBLIC_TALOS_SERVER_URL = 'https://api.talosapp.ai'
+    EXPO_PUBLIC_TALOS_WEBAPP_URL = 'https://talosapp.ai'
+    EXPO_PUBLIC_TALOS_INSTALL_COMMAND = 'npm install -g talosapp'
     // The eas-agent runs as non-root (uid 1000) with npm prefix /usr, so
     // `corepack enable` can't symlink pnpm into /usr/bin. Install the pnpm
     // shim into a writable dir and put it on PATH for every stage. Version
@@ -33,11 +50,25 @@ pipeline {
   stages {
     stage('Checkout') {
       options { retry(3) }
-      steps { checkout scm }
+      steps {
+        script {
+          // skipDefaultCheckout disables Declarative's automatic Git env binding.
+          // An explicit checkout returns these values but does not export them.
+          def revision = checkout scm
+          env.GIT_BRANCH = revision.GIT_BRANCH
+          env.GIT_COMMIT = revision.GIT_COMMIT
+          if (!env.GIT_BRANCH || !(env.GIT_COMMIT ==~ /[0-9a-f]{40}/)) {
+            error('Checkout did not return a branch and exact commit; refusing an unclassified release')
+          }
+          def actual = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+          if (actual != env.GIT_COMMIT) error('Checkout revision mismatch')
+          echo "Checked out ${env.GIT_BRANCH} at ${env.GIT_COMMIT}"
+        }
+      }
     }
 
-    stage('Validate Talos configuration') {
-      steps { sh 'node scripts/verify-release-config.cjs mobile' }
+    stage('Validate production identity') {
+      steps { sh 'node scripts/verify-release-config.cjs ios && node scripts/verify-brand.cjs' }
     }
 
     stage('Install') {
@@ -58,61 +89,140 @@ pipeline {
           SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter talos-app... \
             --config.node-linker=isolated --config.shamefully-hoist=false
           # talos-app's typecheck imports @ahmadposten/talos-wire's built output.
-          pnpm --filter @ahmadposten/talos-wire build
+          pnpm --filter @ahmadposten/talos-wire test
         '''
       }
     }
 
-    stage('Typecheck') {
-      // Fast gate before spending a paid EAS build. tsc --noEmit.
+    stage('Release selector tests') {
+      steps { sh 'node --test deploy/mobile/release-plan.test.mjs' }
+    }
+
+    stage('App tests and typecheck') {
       steps {
         dir("${APP_DIR}") {
-          sh 'pnpm typecheck'
+          sh 'pnpm exec vitest run --maxWorkers=4 && pnpm typecheck'
         }
       }
     }
 
-    stage('EAS Build — iOS (production)') {
-      // retry(1) is deliberate: each attempt is a real EAS build that
-      // consumes paid build credits. The ASC .p8 is materialised from a
-      // base64 Jenkins secret, used, then removed.
-      options { retry(1) }
+    stage('Classify mobile release') {
+      steps {
+        script {
+          env.MOBILE_RELEASE_KIND = 'none'
+          def mainBranch = !env.CHANGE_ID &&
+            (env.BRANCH_NAME == 'main' || env.GIT_BRANCH in ['main', 'origin/main'])
+          if (mainBranch) {
+            env.RELEASE_MODE = params.MOBILE_RELEASE_MODE ?: 'auto'
+            // Validation-only successes must never advance the delivered baseline.
+            def previous = currentBuild.previousBuild
+            def base = ''
+            while (previous != null) {
+              if (previous.result == 'SUCCESS' && previous.description?.startsWith('delivered:')) {
+                base = previous.description.substring('delivered:'.length()).trim()
+                break
+              }
+              previous = previous.previousBuild
+            }
+            env.MOBILE_RELEASE_BASE = base
+            env.MOBILE_RELEASE_KIND = sh(
+              script: 'node deploy/mobile/release-plan.mjs "$MOBILE_RELEASE_BASE" "$GIT_COMMIT" "$RELEASE_MODE"',
+              returnStdout: true
+            ).trim()
+          }
+          echo "Mobile release: ${env.MOBILE_RELEASE_KIND}"
+        }
+      }
+    }
+
+    stage('Export iOS bundle') {
+      steps {
+        dir("${APP_DIR}") {
+          sh 'node ../../deploy/mobile/check-babel.cjs'
+          sh 'pnpm exec expo export --platform ios --output-dir dist-ci --clear'
+        }
+      }
+    }
+
+    stage('Check OTA runtime compatibility') {
+      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'ota' } }
+      steps {
+        dir("${APP_DIR}") {
+          sh '''
+            eas fingerprint:generate --build-profile production --platform ios --json --non-interactive > fingerprint-result.json
+            pnpm exec expo config --type public --json > runtime-config.json
+            RUNTIME=$(node -e 'const c=require("./runtime-config.json"); if (typeof c.runtimeVersion !== "string" || !c.runtimeVersion) process.exit(1); console.log(c.runtimeVersion)')
+            eas build:list --platform ios --build-profile production --channel production \
+              --distribution store --status finished --runtime-version "$RUNTIME" \
+              --limit 50 --json --non-interactive > compatible-builds.json
+          '''
+          script {
+            def compatible = sh(script: 'node ../../deploy/mobile/compatible-runtime.cjs', returnStdout: true).trim()
+            if (compatible != 'yes') {
+              if (params.MOBILE_RELEASE_MODE == 'ota') {
+                error('No finished production binary matches both the OTA runtime and native fingerprint; use auto or native')
+              }
+              env.MOBILE_RELEASE_KIND = 'native'
+              echo 'No compatible production binary: building native instead'
+            }
+          }
+        }
+      }
+    }
+
+    stage('Publish production OTA') {
+      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'ota' } }
+      steps {
+        dir("${APP_DIR}") {
+          sh '''
+            node ../../scripts/verify-release-config.cjs ios
+            eas update --channel production --environment production --platform ios \
+              --message "git-$GIT_COMMIT" --non-interactive
+          '''
+        }
+      }
+    }
+
+    stage('Build and submit production iOS') {
+      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'native' } }
       steps {
         dir("${APP_DIR}") {
           withCredentials([string(credentialsId: 'asc-key-p8', variable: 'ASC_KEY_P8_B64')]) {
             sh '''
-              echo "$ASC_KEY_P8_B64" | base64 -d > /tmp/asc-key.p8
-              chmod 600 /tmp/asc-key.p8
-              EXPO_ASC_API_KEY_PATH=/tmp/asc-key.p8 \
-                eas build -p ios --profile production --non-interactive --wait
-              rm -f /tmp/asc-key.p8
+              set +x
+              umask 077
+              node ../../scripts/verify-release-config.cjs ios
+              EXPO_ASC_API_KEY_PATH=$(mktemp /tmp/talos-asc-key.XXXXXX)
+              export EXPO_ASC_API_KEY_PATH
+              trap 'rm -f "$EXPO_ASC_API_KEY_PATH"' EXIT HUP INT TERM
+              printf '%s' "$ASC_KEY_P8_B64" | base64 -d > "$EXPO_ASC_API_KEY_PATH"
+              unset ASC_KEY_P8_B64
+              # Submit reads its key from eas.json, not EXPO_ASC_API_KEY_PATH.
+              node ../../deploy/mobile/prepare-submit.cjs
+              eas build -p ios --profile production --non-interactive --wait --json > build-result.json
+              node ../../deploy/mobile/build-id.cjs build-result.json > build-id.txt
+              eas submit -p ios --profile production --id "$(cat build-id.txt)" --non-interactive --wait
             '''
           }
         }
       }
     }
 
-    stage('Submit to TestFlight') {
-      options { retry(3) }
-      steps {
-        dir("${APP_DIR}") {
-          withCredentials([string(credentialsId: 'asc-key-p8', variable: 'ASC_KEY_P8_B64')]) {
-            sh '''
-              echo "$ASC_KEY_P8_B64" | base64 -d > /tmp/asc-key.p8
-              chmod 600 /tmp/asc-key.p8
-              # APP_ENV=production so app.config.js resolves the production
-              # bundle (com.ahposten.talos) — without it, eas submit
-              # defaults to APP_ENV=development, targets the .dev bundle, and
-              # then fails trying to set up ASC credentials non-interactively.
-              APP_ENV=production EXPO_ASC_API_KEY_PATH=/tmp/asc-key.p8 \
-                eas submit -p ios --profile production --latest --non-interactive --no-wait
-              rm -f /tmp/asc-key.p8
-            '''
-          }
+    stage('Record delivered baseline') {
+      when {
+        expression {
+          return !params.VALIDATE_ONLY && !env.CHANGE_ID &&
+            (env.BRANCH_NAME == 'main' || env.GIT_BRANCH in ['main', 'origin/main'])
         }
       }
+      steps { script { currentBuild.description = "delivered:${env.GIT_COMMIT}" } }
     }
   }
 
-  post { always { cleanWs() } }
+  post {
+    always {
+      archiveArtifacts artifacts: 'packages/talos-app/build-id.txt', allowEmptyArchive: true
+      cleanWs()
+    }
+  }
 }

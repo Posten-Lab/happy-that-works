@@ -1,13 +1,4 @@
 pipeline {
-  // Two containers sharing the workspace:
-  //   kaniko — builds Dockerfile.server (the whole monorepo server build runs
-  //            inside the image, so kaniko does it directly from a git context)
-  //   jnlp   — checkout + kubectl (kubectl-capable agent image)
-  //
-  // Unlike the web pipeline (which builds the Expo export in a node container
-  // and lets kaniko package only the static output), the server IS a Docker
-  // build — Dockerfile.server does the pnpm install + tsc itself — so kaniko
-  // owns the whole thing, mirroring the benjamins / quietplan backend flow.
   agent {
     kubernetes {
       yaml '''
@@ -15,144 +6,131 @@ apiVersion: v1
 kind: Pod
 spec:
   serviceAccountName: jenkins
-  nodeSelector:
-    site: onprem2
+  nodeSelector: { site: onprem2 }
   tolerations:
-    - key: dedicated
-      operator: Equal
-      value: ci
-      effect: NoSchedule
+    - { key: dedicated, operator: Equal, value: ci, effect: NoSchedule }
   containers:
-    - name: node
-      image: node:20-alpine
-      command: ["cat"]
-      tty: true
     - name: jnlp
       image: ahmadposten/jenkins-agent-kubectl:latest
       resources:
         requests: { cpu: "200m", memory: "512Mi" }
         limits: { cpu: "1", memory: "1Gi" }
+    - name: node
+      image: node:20-bookworm
+      command: ["cat"]
+      tty: true
+      resources:
+        requests: { cpu: "6", memory: "6Gi" }
+        limits: { cpu: "16", memory: "16Gi" }
     - name: kaniko
       image: gcr.io/kaniko-project/executor:debug
       command: ["/busybox/cat"]
       tty: true
       volumeMounts:
-        - name: dockerhub
-          mountPath: /kaniko/.docker
-      # CI node is 144 cores / 128GiB / ~88GiB ephemeral. kaniko writes the
-      # extracted rootfs + node_modules + per-stage stored images + cache
-      # layers to ephemeral disk, so reserve real headroom or the kubelet
-      # evicts the agent mid-build (the "ChannelClosedException / agent
-      # offline" failure). Memory stays modest now that compressed caching is
-      # on (uncompressed caching was OOM-killing the container).
+        - { name: dockerhub, mountPath: /kaniko/.docker }
       resources:
         requests: { cpu: "16", memory: "8Gi", ephemeral-storage: "20Gi" }
         limits: { cpu: "48", memory: "24Gi", ephemeral-storage: "60Gi" }
   volumes:
     - name: dockerhub
-      secret:
-        secretName: dockerhub-credentials
+      secret: { secretName: dockerhub-credentials }
 '''
-      defaultContainer 'jnlp'
+      defaultContainer 'node'
     }
   }
-
   options {
-    timeout(time: 40, unit: 'MINUTES')
+    timeout(time: 90, unit: 'MINUTES')
     buildDiscarder(logRotator(numToKeepStr: '20'))
     disableConcurrentBuilds()
     skipDefaultCheckout()
   }
-
+  triggers { githubPush() }
+  parameters {
+    booleanParam(name: 'VALIDATE_ONLY', defaultValue: false,
+      description: 'Run production configuration and tests without publishing an image or deploying.')
+  }
+  environment {
+    APP_ENV = 'production'
+    CI = '1'
+    SHARP_IGNORE_GLOBAL_LIBVIPS = '1'
+    EXPO_PUBLIC_TALOS_SERVER_URL = 'https://api.talosapp.ai'
+    EXPO_PUBLIC_TALOS_WEBAPP_URL = 'https://talosapp.ai'
+    EXPO_PUBLIC_TALOS_INSTALL_COMMAND = 'npm install -g talosapp'
+    COREPACK_HOME = '/tmp/corepack'
+    PATH = "${WORKSPACE}/.ci-bin:${PATH}"
+  }
   stages {
     stage('Checkout') {
       options { retry(3) }
       steps {
         script {
-          // HTTPS clone of the (public) repo — capture GIT_COMMIT for the tag.
-          def scmVars = checkout scm
-          env.GIT_COMMIT = scmVars.GIT_COMMIT
+          def revision = checkout scm
+          env.GIT_BRANCH = revision.GIT_BRANCH
+          env.GIT_COMMIT = revision.GIT_COMMIT
+          if (!(env.GIT_COMMIT ==~ /[0-9a-f]{40}/)) error('An exact checkout commit is required')
+          if (!params.VALIDATE_ONLY && (env.CHANGE_ID || !(env.GIT_BRANCH in ['main', 'origin/main'])))
+            error('Production deployment requires a main-branch checkout')
+          def actual = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+          if (actual != env.GIT_COMMIT) error('Checkout revision mismatch')
         }
       }
     }
-
-    stage('Validate Talos configuration') {
+    stage('Verify') {
       steps {
-        container('node') {
-          sh 'node scripts/verify-release-config.cjs web'
-          sh 'node scripts/render-deployment.cjs deploy/server/k8s deploy/rendered/server'
-        }
+        sh '''
+          sh deploy/talos-production/prepare-ci.sh kubectl
+          node scripts/verify-release-config.cjs web
+            SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter @ahmadposten/talos-server... \
+              --config.node-linker=isolated --config.shamefully-hoist=false
+            pnpm verify:brand
+            node --test deploy/talos-production/release-component.test.cjs
+            pnpm --filter @ahmadposten/talos-wire test
+            pnpm --filter @ahmadposten/talos-server typecheck
+            pnpm --filter @ahmadposten/talos-server exec vitest run --maxWorkers=4
+        '''
       }
     }
-
-    stage('Build & Push') {
-      // kaniko builds Dockerfile.server straight from the git context so the
-      // heavy monorepo install/build runs on the beefy CI node, not the agent.
-      options { retry(2) }
+    stage('Build and push immutable image') {
+      when { expression { return !params.VALIDATE_ONLY } }
+      options { timeout(time: 40, unit: 'MINUTES') }
       steps {
         container('kaniko') {
-          script {
-            def shortSha = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'
-            // Kaniko tuning, learned from real runs on this monorepo:
-            //  NO --cache. Counter-intuitive but measured: caching the
-            //    `pnpm install` layer means every warm build does "Found cached
-            //    layer, extracting to filesystem" — kaniko unpacks a
-            //    node_modules layer of tens of thousands of tiny files onto
-            //    disk, which takes MANY minutes (and used to hang/evict the
-            //    agent). The filtered fresh install is ~40s. So skipping the
-            //    cache is strictly faster here — caching many-small-file layers
-            //    is a known kaniko anti-pattern.
-            //  --snapshot-mode=redo — snapshot by mtime+size, not a full
-            //    content hash of every file (that walk was ~4 min/layer).
-            //  Dropped --compressed-caching=false (it OOM-killed the container)
-            //    and --single-snapshot (no-op here).
-            sh """/kaniko/executor \
-              --context=dir://${WORKSPACE} \
+          sh '''
+            /kaniko/executor \
+              --context="dir://$WORKSPACE" \
               --dockerfile=Dockerfile.server \
-              --destination=ahmadposten/talos-server:latest \
-              --destination=ahmadposten/talos-server:git-${shortSha} \
-              --snapshot-mode=redo"""
-          }
+              --destination="ahmadposten/talos-server:git-$GIT_COMMIT-$BUILD_NUMBER" \
+              --digest-file="$WORKSPACE/image-digest.txt" \
+              --snapshot-mode=redo --push-retry=2
+          '''
         }
       }
     }
-
-    stage('Deploy') {
-      // Stamp the image tag + build time into the manifests, apply, roll out.
-      // Secrets (talos-server-secret) are created out-of-band — the Jenkins
-      // deployer Role has no Secret access — so they are NOT applied here.
-      options { retry(3) }
+    stage('Deploy and verify public revision') {
+      when { expression { return !params.VALIDATE_ONLY } }
       steps {
-        container('jnlp') {
-          script {
-            def shortSha = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'
-            def buildTimeIso = new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX", TimeZone.getTimeZone('UTC'))
-            sh """
-              img=ahmadposten/talos-server:git-${shortSha}
-              f=deploy/rendered/server/deployment.yaml
-              # pin both the runtime + migrate initContainer to the immutable tag
-              sed -i "s|ahmadposten/talos-server:latest|\$img|g" "\$f"
-              sed -i "s|__GIT_SHA__|${shortSha}|g" "\$f"
-              sed -i "s|__BUILD_TIME__|${buildTimeIso}|g" "\$f"
-            """
-          }
-          // Datastores + storage (idempotent; safe to re-apply every deploy).
-          sh 'kubectl apply -f deploy/rendered/server/postgres.yaml -n talos'
-          sh 'kubectl apply -f deploy/rendered/server/redis.yaml -n talos'
-          sh 'kubectl apply -f deploy/rendered/server/minio.yaml -n talos'
-          sh 'kubectl apply -f deploy/rendered/server/minio-setup-job.yaml -n talos || true'
-          // Server.
-          sh 'kubectl apply -f deploy/rendered/server/service.yaml -n talos'
-          sh 'kubectl apply -f deploy/rendered/server/deployment.yaml -n talos'
-          sh 'kubectl rollout status deployment/talos-server -n talos --timeout=300s'
-        }
+        sh '''
+          IMAGE="ahmadposten/talos-server@$(cat image-digest.txt)"
+          node deploy/talos-production/release-component.cjs api "$IMAGE" "$GIT_COMMIT" release-evidence
+        '''
+        script { currentBuild.description = "deployed:${env.GIT_COMMIT}" }
       }
     }
   }
-
   post {
+    unsuccessful {
+      // Normal health failures roll back inside the helper. This also recovers
+      // a pending release if Jenkins interrupted a stage after the patch.
+      sh '''
+        if [ -f release-evidence/release.json ] && [ -f image-digest.txt ]; then
+          IMAGE="ahmadposten/talos-server@$(cat image-digest.txt)"
+          node deploy/talos-production/release-component.cjs api "$IMAGE" "$GIT_COMMIT" release-evidence --recover
+        fi
+      '''
+    }
     always {
-      sh 'chmod -R u+w "$WORKSPACE" 2>/dev/null; rm -rf "$WORKSPACE"/* "$WORKSPACE"/.[!.]* 2>/dev/null; true'
+      archiveArtifacts artifacts: 'release-evidence/*.json,image-digest.txt', allowEmptyArchive: true
+      cleanWs()
     }
   }
 }

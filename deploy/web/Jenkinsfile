@@ -1,11 +1,4 @@
 pipeline {
-  // One pod, three containers sharing the workspace:
-  //   node   — builds the Expo web export at full CPU (Metro is CPU-bound)
-  //   kaniko — packages ONLY the small web-dist into an nginx image
-  //   jnlp   — checkout + kubectl (kubectl-capable agent image)
-  // The old design ran the whole build inside kaniko, so kaniko snapshotted
-  // the monorepo node_modules after every RUN -> ~40 min. Building in node and
-  // letting kaniko touch only ~40 MB of static output fixes that.
   agent {
     kubernetes {
       yaml '''
@@ -13,13 +6,9 @@ apiVersion: v1
 kind: Pod
 spec:
   serviceAccountName: jenkins
-  nodeSelector:
-    site: onprem2
+  nodeSelector: { site: onprem2 }
   tolerations:
-    - key: dedicated
-      operator: Equal
-      value: ci
-      effect: NoSchedule
+    - { key: dedicated, operator: Equal, value: ci, effect: NoSchedule }
   containers:
     - name: jnlp
       image: ahmadposten/jenkins-agent-kubectl:latest
@@ -27,7 +16,7 @@ spec:
         requests: { cpu: "200m", memory: "512Mi" }
         limits: { cpu: "1", memory: "1Gi" }
     - name: node
-      image: node:20-alpine
+      image: node:20-bookworm
       command: ["cat"]
       tty: true
       resources:
@@ -38,119 +27,119 @@ spec:
       command: ["/busybox/cat"]
       tty: true
       volumeMounts:
-        - name: dockerhub
-          mountPath: /kaniko/.docker
+        - { name: dockerhub, mountPath: /kaniko/.docker }
       resources:
-        requests: { cpu: "1", memory: "2Gi" }
-        limits: { cpu: "4", memory: "4Gi" }
+        requests: { cpu: "16", memory: "8Gi", ephemeral-storage: "20Gi" }
+        limits: { cpu: "48", memory: "24Gi", ephemeral-storage: "60Gi" }
   volumes:
     - name: dockerhub
-      secret:
-        secretName: dockerhub-credentials
+      secret: { secretName: dockerhub-credentials }
 '''
       defaultContainer 'node'
     }
   }
-
   options {
-    timeout(time: 30, unit: 'MINUTES')
+    timeout(time: 90, unit: 'MINUTES')
     buildDiscarder(logRotator(numToKeepStr: '20'))
     disableConcurrentBuilds()
-    // We do our own HTTPS checkout below (public repo, no SSH host keys),
-    // so skip the implicit SSH scm checkout that runs on the pod.
     skipDefaultCheckout()
   }
-
+  triggers { githubPush() }
+  parameters {
+    booleanParam(name: 'VALIDATE_ONLY', defaultValue: false,
+      description: 'Run production configuration, tests and web export without publishing an image or deploying.')
+  }
+  environment {
+    APP_ENV = 'production'
+    CI = '1'
+    SHARP_IGNORE_GLOBAL_LIBVIPS = '1'
+    EXPO_PUBLIC_TALOS_SERVER_URL = 'https://api.talosapp.ai'
+    EXPO_PUBLIC_TALOS_WEBAPP_URL = 'https://talosapp.ai'
+    EXPO_PUBLIC_TALOS_INSTALL_COMMAND = 'npm install -g talosapp'
+    COREPACK_HOME = '/tmp/corepack'
+    PATH = "${WORKSPACE}/.ci-bin:${PATH}"
+  }
   stages {
     stage('Checkout') {
       options { retry(3) }
       steps {
-        // HTTPS clone of the public repo — no SSH, no known_hosts. A bare
-        // checkout() step does NOT populate env.GIT_COMMIT; capture its
-        // return value for the image tag / GIT_SHA stamp below.
         script {
-          def scmVars = checkout scm
-          env.GIT_COMMIT = scmVars.GIT_COMMIT
+          def revision = checkout scm
+          env.GIT_BRANCH = revision.GIT_BRANCH
+          env.GIT_COMMIT = revision.GIT_COMMIT
+          if (!(env.GIT_COMMIT ==~ /[0-9a-f]{40}/)) error('An exact checkout commit is required')
+          if (!params.VALIDATE_ONLY && (env.CHANGE_ID || !(env.GIT_BRANCH in ['main', 'origin/main'])))
+            error('Production deployment requires a main-branch checkout')
+          def actual = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+          if (actual != env.GIT_COMMIT) error('Checkout revision mismatch')
         }
       }
     }
-
-    // No 'Ensure Namespace' stage: namespaces are cluster-scoped and the
-    // Jenkins SA only has a namespaced deployer Role in `talos` (which already
-    // exists — created at setup, tracked in deploy/web/k8s/namespace.yaml).
-
-    stage('Build web bundle') {
-      // node container. pnpm store lands in the workspace so it survives
-      // within the build; expo export runs Metro at up to 16 CPU.
+    stage('Verify') {
       steps {
-        container('node') {
-          sh '''
-            set -e
-            export COREPACK_HOME=/tmp/corepack
-            mkdir -p /tmp/pnpm-bin
-            corepack enable --install-directory /tmp/pnpm-bin pnpm
-            export PATH=/tmp/pnpm-bin:$PATH
-            corepack prepare pnpm@10.11.0 --activate
-            export APP_ENV=production NODE_ENV=production SHARP_IGNORE_GLOBAL_LIBVIPS=1
-            # isolated linker + filter: install only the talos-app subgraph
-            # (excludes talos-desktop/node-pty), matching Dockerfile.webapp.
+        sh '''
+          sh deploy/talos-production/prepare-ci.sh kubectl
+          node scripts/verify-release-config.cjs web
             SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter talos-app... \
               --config.node-linker=isolated --config.shamefully-hoist=false
-            node scripts/verify-release-config.cjs web
-            node scripts/render-deployment.cjs deploy/web/k8s deploy/rendered/web
-            pnpm --filter @ahmadposten/talos-wire build
-            pnpm --filter talos-app exec expo export --platform web --output-dir web-dist
+            pnpm verify:brand
+            node --test deploy/talos-production/release-component.test.cjs
+            pnpm --filter @ahmadposten/talos-wire test
+            pnpm --filter talos-app typecheck
+            pnpm --filter talos-app exec vitest run --maxWorkers=4
+        '''
+      }
+    }
+
+    stage('Export web') {
+      steps {
+        sh '''
+          pnpm --filter talos-app exec expo export --platform web --output-dir web-dist
+          node -e 'require("fs").writeFileSync("packages/talos-app/web-dist/talos-build.json", JSON.stringify({revision: process.env.GIT_COMMIT}))'
+        '''
+      }
+    }
+    stage('Build and push immutable image') {
+      when { expression { return !params.VALIDATE_ONLY } }
+      options { timeout(time: 40, unit: 'MINUTES') }
+      steps {
+        container('kaniko') {
+          sh '''
+            /kaniko/executor \
+              --context="dir://$WORKSPACE" \
+              --dockerfile=deploy/web/Dockerfile.package \
+              --destination="ahmadposten/talos-web:git-$GIT_COMMIT-$BUILD_NUMBER" \
+              --digest-file="$WORKSPACE/image-digest.txt" \
+              --snapshot-mode=redo --push-retry=2
           '''
         }
       }
     }
-
-    stage('Package & Push') {
-      // kaniko snapshots only web-dist + nginx base. Fast.
-      options { retry(3) }
+    stage('Deploy and verify public revision') {
+      when { expression { return !params.VALIDATE_ONLY } }
       steps {
-        container('kaniko') {
-          script {
-            def shortSha = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'
-            sh """/kaniko/executor \
-              --context=dir://${WORKSPACE} \
-              --dockerfile=${WORKSPACE}/deploy/web/Dockerfile.package \
-              --destination=ahmadposten/talos-web:latest \
-              --destination=ahmadposten/talos-web:git-${shortSha} \
-              --cache=true \
-              --cache-repo=ahmadposten/talos-web-cache"""
-          }
-        }
-      }
-    }
-
-    stage('Deploy') {
-      options { retry(3) }
-      steps {
-        container('jnlp') {
-          script {
-            def shortSha = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'
-            def buildTimeIso = new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX", TimeZone.getTimeZone('UTC'))
-            sh """
-              f=deploy/rendered/web/deployment.yaml
-              sed -i "s|__GIT_SHA__|${shortSha}|g" "\$f"
-              sed -i "s|__BUILD_TIME__|${buildTimeIso}|g" "\$f"
-            """
-          }
-          sh 'kubectl apply -f deploy/rendered/web/service.yaml -n talos'
-          sh 'kubectl apply -f deploy/rendered/web/deployment.yaml -n talos'
-          sh 'kubectl rollout restart deployment/talos-web -n talos'
-          sh 'kubectl rollout status deployment/talos-web -n talos --timeout=300s'
-        }
+        sh '''
+          IMAGE="ahmadposten/talos-web@$(cat image-digest.txt)"
+          node deploy/talos-production/release-component.cjs web "$IMAGE" "$GIT_COMMIT" release-evidence
+        '''
+        script { currentBuild.description = "deployed:${env.GIT_COMMIT}" }
       }
     }
   }
-
   post {
+    unsuccessful {
+      // Normal health failures roll back inside the helper. This also recovers
+      // a pending release if Jenkins interrupted a stage after the patch.
+      sh '''
+        if [ -f release-evidence/release.json ] && [ -f image-digest.txt ]; then
+          IMAGE="ahmadposten/talos-web@$(cat image-digest.txt)"
+          node deploy/talos-production/release-component.cjs web "$IMAGE" "$GIT_COMMIT" release-evidence --recover
+        fi
+      '''
+    }
     always {
-      // The isolated pnpm install links read-only files into node_modules;
-      // make them writable first so cleanup can't fail the build.
-      sh 'chmod -R u+w "$WORKSPACE" 2>/dev/null; rm -rf "$WORKSPACE"/* "$WORKSPACE"/.[!.]* 2>/dev/null; true'
+      archiveArtifacts artifacts: 'release-evidence/*.json,image-digest.txt', allowEmptyArchive: true
+      cleanWs()
     }
   }
 }
