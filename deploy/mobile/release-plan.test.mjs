@@ -56,6 +56,33 @@ test('real Git ranges: bootstrap, accumulated failure, rename, bad baselines and
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
+test('server and web image changes skip mobile delivery without hiding bundled or native changes', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'talos-image-release-test-'));
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const selector = new URL('./release-plan.mjs', import.meta.url).pathname;
+  const run = (base, head) => execFileSync(process.execPath, [selector, base, head, 'auto'],
+    { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const commit = (path) => {
+    mkdirSync(dirname(join(cwd, path)), { recursive: true });
+    writeFileSync(join(cwd, path), `fixture for ${path}\n`);
+    git('add', '.'); git('commit', '-qm', path); return git('rev-parse', 'HEAD');
+  };
+  try {
+    git('init', '-q'); git('config', 'user.name', 'CI test'); git('config', 'user.email', 'ci@example.invalid');
+    const base = commit('README.md');
+    const server = commit('Dockerfile.server');
+    assert.equal(run(base, server), 'none');
+    const web = commit('Dockerfile.webapp');
+    assert.equal(run(base, web), 'none');
+    const bundled = commit('packages/talos-app/sources/session.ts');
+    assert.equal(run(base, bundled), 'ota');
+    const native = commit('packages/talos-app/plugins/notification.js');
+    assert.equal(run(base, native), 'native');
+    const unknown = commit('Dockerfile.mobile');
+    assert.equal(run(native, unknown), 'native');
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
 test('submission rejects stale or failed artifacts and extracts only exact finished build', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'talos-build-test-'));
   const file = join(cwd, 'build.json');
