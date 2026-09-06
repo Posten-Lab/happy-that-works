@@ -34,6 +34,7 @@ export const ProviderUsageBalanceSchema = z.object({
     usedPercent: z.number().finite().nullable(),
     unlimited: z.boolean().optional(),
     enabled: z.boolean().optional(),
+    disabledReason: z.enum(['out_of_credits', 'spend_limit_reached', 'user_disabled', 'unavailable']).optional(),
     resetsAt: z.number().finite().nullable(),
     expiresAt: z.number().finite().nullable(),
 });

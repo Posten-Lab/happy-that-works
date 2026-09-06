@@ -6,7 +6,7 @@ import type { ProviderUsageBalance, ProviderUsageWindow } from '@ahmadposten/tal
 import { Text } from '@/components/StyledText';
 import type { ProviderUsageEntry } from '@/sync/providerUsage';
 import {
-    checkedAgo, formatAllowance, formatRemainingPercent, formatUsageDate,
+    balanceRemainingSuffix, checkedAgo, disabledUsageState, formatAllowance, formatRemainingPercent, formatUsageDate,
     resetCountdown, severityLabels, sortUsageWindows, usageSeverity, type UsageSeverity,
 } from './providerUsagePresentation';
 
@@ -178,10 +178,10 @@ function Balance({ balance, first, now }: { balance: ProviderUsageBalance; first
     const colors = useUsageColors();
     // A provider's `hasCredits: false` still means a reported balance of zero.
     // Only paid extra usage has an on/off setting.
-    const disabled = balance.kind === 'spend_limit' && balance.enabled === false;
+    const disabled = disabledUsageState(balance);
     const expired = balance.expiresAt !== null && balance.expiresAt <= now;
     const format = (value: number | null) => formatAllowance(value, balance.unit, balance.currency);
-    const value = disabled ? 'Off' : balance.unlimited ? 'Unlimited' : format(balance.remaining);
+    const value = disabled ? disabled.label : balance.unlimited ? 'Unlimited' : format(balance.remaining);
     if (balance.kind === 'resets' && balance.expiresAt !== null) {
         return (
             <View style={[styles.resetDetail, !first && styles.divider]}>
@@ -197,9 +197,7 @@ function Balance({ balance, first, now }: { balance: ProviderUsageBalance; first
         balance.used !== null ? `${format(balance.used)} used` : null,
         balance.limit !== null ? `${format(balance.limit)} ${balance.kind === 'spend_limit' ? 'spending limit' : 'allowance'}` : null,
     ].filter(Boolean).join(' · ');
-    const suffix = disabled || balance.unlimited || balance.remaining === null ? ''
-        : balance.kind === 'credits' ? ' credits remaining'
-            : balance.kind === 'resets' ? ` reset${balance.remaining === 1 ? '' : 's'} ${expired ? 'recorded' : 'available'}` : ' left to spend';
+    const suffix = disabled ? '' : balanceRemainingSuffix(balance, expired);
     return (
         <View style={[styles.balance, !first && styles.divider]}>
             <View style={styles.balanceTop}>
@@ -214,9 +212,9 @@ function Balance({ balance, first, now }: { balance: ProviderUsageBalance; first
                     <Text style={[styles.small, { color: colors[usageSeverity(balance.usedPercent)] }]}>{severityLabels[usageSeverity(balance.usedPercent)]}</Text>
                 </>
             )}
-            {balance.kind === 'credits' && balance.remaining === 0 && !balance.unlimited && <Text style={[styles.small, { color: colors.exhausted }]}>No credits remaining</Text>}
-            {balance.kind === 'spend_limit' && disabled && <Text style={styles.small}>Your account is not using paid usage beyond its plan.</Text>}
-            {balance.kind === 'credits' && !disabled && <Text style={styles.small}>Credits extend usage beyond your plan limits.</Text>}
+            {balance.kind === 'credits' && balance.remaining === 0 && !balance.unlimited && <Text style={[styles.small, { color: colors.exhausted }]}>{balance.unit === 'currency' ? 'No prepaid balance remaining' : 'No credits remaining'}</Text>}
+            {disabled && <Text style={[styles.small, { color: colors[disabled.severity] }]}>{disabled.explanation}</Text>}
+            {balance.kind === 'credits' && !disabled && <Text style={styles.small}>{balance.unit === 'currency' ? 'Prepaid balance for usage beyond your plan limits.' : 'Credits extend usage beyond your plan limits.'}</Text>}
             {balance.resetsAt !== null && <Text style={styles.small}>{resetCountdown(balance.resetsAt, now)}{formatUsageDate(balance.resetsAt) ? ` · ${formatUsageDate(balance.resetsAt)}` : ''}</Text>}
             {balance.expiresAt !== null && <Text style={[styles.small, expired && { color: colors.caution }]}>{expired ? 'Expired' : 'Expires'} {formatUsageDate(balance.expiresAt) ?? 'at an unknown time'}{expired ? ' · refresh to check availability' : ''}</Text>}
         </View>
@@ -318,7 +316,7 @@ function LimitsToWatch({ entries, now }: { entries: ProviderUsageEntry[]; now: n
                 usedPercent: window.usedPercent!, resetsAt: window.resetsAt,
             }));
         const balances = entry.snapshot.balances
-            .filter(balance => balance.kind === 'spend_limit' && balance.enabled !== false && !balance.unlimited && balance.usedPercent !== null && balance.usedPercent >= 80)
+            .filter(balance => balance.kind === 'spend_limit' && (balance.enabled !== false || balance.disabledReason === 'spend_limit_reached') && !balance.unlimited && balance.usedPercent !== null && balance.usedPercent >= 80)
             .map(balance => ({
                 key: `${entry.key}:${balance.id}`,
                 label: `${provider} · ${balance.label}`,

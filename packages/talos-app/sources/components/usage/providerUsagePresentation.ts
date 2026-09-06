@@ -1,4 +1,4 @@
-import type { ProviderUsageWindow } from '@ahmadposten/talos-wire';
+import type { ProviderUsageBalance, ProviderUsageWindow } from '@ahmadposten/talos-wire';
 
 export type UsageSeverity = 'unknown' | 'normal' | 'caution' | 'critical' | 'exhausted';
 
@@ -75,8 +75,47 @@ export function formatAllowance(value: number | null, unit: 'credits' | 'currenc
     if (unit === 'credits' && value > 0 && value < 0.01) return '<0.01';
     if (unit === 'currency' && currency) {
         try {
-            return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+            const formatter = new Intl.NumberFormat(undefined, { style: 'currency', currency });
+            const smallestUnit = 10 ** -(formatter.resolvedOptions().maximumFractionDigits ?? 2);
+            if (value > 0 && value < smallestUnit) return `<${formatter.format(smallestUnit)}`;
+            return formatter.format(value);
         } catch { /* Preserve the reported amount if the provider's currency is unrecognized. */ }
     }
     return value.toLocaleString(undefined, { maximumFractionDigits: unit === 'count' ? 0 : 2 });
+}
+
+/** Availability is distinct from whether the user chose to turn extra usage off. */
+export function disabledUsageState(balance: Pick<ProviderUsageBalance, 'kind' | 'enabled' | 'disabledReason'>): {
+    label: string; explanation: string; severity: UsageSeverity;
+} | null {
+    if (balance.kind !== 'spend_limit' || balance.enabled !== false) return null;
+    switch (balance.disabledReason) {
+        case 'out_of_credits': return {
+            label: 'No credits',
+            explanation: 'Extra usage is paused because your prepaid credits have run out. Your spending limit is separate from your credit balance.',
+            severity: 'exhausted',
+        };
+        case 'spend_limit_reached': return {
+            label: 'Limit reached',
+            explanation: 'Extra usage is paused because your spending limit has been reached.',
+            severity: 'exhausted',
+        };
+        case 'user_disabled': return {
+            label: 'Off',
+            explanation: 'Extra usage is turned off in your provider account settings.',
+            severity: 'unknown',
+        };
+        default: return {
+            label: 'Unavailable',
+            explanation: 'Extra usage is currently unavailable for this account.',
+            severity: 'unknown',
+        };
+    }
+}
+
+export function balanceRemainingSuffix(balance: Pick<ProviderUsageBalance, 'kind' | 'unit' | 'remaining' | 'unlimited'>, expired = false): string {
+    if (balance.unlimited || balance.remaining === null) return '';
+    if (balance.kind === 'credits') return balance.unit === 'currency' ? ' remaining' : ' credits remaining';
+    if (balance.kind === 'resets') return ` reset${balance.remaining === 1 ? '' : 's'} ${expired ? 'recorded' : 'available'}`;
+    return balance.unit === 'credits' ? ' credits left to spend' : ' left to spend';
 }

@@ -92,6 +92,90 @@ describe('provider usage normalization', () => {
         expect(disabled.balances[0]).toMatchObject({ enabled: false, unlimited: false, used: 0 });
     });
 
+    it('normalizes the authenticated structured Claude response without duplicate or opaque legacy windows', () => {
+        const money = (amount_minor: number) => ({ amount_minor, currency: 'GBP', exponent: 2 });
+        const result = normalizeClaudeUsage(claudeAccount, claudeUsage({
+            five_hour: { utilization: 0, resets_at: null },
+            seven_day: { utilization: 9, resets_at: reset },
+            nimbus_quill: { utilization: 0, resets_at: null },
+            limits: [
+                { kind: 'session', percent: 0, resets_at: null, scope: null, is_active: false },
+                { kind: 'weekly_all', percent: 9, resets_at: reset, scope: null, is_active: true },
+            ],
+            extra_usage: { is_enabled: false, monthly_limit: 10000, used_credits: 0, utilization: 0, currency: 'GBP', decimal_places: 2, disabled_reason: 'out_of_credits', user_disabled: false },
+            spend: { used: money(0), limit: money(10000), cap: { money: money(10000), credits: null }, percent: 0, enabled: false, disabled_reason: 'out_of_credits', balance: null },
+        }), now);
+        expect(result.windows).toHaveLength(2);
+        expect(result.windows[0]).toMatchObject({ id: 'five_hour', label: '5-hour limit', remainingPercent: 100, durationSeconds: 18000, resetsAt: null });
+        expect(result.windows[1]).toMatchObject({ id: 'seven_day', label: 'Weekly limit', remainingPercent: 91, durationSeconds: 604800, resetsAt: Date.parse(reset) });
+        expect(result.balances).toHaveLength(1);
+        expect(result.balances[0]).toMatchObject({ unit: 'currency', currency: 'GBP', used: 0, limit: 100, remaining: 100, enabled: false, disabledReason: 'out_of_credits' });
+        expect(result.message).toBeUndefined();
+        expect(ProviderUsageSnapshotSchema.safeParse(result).success).toBe(true);
+    });
+
+    it('preserves named model and surface scopes in a complete structured list', () => {
+        const result = normalizeClaudeUsage(claudeAccount, claudeUsage({
+            five_hour: { utilization: 55 },
+            limits: [
+                { kind: 'session', percent: 5, scope: { surface: { display_name: 'Code' } } },
+                { kind: 'session', percent: 10, scope: { surface: { display_name: 'Cowork' } } },
+                { kind: 'weekly_scoped', percent: 20, scope: { model: { display_name: 'Opus' } } },
+            ],
+        }), now);
+        expect(result.windows).toHaveLength(3);
+        expect(result.windows.map((window) => window.scope)).toEqual(['Code', 'Cowork', 'Opus']);
+        expect(result.windows.map((window) => window.durationSeconds)).toEqual([18000, 18000, 604800]);
+        expect(new Set(result.windows.map((window) => window.id)).size).toBe(3);
+    });
+
+    it('falls back to legacy windows when the structured list is empty or malformed', () => {
+        for (const limits of [[], [null, {}, { label: 'no quota' }]]) {
+            const result = normalizeClaudeUsage(claudeAccount, claudeUsage({ five_hour: { utilization: 25, resets_at: reset }, limits }), now);
+            expect(result.windows).toHaveLength(1);
+            expect(result.windows[0].remainingPercent).toBe(75);
+        }
+    });
+
+    it('uses each structured money exponent and reports a credit balance only when supplied', () => {
+        const result = normalizeClaudeUsage(claudeAccount, claudeUsage({ spend: {
+            used: { amount_minor: 12345, currency: 'BHD', exponent: 3 },
+            limit: { amount_minor: 2000, currency: 'BHD', exponent: 2 },
+            balance: { amount_minor: 1250, currency: 'BHD', exponent: 3 },
+            enabled: true,
+        } }), now);
+        expect(result.balances[0]).toMatchObject({ currency: 'BHD', used: 12.345, limit: 20, remaining: 20 - 12.345 });
+        expect(result.balances[1]).toMatchObject({ kind: 'credits', unit: 'currency', currency: 'BHD', remaining: 1.25 });
+        const legacy = normalizeClaudeUsage(claudeAccount, claudeUsage({ extra_usage: { is_enabled: true, monthly_limit: 20000, used_credits: 12345, currency: 'BHD', decimal_places: 3 } }), now);
+        expect(legacy.balances[0]).toMatchObject({ used: 12.345, limit: 20 });
+    });
+
+    it('does not guess malformed money units or combine different currencies', () => {
+        const malformed = normalizeClaudeUsage(claudeAccount, claudeUsage({ spend: { used: { amount_minor: 100, currency: 'USD' }, limit: { amount_minor: 100, currency: 'USD', exponent: -1 }, balance: { amount_minor: 100, currency: 'USD' } } }), now);
+        expect(malformed.balances).toEqual([]);
+        const mismatched = normalizeClaudeUsage(claudeAccount, claudeUsage({ spend: { used: { amount_minor: 100, currency: 'GBP', exponent: 2 }, limit: { amount_minor: 100, currency: 'USD', exponent: 2 } } }), now);
+        expect(mismatched.balances).toEqual([]);
+    });
+
+    it('retains explicit legacy unlimited state with structured usage, without inferring it from unknown caps', () => {
+        const spend = { used: { amount_minor: 100, currency: 'GBP', exponent: 2 }, limit: null, enabled: true };
+        const explicit = normalizeClaudeUsage(claudeAccount, claudeUsage({ spend, extra_usage: { is_enabled: true, monthly_limit: null } }), now);
+        expect(explicit.balances[0]).toMatchObject({ used: 1, limit: null, remaining: null, unlimited: true });
+        const unknown = normalizeClaudeUsage(claudeAccount, claudeUsage({ spend }), now);
+        expect(unknown.balances[0]).toMatchObject({ limit: null, remaining: null, unlimited: false });
+    });
+
+    it.each([
+        [{ disabled_reason: 'out_of_credits' }, 'out_of_credits'],
+        [{ spend_limit_reached: true }, 'spend_limit_reached'],
+        [{ user_disabled: true }, 'user_disabled'],
+        [{ disabled_reason: 'future_provider_reason' }, 'unavailable'],
+        [{}, 'unavailable'],
+    ])('distinguishes why extra usage is disabled', (flags, reason) => {
+        const result = normalizeClaudeUsage(claudeAccount, claudeUsage({ extra_usage: { is_enabled: false, monthly_limit: 1000, used_credits: 0, ...flags } }), now);
+        expect(result.balances[0].disabledReason).toBe(reason);
+    });
+
     it('keeps stale provider usage honest after the reset rather than resetting the percentage locally', () => {
         const result = normalizeClaudeUsage(claudeAccount, claudeUsage({ five_hour: { utilization: 110, resets_at: '2026-09-05T12:00:00Z' } }), now);
         expect(result.freshness).toBe('stale');

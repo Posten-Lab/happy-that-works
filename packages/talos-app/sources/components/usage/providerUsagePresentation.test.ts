@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkedAgo, formatAllowance, formatRemainingPercent, formatUsageDate, resetCountdown, sortUsageWindows, usageSeverity } from './providerUsagePresentation';
+import { balanceRemainingSuffix, checkedAgo, disabledUsageState, formatAllowance, formatRemainingPercent, formatUsageDate, resetCountdown, sortUsageWindows, usageSeverity } from './providerUsagePresentation';
 
 describe('subscription usage presentation', () => {
     it('surfaces the most constrained limit without mutating provider data or elevating unknown values', () => {
@@ -51,5 +51,32 @@ describe('subscription usage presentation', () => {
         expect(formatAllowance(128.883025, 'credits')).toBe('128.88');
         expect(formatAllowance(12.3, 'currency', 'USD')).toContain('12.30');
         expect(formatAllowance(12.3, 'currency')).toBe('12.3');
+    });
+
+    it('distinguishes exhausted credits and spend caps from a user turning extra usage off', () => {
+        const balance = { kind: 'spend_limit' as const, enabled: false };
+        expect(disabledUsageState({ ...balance, disabledReason: 'out_of_credits' })?.label).toBe('No credits');
+        expect(disabledUsageState({ ...balance, disabledReason: 'spend_limit_reached' })?.label).toBe('Limit reached');
+        expect(disabledUsageState({ ...balance, disabledReason: 'user_disabled' })?.label).toBe('Off');
+        expect(disabledUsageState({ ...balance, disabledReason: 'unavailable' })?.label).toBe('Unavailable');
+        expect(disabledUsageState(balance)?.label).toBe('Unavailable');
+        expect(disabledUsageState({ ...balance, enabled: true })).toBeNull();
+        expect(disabledUsageState({ kind: 'credits', enabled: false })).toBeNull();
+    });
+
+    it('keeps monetary credit balances distinct from provider credit units and spending capacity', () => {
+        expect(formatAllowance(100, 'currency', 'GBP')).toBe('£100.00');
+        expect(formatAllowance(0, 'currency', 'GBP')).toBe('£0.00');
+        expect(formatAllowance(12.3, 'currency', 'GBP')).toContain('12.30');
+        expect(formatAllowance(0.123, 'currency', 'BHD')).toContain('0.123');
+        expect(formatAllowance(0.001, 'currency', 'GBP')).toBe('<£0.01');
+        expect(formatAllowance(0.0001, 'currency', 'BHD')).toMatch(/^<.*0\.001/);
+        expect(formatAllowance(0.1, 'currency', 'JPY')).toMatch(/^<.*1$/);
+        const credits = { kind: 'credits' as const, remaining: 12.3 };
+        expect(balanceRemainingSuffix({ ...credits, unit: 'currency' })).toBe(' remaining');
+        expect(balanceRemainingSuffix({ ...credits, unit: 'credits' })).toBe(' credits remaining');
+        expect(balanceRemainingSuffix({ kind: 'spend_limit', unit: 'currency', remaining: 100 })).toBe(' left to spend');
+        expect(balanceRemainingSuffix({ kind: 'spend_limit', unit: 'credits', remaining: 100 })).toBe(' credits left to spend');
+        expect(balanceRemainingSuffix({ ...credits, unit: 'currency', remaining: null })).toBe('');
     });
 });
