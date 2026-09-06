@@ -142,3 +142,14 @@ describe('codex fork ops', () => {
         });
     });
 });
+
+it('queries Claude models on the selected machine and normalizes encrypted handler errors', async () => {
+    const { claudeListModels } = await import('./ops');
+    machineRPC.mockResolvedValueOnce({ type: 'success', models: [{ code: 'future', value: 'Future' }] });
+    expect(await claudeListModels('dell')).toEqual({ type: 'success', models: [{ code: 'future', value: 'Future' }] });
+    expect(machineRPC).toHaveBeenLastCalledWith('dell', 'claude-list-models', {});
+    machineRPC.mockResolvedValueOnce({ error: 'Claude unavailable' });
+    expect(await claudeListModels('dell')).toEqual({ type: 'error', errorMessage: 'Claude unavailable' });
+    machineRPC.mockRejectedValueOnce(new Error('RPC method not available'));
+    expect(await claudeListModels('old-daemon')).toEqual({ type: 'error', errorMessage: 'RPC method not available' });
+});

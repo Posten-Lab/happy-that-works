@@ -45,6 +45,7 @@ import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useDocumentPicker } from '@/hooks/useDocumentPicker';
 import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
+import { useClaudeProviderModels } from '@/hooks/useClaudeProviderModels';
 import { AgentInputAttachmentStrip } from '@/components/AgentInputAttachmentStrip';
 import { useShallow } from 'zustand/react/shallow';
 import type { MultiTextInputHandle } from '@/components/MultiTextInput';
@@ -748,20 +749,25 @@ function NewSessionScreen() {
         () => getHardcodedPermissionModes(selectedAgent, t),
         [selectedAgent],
     );
-    const canDiscoverCodexModels = Boolean(selectedMachine && isMachineOnline(selectedMachine));
+    const canDiscoverModels = Boolean(selectedMachine && isMachineOnline(selectedMachine));
     const liveCodexModels = useCodexProviderModels(
         selectedMachineId ? [selectedMachineId] : [],
-        selectedAgent === 'codex' && canDiscoverCodexModels,
+        selectedAgent === 'codex' && canDiscoverModels,
     );
-    const codexModelMetadata = React.useMemo(() => (
-        liveCodexModels && liveCodexModels.length > 0
-            ? { models: liveCodexModels }
+    const liveClaudeModels = useClaudeProviderModels(
+        selectedMachineId ? [selectedMachineId] : [],
+        selectedAgent === 'claude' && canDiscoverModels,
+    );
+    const liveModels = selectedAgent === 'claude' ? liveClaudeModels : liveCodexModels;
+    const providerModelMetadata = React.useMemo(() => (
+        liveModels && liveModels.length > 0
+            ? { models: liveModels }
             : undefined
-    ), [liveCodexModels]);
+    ), [liveModels]);
 
     const modelModes = React.useMemo<ModelMode[]>(
-        () => getAvailableModels(selectedAgent, codexModelMetadata, t),
-        [selectedAgent, codexModelMetadata],
+        () => getAvailableModels(selectedAgent, providerModelMetadata, t),
+        [selectedAgent, providerModelMetadata],
     );
 
     const currentModel = modelModes[modelIndex] ?? modelModes[0];
@@ -771,9 +777,9 @@ function NewSessionScreen() {
         () => getEffortLevelsForModel(
             selectedAgent,
             currentModelKey,
-            codexModelMetadata,
+            providerModelMetadata,
         ),
-        [selectedAgent, currentModelKey, codexModelMetadata],
+        [selectedAgent, currentModelKey, providerModelMetadata],
     );
     const effectiveAgentDefaults = React.useMemo(() => (
         resolveAgentDefaultConfig(agentDefaultOverrides, selectedAgent)

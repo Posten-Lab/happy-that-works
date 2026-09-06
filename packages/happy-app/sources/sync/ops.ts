@@ -203,7 +203,7 @@ export interface CodexRewindPoint {
     timestamp: number;
 }
 
-export interface CodexProviderModel {
+export interface ProviderModel {
     code: string;
     value: string;
     description?: string | null;
@@ -216,9 +216,13 @@ export interface CodexProviderModel {
     isDefault?: boolean;
 }
 
-export type CodexListModelsResult =
-    | { type: 'success'; models: CodexProviderModel[] }
+export type CodexProviderModel = ProviderModel;
+
+export type ProviderListModelsResult =
+    | { type: 'success'; models: ProviderModel[] }
     | { type: 'error'; errorMessage: string };
+
+export type CodexListModelsResult = ProviderListModelsResult;
 
 export type CodexListRewindPointsResult =
     | { type: 'success'; points: CodexRewindPoint[] }
@@ -415,20 +419,31 @@ export async function codexListRewindPoints(
     }
 }
 
-/** Query the selected machine's installed Codex provider for its live model list. */
-export async function codexListModels(machineId: string): Promise<CodexListModelsResult> {
+/** Query a machine's provider catalog before a session exists. */
+async function listProviderModels(machineId: string, provider: 'claude' | 'codex'): Promise<ProviderListModelsResult> {
     try {
-        return await apiSocket.machineRPC<CodexListModelsResult, Record<string, never>>(
+        const result = await apiSocket.machineRPC<ProviderListModelsResult | { error: string }, Record<string, never>>(
             machineId,
-            'codex-list-models',
+            `${provider}-list-models`,
             {},
         );
+        // Handler exceptions are returned inside the encrypted RPC envelope.
+        if ('error' in result) return { type: 'error', errorMessage: result.error };
+        return result;
     } catch (error) {
         return {
             type: 'error',
-            errorMessage: error instanceof Error ? error.message : 'Failed to list Codex models',
+            errorMessage: error instanceof Error ? error.message : `Failed to list ${provider} models`,
         };
     }
+}
+
+export function codexListModels(machineId: string): Promise<ProviderListModelsResult> {
+    return listProviderModels(machineId, 'codex');
+}
+
+export function claudeListModels(machineId: string): Promise<ProviderListModelsResult> {
+    return listProviderModels(machineId, 'claude');
 }
 
 export async function machineResumeSession(options: ResumeSessionOptions & { model?: string; permissionMode?: string }): Promise<SpawnSessionResult> {
