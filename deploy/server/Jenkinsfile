@@ -91,7 +91,7 @@ spec:
               --filter @ahmadposten/talos-server... --filter talos-app... \
               --config.node-linker=isolated --config.shamefully-hoist=false
             pnpm verify:brand
-            node --test deploy/talos-production/release-component.test.cjs
+            node --test deploy/talos-production/release-component.test.cjs deploy/talos-production/prepare-image-context.test.cjs
             pnpm --filter @ahmadposten/talos-wire test
             pnpm --filter @ahmadposten/talos-server typecheck
             pnpm --filter @ahmadposten/talos-server exec vitest run --maxWorkers=4
@@ -102,13 +102,18 @@ spec:
       when { expression { return !params.VALIDATE_ONLY } }
       options { timeout(time: 40, unit: 'MINUTES') }
       steps {
+        script {
+          env.API_IMAGE_CONTEXT = sh(
+            script: 'node deploy/talos-production/prepare-image-context.cjs "$GIT_COMMIT"',
+            returnStdout: true).trim()
+        }
         container(name: 'kaniko', shell: '/busybox/sh') {
           // Jenkins's durable launcher also needs Kaniko's BusyBox utilities.
           withEnv(['PATH+KANIKO=/busybox']) {
             sh '''#!/busybox/sh
               set -eu
               /kaniko/executor \
-                --context="dir://$WORKSPACE" \
+                --context="dir://$API_IMAGE_CONTEXT" \
                 --dockerfile=Dockerfile.server \
                 --destination="ahmadposten/talos-server:git-$GIT_COMMIT-$BUILD_NUMBER" \
                 --digest-file="$WORKSPACE/image-digest.txt" \
