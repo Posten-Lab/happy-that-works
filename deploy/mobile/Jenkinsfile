@@ -95,7 +95,10 @@ pipeline {
     }
 
     stage('Release selector tests') {
-      steps { sh 'node --test deploy/mobile/release-plan.test.mjs' }
+      steps {
+        sh 'node --test deploy/mobile/release-plan.test.mjs deploy/mobile/download-ios-artifact.test.cjs'
+        sh "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/mobile -p 'test_ios_ipa.py' -v"
+      }
     }
 
     stage('App tests and typecheck') {
@@ -194,13 +197,17 @@ pipeline {
               node ../../scripts/verify-release-config.cjs ios
               EXPO_ASC_API_KEY_PATH=$(mktemp /tmp/talos-asc-key.XXXXXX)
               export EXPO_ASC_API_KEY_PATH
-              trap 'rm -f "$EXPO_ASC_API_KEY_PATH"' EXIT HUP INT TERM
+              IPA_DIR=''
+              trap 'rm -f "$EXPO_ASC_API_KEY_PATH"; if [ -n "$IPA_DIR" ]; then rm -rf "$IPA_DIR"; fi' EXIT HUP INT TERM
               printf '%s' "$ASC_KEY_P8_B64" | base64 -d > "$EXPO_ASC_API_KEY_PATH"
               unset ASC_KEY_P8_B64
               # Submit reads its key from eas.json, not EXPO_ASC_API_KEY_PATH.
               node ../../deploy/mobile/prepare-submit.cjs
               eas build -p ios --profile production --non-interactive --wait --json > build-result.json
               node ../../deploy/mobile/build-id.cjs build-result.json > build-id.txt
+              IPA_DIR=$(mktemp -d /tmp/talos-ios-artifact.XXXXXX)
+              node ../../deploy/mobile/download-ios-artifact.cjs build-result.json "$IPA_DIR/verified.ipa" > artifact-download.json
+              python3 ../../deploy/mobile/verify-ios-ipa.py "$IPA_DIR/verified.ipa" --output ipa-verification.json
               eas submit -p ios --profile production --id "$(cat build-id.txt)" --non-interactive --wait
             '''
           }
@@ -221,7 +228,7 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'packages/talos-app/build-id.txt', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'packages/talos-app/build-id.txt,packages/talos-app/artifact-download.json,packages/talos-app/ipa-verification.json', allowEmptyArchive: true
       cleanWs()
     }
   }
