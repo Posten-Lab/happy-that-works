@@ -20,7 +20,7 @@ Uncached session history still requires the full account secret held by an authe
 
 ## Release verification still required
 
-Before the native store build, confirm the App Store Connect app record, valid distribution certificate/profile, application identifier prefix, and latest accepted version/build. Keep the configured owned EAS project ID and slug. Supply the existing ASC API key at the configured private path through CI credentials. Change the existing listing's public name and metadata to Talos rather than creating a second listing.
+Before the native store build, confirm the App Store Connect app record, valid distribution certificate/profile, application identifier prefix, and latest accepted version/build. Keep the configured owned EAS project ID and slug. Supply the existing ASC API key at the configured private path through CI credentials. The existing listing is named `Talos — AI Coding Agents` with subtitle `Your coding agents, everywhere`. Apple rejected the exact listing name `Talos` because another account already uses it. The installed app remains named Talos. Keep this existing listing instead of creating a second app record.
 
 Run `APP_ENV=production node scripts/verify-release-config.cjs ios` with the Talos HTTPS endpoint environment. This iOS preflight does not require Android Firebase credentials. Android or combined mobile releases require a Firebase client matching the retained production Android package.
 

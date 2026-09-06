@@ -47,7 +47,7 @@ The default AWS profile resolves to IAM user `quietplan-backend`. After the user
 
 Normal DNS and trusted HTTPS passed in a fresh browser, including cross-origin API/files access. All 40 imported session keys decrypted through the public Talos API and an encrypted read-only RPC reached the original daemon. A new opaque test attachment passed presigned multipart upload, signed download, CORS and byte/decryption checks; only that exact verification object was then removed. Original account files, daemon and all seven original production pods remained unchanged. Only the Talos installation's saved API/web URLs were updated. [Public rollout evidence](evidence/public-rollout.json) records the results.
 
-Completion now also includes hardened Jenkins pipelines and runtime rollout, canonical npm installation/connection on MacBook and Dell, and a Talos native update to the existing iOS app. npm publishing still needs a token satisfying its 2FA requirement. Apple rejected the exact listing name `Talos` as already used by another account; an alternative listing title is awaiting user choice. The installed app display name remains Talos.
+Completion now also includes hardened Jenkins pipelines and runtime rollout, canonical npm installation/connection on MacBook and Dell, and a Talos native update to the existing iOS app. npm publishing still needs a token satisfying its 2FA requirement. Apple rejected the exact listing name `Talos` as already used by another account. The existing listing now uses `Talos — AI Coding Agents`; its installed app display name remains Talos. App Store Connect currently contains a draft public listing and valid TestFlight build 14, so the next native delivery targets the existing TestFlight installation.
 
 ## Validation
 
