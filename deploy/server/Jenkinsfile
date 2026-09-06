@@ -18,6 +18,8 @@ spec:
     - name: node
       image: node:20-bookworm
       securityContext: { runAsUser: 1000, runAsGroup: 1000 }
+      env:
+        - { name: HOME, value: /home/node }
       command: ["cat"]
       tty: true
       resources:
