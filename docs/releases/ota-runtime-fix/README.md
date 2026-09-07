@@ -47,3 +47,26 @@ Validation on 2026-09-07:
   before/after generation. Generated native output was removed afterward.
 - Replacement cloud build and production OTA delivery remain separate required
   deployment checks; these local checks do not claim a successful store delivery.
+
+## Completed build 21 artifact verification
+
+EAS completed build `eb275718-df2a-4779-9e3f-da96eba575bc` for commit
+`fe72439179e35cbc65ed174dfef88331a6b0cc09`. Remote configuration and the bundled
+fingerprint both resolve to `86d99034771c86a8c2ff5ad743c06e0650f848f6`. Jenkins
+33 stopped before submission because the older IPA verifier compared Expo's
+`file:fingerprint` sentinel literally. The verifier now follows the installed
+Expo SDK's `UpdatesConfig.swift` resource lookup and checks the actual hash.
+
+The real downloaded IPA passed the complete corrected continuity/signature gate;
+see [the sanitized report](build21-ipa-verification.json). Its SHA256 is
+`50a1a477dfa6f51d70a89e65cdb62b5f2f2732f4db94b74eed8ba6b09f4515cc`.
+The regression suite covers missing/wrong/malformed resources and retains literal
+runtime support. Retry selection uses actual Git ancestry/diffs and exact EAS
+metadata, preserving all submission checks without rebuilding unchanged app code.
+
+The concurrent API rollout in Jenkins 71 rolled back at its eight-minute limit.
+Kubernetes events showed a 6m17s cold image pull for the first replica, followed
+by a 52s pull for the second; the second process was starting when the deadline
+expired. Both original replicas recovered and remained healthy. API rollouts now
+have a bounded 15-minute window for sequential cold pulls/startups, retaining all
+readiness, exact-revision, concurrency and rollback checks. Web retains eight minutes.

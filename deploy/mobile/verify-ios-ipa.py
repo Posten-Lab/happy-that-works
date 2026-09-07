@@ -159,7 +159,12 @@ def inspect_ipa(ipa, *, expected_version, expected_runtime, signature_tools=None
         number = str(info.get('CFBundleVersion', ''))
         require(bool(re.fullmatch(r'[1-9][0-9]{0,8}', number)) and int(number) > BASELINE_BUILD,
                 'Native build number must advance beyond distributed build 14')
-        require(expo.get('EXUpdatesRuntimeVersion') == expected_runtime, 'Runtime differs from the reviewed checkout')
+        runtime = expo.get('EXUpdatesRuntimeVersion')
+        if runtime == 'file:fingerprint':
+            # Match Expo UpdatesConfig.swift: the sentinel resolves from its resource bundle.
+            runtime = read('EXUpdates.bundle/fingerprint').decode('utf-8')
+            require(bool(re.fullmatch(r'[a-f0-9]{40}', runtime)), 'Embedded fingerprint is invalid')
+        require(runtime == expected_runtime, 'Runtime differs from the reviewed checkout')
         require(expo.get('EXUpdatesEnabled') is True, 'Production OTA configuration must remain enabled')
         require(ent.get('application-identifier') == APP_ID, 'Profile application identifier differs from the installed app')
         require(ent.get('com.apple.developer.team-identifier') == TEAM, 'Profile entitlement team differs from the installed app')
@@ -207,7 +212,7 @@ def inspect_ipa(ipa, *, expected_version, expected_runtime, signature_tools=None
         'passed': True, 'ipaSha256': digest.hexdigest(), 'ipaBytes': ipa.stat().st_size,
         'bundleIdentifier': BUNDLE_ID, 'displayName': info['CFBundleDisplayName'],
         'version': info['CFBundleShortVersionString'], 'buildNumber': number,
-        'runtimeVersion': expo['EXUpdatesRuntimeVersion'],
+        'runtimeVersion': runtime,
         'executableSignature': executable_signature,
         'profile': {'applicationIdentifier': APP_ID, 'team': TEAM, 'prefix': TEAM,
                     'keychainAccessGroups': groups, 'expires': expiration.isoformat(),

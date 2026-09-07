@@ -84,6 +84,7 @@ test('successful rollout checks the exact public revision and writes private rec
         const result = await release(f.options, { run: f.run, health: async (_config, revision) => healthChecks.push(revision) });
         assert.equal(result.status, 'deployed'); assert.deepEqual(healthChecks, [sha]);
         assert.equal(f.calls.filter(args => args[2] === 'patch').length, 1);
+        assert.ok(f.calls.find(args => args[2] === 'rollout').includes('--timeout=900s'));
         assert.equal(fs.statSync(path.join(f.directory, 'previous.json')).mode & 0o777, 0o600);
         assert.deepEqual(f.current.spec.template.spec.containers[0].envFrom, f.before.spec.template.spec.containers[0].envFrom);
     } finally { f.cleanup(); }
@@ -117,6 +118,7 @@ test('concurrent operator change is preserved instead of rolled back', async () 
             throw Error('unavailable');
         } }), /Another operator changed/);
         assert.equal(f.calls.filter(args => args[2] === 'patch').length, 1);
+        assert.ok(f.calls.find(args => args[2] === 'rollout').includes('--timeout=900s'));
         assert.equal(f.current.spec.template.metadata.annotations['operator-change'], 'preserve');
         assert.equal(JSON.parse(fs.readFileSync(path.join(f.directory, 'release.json'))).status, 'rollback-refused');
     } finally { f.cleanup(); }

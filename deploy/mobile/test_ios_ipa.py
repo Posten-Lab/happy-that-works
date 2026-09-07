@@ -75,6 +75,25 @@ class IpaGateTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Runtime differs'):
             self.inspect(expected_version='2.1.0', expected_runtime='talos-1')
 
+    def test_fingerprint_runtime_resolves_the_exact_embedded_resource(self):
+        self.expo['EXUpdatesRuntimeVersion'] = 'file:fingerprint'
+        runtime = 'a' * 40
+        resource = 'Payload/Talos.app/EXUpdates.bundle/fingerprint'
+        self.write(extra=(resource, runtime.encode()))
+        self.assertEqual(self.inspect(expected_runtime=runtime)['runtimeVersion'], runtime)
+        with self.assertRaisesRegex(ValueError, 'Runtime differs'):
+            self.inspect(expected_runtime='b' * 40)
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'missing required'):
+            self.inspect(expected_runtime=runtime)
+        for value in [b'', b'invalid', runtime.encode() + b'\n', b'\xff', b'a' * (checker.MAX_METADATA_BYTES + 1)]:
+            self.write(extra=(resource, value))
+            with self.subTest(value_length=len(value)), self.assertRaises(ValueError):
+                self.inspect(expected_runtime=runtime)
+        self.write(extra=('Payload/Talos.app/Other.bundle/fingerprint', runtime.encode()))
+        with self.assertRaisesRegex(ValueError, 'missing required'):
+            self.inspect(expected_runtime=runtime)
+
     def test_release_expectations_are_required_and_validated(self):
         self.write()
         for version in ['', '2.0', '02.0.0', '2.0.0-beta', '2.0.0\n', None, 2]:
