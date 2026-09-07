@@ -91,3 +91,5 @@ packages/talos-app/runtime-config.json
 packages/talos-app/ipa-expected-config.json
 packages/talos-app/artifact-download.json
 packages/talos-app/ipa-verification.json
+packages/talos-app/runtime-version.txt
+packages/talos-app/runtime-compatibility.json

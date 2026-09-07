@@ -141,7 +141,7 @@ test('submission rejects stale or failed artifacts and extracts only exact finis
 test('runtime compatibility requires an exact finished production binary', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'talos-runtime-test-'));
   const hash = 'a'.repeat(40);
-  const build = { status: 'FINISHED', platform: 'IOS', buildProfile: 'production', distribution: 'STORE', runtimeVersion: 'talos-1', fingerprint: { hash } };
+  const build = { status: 'FINISHED', platform: 'IOS', buildProfile: 'production', distribution: 'STORE', runtimeVersion: hash, fingerprint: { hash } };
   const run = builds => {
     writeFileSync(join(cwd, 'compatible-builds.json'), JSON.stringify(builds));
     return execFileSync(process.execPath, [new URL('./compatible-runtime.cjs', import.meta.url).pathname],
@@ -149,16 +149,17 @@ test('runtime compatibility requires an exact finished production binary', () =>
   };
   try {
     writeFileSync(join(cwd, 'fingerprint-result.json'), JSON.stringify({ hash }));
-    writeFileSync(join(cwd, 'runtime-config.json'), JSON.stringify({ runtimeVersion: 'talos-1', extra: { eas: { projectId: '4445e993-5eaa-4a1a-8754-7068e8565e64' } } }));
+    writeFileSync(join(cwd, 'runtime-config.json'), JSON.stringify({ runtimeVersion: { policy: 'fingerprint' }, extra: { eas: { projectId: '4445e993-5eaa-4a1a-8754-7068e8565e64' } } }));
     assert.equal(run([build]), 'yes');
     for (const builds of [[], [{ ...build, status: 'CANCELED' }], [{ ...build, runtimeVersion: '21' }],
       [{ ...build, buildProfile: 'preview' }], [{ ...build, distribution: 'INTERNAL' }]]) {
       assert.equal(run(builds), 'no');
     }
-    assert.equal(run([{ ...build, fingerprint: undefined }]), 'no');
-    assert.equal(run([{ ...build, fingerprint: { hash: 'b'.repeat(40) } }]), 'no');
-    assert.equal(run([build, { ...build, fingerprint: { hash: 'b'.repeat(40) } }]), 'no');
-    assert.equal(run(Array.from({ length: 50 }, () => build)), 'no');
+    assert.throws(() => run([{ ...build, fingerprint: undefined }]));
+    assert.throws(() => run([{ ...build, fingerprint: { hash: 'b'.repeat(40) } }]));
+    assert.throws(() => run([build, { ...build, fingerprint: { hash: 'b'.repeat(40) } }]));
+    assert.equal(run(Array.from({ length: 50 }, () => build)), 'yes');
+    assert.equal(run([build, { ...build, runtimeVersion: 'old-runtime', fingerprint: { hash: 'b'.repeat(40) } }]), 'yes');
     assert.throws(() => run({ error: 'EAS unavailable' }));
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

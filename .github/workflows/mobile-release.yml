@@ -3,11 +3,15 @@ on:
   pull_request:
     paths:
       - 'deploy/mobile/**'
+      - 'packages/talos-app/app.config.js'
+      - 'scripts/store-continuity.test.cjs'
       - '.github/workflows/mobile-release.yml'
   push:
     branches: [main]
     paths:
       - 'deploy/mobile/**'
+      - 'packages/talos-app/app.config.js'
+      - 'scripts/store-continuity.test.cjs'
       - '.github/workflows/mobile-release.yml'
 jobs:
   test:
@@ -17,4 +21,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test deploy/mobile/release-plan.test.mjs
+      - run: node --test deploy/mobile/*.test.cjs deploy/mobile/*.test.mjs scripts/store-continuity.test.cjs

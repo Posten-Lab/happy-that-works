@@ -65,7 +65,7 @@ export default {
         name,
         slug: easProjectId === productionStoreIdentity.easProjectId ? productionStoreIdentity.easSlug : 'talos',
         version: "2.0.0",
-        runtimeVersion: "talos-1",
+        runtimeVersion: { policy: "fingerprint" },
         orientation: "default",
         icon: "./sources/assets/images/icon.png",
         scheme: variant === 'production' ? ['talos', productionStoreIdentity.legacyScheme] : 'talos',
