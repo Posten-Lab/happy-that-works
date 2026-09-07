@@ -1,3 +1,4 @@
+import { reconnectMetadata } from '@/daemon/recovery/reconnectMetadata';
 import { randomUUID } from 'node:crypto';
 import { ApiClient } from '@/api/api';
 import type { ApiSessionClient, ACPMessageData } from '@/api/apiSession';
@@ -14,6 +15,7 @@ import { hashObject } from '@/utils/deterministicJson';
 import { registerKillSessionHandler } from '@/claude/registerKillSessionHandler';
 import { logger } from '@/ui/logger';
 import { startTalosServer } from '@/claude/utils/startTalosServer';
+import { stopSessionRecovery } from '@/daemon/recovery/checkpoint';
 
 export type ProviderPromptOptions = { model?: string | null; permissionMode?: string; effort?: string };
 export interface ManagedProviderCallbacks {
@@ -72,8 +74,16 @@ export async function runManagedProvider(opts: {
     const { metadata, state } = createSessionMetadata({ flavor: opts.flavor, machineId: settings.machineId, startedBy: opts.startedBy });
     const tag = randomUUID();
     const env = process.env;
+    if (opts.flavor === 'muse') metadata.museSessionId = opts.resumeId;
+    metadata.currentModelCode = env.TALOS_RECONNECT_MODEL;
+    metadata.currentOperatingModeCode = env.TALOS_RECONNECT_PERMISSION_MODE;
+    let currentPromptOptions: ProviderPromptOptions = {
+        model: env.TALOS_RECONNECT_MODEL,
+        permissionMode: env.TALOS_RECONNECT_PERMISSION_MODE,
+    };
     let response: Session | null;
     if (env.TALOS_RECONNECT_SESSION_ID && env.TALOS_RECONNECT_ENCRYPTION_KEY && env.TALOS_RECONNECT_ENCRYPTION_VARIANT) {
+        Object.assign(metadata, reconnectMetadata(metadata));
         if (!['legacy', 'dataKey'].includes(env.TALOS_RECONNECT_ENCRYPTION_VARIANT)) throw new Error('Invalid reconnect encryption variant');
         response = { id: env.TALOS_RECONNECT_SESSION_ID, encryptionKey: decodeBase64(env.TALOS_RECONNECT_ENCRYPTION_KEY),
             encryptionVariant: env.TALOS_RECONNECT_ENCRYPTION_VARIANT as 'legacy' | 'dataKey',
@@ -87,6 +97,13 @@ export async function runManagedProvider(opts: {
     let mode = opts.startingMode;
     let thinking = false;
     let ending = false;
+    let systemTermination = false;
+    let intentionallyStopped = false;
+    let cleaningUp = false;
+    const stopRecovery = () => {
+        intentionallyStopped = true;
+        stopSessionRecovery(session.sessionId);
+    };
     let failure: Error | undefined;
     let latestMetadata: Partial<Metadata> = {};
     const bufferedMessages: Parameters<ManagedProviderCallbacks['message']>[0][] = [];
@@ -102,6 +119,11 @@ export async function runManagedProvider(opts: {
             session.updateMetadata(current => ({ ...current, ...latestMetadata }));
         } });
     session = reconnect.session;
+    if (env.TALOS_RECONNECT_SESSION_ID) {
+        if (!process.env.TALOS_RECONNECT_METADATA) session.suppressNextArchiveSignal();
+        session.skipExistingMessages();
+        session.updateMetadata(current => ({ ...current, lifecycleState: 'running', archivedBy: undefined, archiveReason: undefined }));
+    }
     permissions = new ProviderPermissions(session);
     permissions.reset('Previous provider process exited');
     if (response) {
@@ -135,7 +157,12 @@ export async function runManagedProvider(opts: {
         notice(message) { session.sendSessionEvent({ type: 'message', message }); logger.debug(`[${opts.flavor}] ${message}`); },
         permission: (id, tool, input) => permissions.request(id, tool, input),
         cancelPermission: id => permissions.cancel(id),
-        exited(error) { failure = error; ending = true; queue.close(); },
+        exited(error) {
+            failure = error;
+            if (!error && !systemTermination && !cleaningUp) stopRecovery();
+            ending = true;
+            queue.close();
+        },
     }, session.sessionId, sessionTools.url); }
     catch (error) {
         sessionTools.stop();
@@ -150,8 +177,12 @@ export async function runManagedProvider(opts: {
         });
         session.onUserMessage(message => {
             if (!message.content.text) return;
-            queue.push(message.content.text, { model: message.meta?.model, permissionMode: message.meta?.permissionMode,
-                effort: message.meta?.effort ?? undefined });
+            currentPromptOptions = {
+                model: message.meta?.model !== undefined ? message.meta.model : currentPromptOptions.model,
+                permissionMode: message.meta?.permissionMode ?? currentPromptOptions.permissionMode,
+                effort: message.meta?.hasOwnProperty('effort') ? message.meta.effort ?? undefined : currentPromptOptions.effort,
+            };
+            queue.push(message.content.text, currentPromptOptions);
         });
         session.rpcHandlerManager.registerHandler('abort', async () => { permissions.abortAll(); await driver.cancel(); });
         session.rpcHandlerManager.registerHandler<{ to: 'local' | 'remote' }, boolean>('switch', async ({ to }) => {
@@ -160,13 +191,23 @@ export async function runManagedProvider(opts: {
             permissions.abortAll();
             return true;
         });
-        registerKillSessionHandler(session.rpcHandlerManager, async () => { ending = true; queue.close(); permissions.abortAll(); await driver.dispose(); });
+        const kill = async () => {
+            stopRecovery();
+            ending = true;
+            queue.close();
+            permissions.abortAll();
+            await driver.dispose();
+        };
+        registerKillSessionHandler(session.rpcHandlerManager, kill, session.sessionId);
+        session.on('archived', () => { void kill(); });
     }
     bind();
     const heartbeat = setInterval(() => session.keepAlive(thinking, mode), 2000);
     const stop = () => { ending = true; queue.close(); permissions.abortAll(); void driver.dispose(); };
-    process.on('SIGTERM', stop);
-    process.on('SIGINT', stop);
+    const onSigterm = () => { systemTermination = true; stop(); };
+    const onSigint = () => { stopRecovery(); stop(); };
+    process.on('SIGTERM', onSigterm);
+    process.on('SIGINT', onSigint);
     try {
         await driver.start(opts.resumeId, opts.startingMode);
         while (!ending) {
@@ -177,14 +218,18 @@ export async function runManagedProvider(opts: {
             finally { thinking = false; session.keepAlive(false, mode); session.sendSessionEvent({ type: 'ready' }); }
         }
         if (failure) throw failure;
+        if (!systemTermination) stopRecovery();
     } finally {
+        cleaningUp = true;
         clearInterval(heartbeat);
-        process.off('SIGTERM', stop);
-        process.off('SIGINT', stop);
+        process.off('SIGTERM', onSigterm);
+        process.off('SIGINT', onSigint);
         reconnect.reconnectionHandle?.cancel();
         permissions.abortAll();
         try { await driver.dispose(); } finally { sessionTools.stop(); }
-        session.updateMetadata(current => ({ ...current, lifecycleState: 'archived', lifecycleStateSince: Date.now(), archivedBy: 'cli', archiveReason: 'Session ended' }));
+        if (intentionallyStopped) {
+            session.updateMetadata(current => ({ ...current, lifecycleState: 'archived', lifecycleStateSince: Date.now(), archivedBy: 'cli', archiveReason: 'Session ended' }));
+        }
         session.sendSessionDeath();
         await session.flush();
         await session.close();

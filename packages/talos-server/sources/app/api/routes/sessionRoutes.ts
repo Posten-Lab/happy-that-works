@@ -10,6 +10,36 @@ import { sessionDelete } from "@/app/session/sessionDelete";
 
 export function sessionRoutes(app: Fastify) {
 
+    // Recovery clients need current encrypted metadata even for inactive sessions.
+    app.get('/v1/sessions/:sessionId', {
+        preHandler: app.authenticate,
+        schema: { params: z.object({ sessionId: z.string() }) },
+    }, async (request, reply) => {
+        const session = await db.session.findFirst({
+            where: { id: request.params.sessionId, accountId: request.userId },
+            select: {
+                id: true, seq: true, createdAt: true, updatedAt: true,
+                active: true, lastActiveAt: true,
+                metadata: true, metadataVersion: true,
+                agentState: true, agentStateVersion: true, dataEncryptionKey: true,
+            },
+        });
+        if (!session) return reply.code(404).send({ error: 'Session not found' });
+        return reply.send({ session: {
+            id: session.id,
+            seq: session.seq,
+            createdAt: session.createdAt.getTime(),
+            updatedAt: session.updatedAt.getTime(),
+            active: session.active,
+            activeAt: session.lastActiveAt.getTime(),
+            metadata: session.metadata,
+            metadataVersion: session.metadataVersion,
+            agentState: session.agentState,
+            agentStateVersion: session.agentStateVersion,
+            dataEncryptionKey: session.dataEncryptionKey ? Buffer.from(session.dataEncryptionKey).toString('base64') : null,
+        } });
+    });
+
     // Sessions API
     app.get('/v1/sessions', {
         preHandler: app.authenticate,

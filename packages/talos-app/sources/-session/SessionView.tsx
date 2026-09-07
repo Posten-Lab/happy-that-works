@@ -31,7 +31,7 @@ import { getCurrentVoiceConversationId, getCurrentVoiceSessionDurationSeconds, s
 import { gitStatusSync } from '@/sync/gitStatusSync';
 import { sessionAbort, sessionGoalAction } from '@/sync/ops';
 import { storage, useIsDataReady, useLocalSetting, useRealtimeStatus, useSessionMessages, useSessionUsage, useSetting } from '@/sync/storage';
-import { useSession } from '@/sync/storage';
+import { useSession, useMachine } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
@@ -60,11 +60,14 @@ import { useUnistyles } from 'react-native-unistyles';
 import type { ModelMode, PermissionMode } from '@/components/PermissionModeSelector';
 import { resolveAgentDefaultConfig } from '@/sync/agentDefaults';
 import { performAgentGoalAction } from './agentGoalActionHandler';
+import { getMachineRecovery, getSessionRecovery, hasUnresolvedSessionRecovery, type SessionRecovery } from '@/utils/sessionRecovery';
 
 export const SessionView = React.memo((props: { id: string }) => {
     const sessionId = props.id;
     const router = useRouter();
     const session = useSession(sessionId);
+    const sessionMachine = useMachine(session?.metadata?.machineId ?? '');
+    const unresolvedRecovery = hasUnresolvedSessionRecovery(getSessionRecovery(sessionMachine?.daemonState, sessionId, session?.metadata?.lifecycleState));
     const isDataReady = useIsDataReady();
     const { theme } = useUnistyles();
     const safeArea = useSafeAreaInsets();
@@ -192,7 +195,7 @@ export const SessionView = React.memo((props: { id: string }) => {
         if (!session) {
             return { title: t('errors.sessionDeleted'), folderName: undefined, isConnected: false };
         }
-        const isConnected = session.presence === 'online';
+        const isConnected = session.presence === 'online' && !unresolvedRecovery;
         const pathSegments = session.metadata?.path?.split(/[/\\]/).filter(Boolean);
         const folderName = pathSegments?.[pathSegments.length - 1];
         const sessionName = getSessionName(session);
@@ -201,7 +204,7 @@ export const SessionView = React.memo((props: { id: string }) => {
             folderName,
             isConnected,
         };
-    }, [session, isDataReady]);
+    }, [session, isDataReady, unresolvedRecovery]);
     const headerRight = session && deviceType === 'phone' && Platform.OS !== 'web'
         ? (
             <Pressable
@@ -447,6 +450,10 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     // Check if CLI version is outdated and not already acknowledged
     const cliVersion = session.metadata?.version;
     const machineId = session.metadata?.machineId;
+    const machine = useMachine(machineId ?? '');
+    const recovery = getMachineRecovery(machine?.daemonState);
+    const sessionRecovery = getSessionRecovery(machine?.daemonState, sessionId, session.metadata?.lifecycleState);
+    const restoringAutomatically = !!recovery?.enabled && (sessionRecovery?.status === 'pending' || sessionRecovery?.status === 'restoring');
     const isCliOutdated = cliVersion && !isVersionSupported(cliVersion, MINIMUM_CLI_VERSION);
     const isAcknowledged = machineId && acknowledgedCliVersions[machineId] === cliVersion;
     const shouldShowCliWarning = isCliOutdated && !isAcknowledged;
@@ -507,7 +514,7 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
         ])
     ), [availableEffortLevels, session.effortLevel, session.metadata?.currentReasoningEffort, effectiveAgentDefaults.effortLevel]);
 
-    const sessionStatus = useSessionStatus(session);
+    const sessionStatus = useSessionStatus(session, hasUnresolvedSessionRecovery(sessionRecovery));
     const sessionUsage = useSessionUsage(sessionId);
     const alwaysShowContextSize = useSetting('alwaysShowContextSize');
     const experiments = useSetting('experiments');
@@ -791,6 +798,9 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
                 canResume={canResume}
                 resuming={resumingSession}
                 onResume={resumeSession}
+                recovery={sessionRecovery}
+                restoringAutomatically={restoringAutomatically}
+                machineOnline={!!machine?.active}
             />
         </CenteredInputWidth>
     ) : null;
@@ -903,6 +913,9 @@ function InactiveArchivedHint(props: {
     canResume: boolean;
     resuming: boolean;
     onResume: () => void;
+    recovery?: SessionRecovery;
+    restoringAutomatically: boolean;
+    machineOnline: boolean;
 }) {
     const { theme } = useUnistyles();
     const hintTextStyle = {
@@ -921,15 +934,22 @@ function InactiveArchivedHint(props: {
         }}>
             <View style={{ paddingHorizontal: 8, gap: 4 }}>
                 <Text style={hintTextStyle}>
-                    {t('session.inactiveArchived')}
+                    {props.restoringAutomatically
+                        ? props.machineOnline ? t('sessionRecovery.restoring') : t('sessionRecovery.waitingForMachine')
+                        : props.recovery?.status === 'failed' ? t('sessionRecovery.failed') : t('session.inactiveArchived')}
                 </Text>
-                {props.canResume ? null : props.resumeCommandBlock && (
+                {props.recovery?.status === 'failed' && props.recovery.error && (
+                    <Text style={hintTextStyle}>{props.recovery.error}</Text>
+                )}
+                {props.canResume || props.restoringAutomatically ? null : props.resumeCommandBlock && (
                     <Text style={hintTextStyle}>
                         {t('session.resumeFromTerminal')}
                     </Text>
                 )}
             </View>
-            {props.canResume ? (
+            {props.restoringAutomatically ? (
+                <ActivityIndicator size="small" color={theme.colors.textSecondary} accessibilityLabel={t('sessionRecovery.restoring')} />
+            ) : props.canResume ? (
                 <Pressable
                     onPress={props.onResume}
                     disabled={props.resuming}

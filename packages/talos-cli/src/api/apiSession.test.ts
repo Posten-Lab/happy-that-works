@@ -11,7 +11,9 @@ const {
     mockAxiosPut,
     mockBackoff,
     mockDelay,
-    mockShouldReconnect
+    mockShouldReconnect,
+    mockCheckpointSession,
+    mockStopSessionRecovery,
 } = vi.hoisted(() => ({
     mockIo: vi.fn(),
     mockAxiosGet: vi.fn(),
@@ -29,7 +31,14 @@ const {
         throw lastError;
     }),
     mockDelay: vi.fn(async () => undefined),
-    mockShouldReconnect: vi.fn(() => true)
+    mockShouldReconnect: vi.fn(() => true),
+    mockCheckpointSession: vi.fn(),
+    mockStopSessionRecovery: vi.fn(),
+}));
+
+vi.mock('@/daemon/recovery/checkpoint', () => ({
+    checkpointSession: mockCheckpointSession,
+    stopSessionRecovery: mockStopSessionRecovery,
 }));
 
 vi.mock('socket.io-client', () => ({
@@ -191,6 +200,73 @@ describe('ApiSessionClient v3 messages API migration', () => {
         expect(mockSocket.on).toHaveBeenCalledWith('disconnect', expect.any(Function));
         expect(mockSocket.on).toHaveBeenCalledWith('update', expect.any(Function));
         expect(mockSocket.connect).toHaveBeenCalledTimes(1);
+    });
+
+    it('checkpoints the existing session identity before connecting and throttles heartbeats', () => {
+        vi.useFakeTimers();
+        session.seq = 42;
+        const client = new ApiSessionClient('fake-token', session);
+        expect(mockCheckpointSession).toHaveBeenCalledWith(expect.objectContaining({
+            sessionId: session.id,
+            metadata: session.metadata,
+            encryption: expect.objectContaining({ seq: 42, encryptionKey: encodeBase64(session.encryptionKey) }),
+        }));
+        expect(mockCheckpointSession.mock.invocationCallOrder[0]).toBeLessThan(mockSocket.connect.mock.invocationCallOrder[0]);
+        client.keepAlive(false, 'remote');
+        expect(mockCheckpointSession).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(10_000);
+        client.keepAlive(false, 'remote');
+        expect(mockCheckpointSession).toHaveBeenCalledTimes(2);
+        expect(mockStopSessionRecovery).not.toHaveBeenCalled();
+    });
+
+    it('checkpoints new provider IDs and preferences while earlier socket updates are blocked', async () => {
+        mockSocket.emitWithAck.mockReturnValue(new Promise(() => {}));
+        const client = new ApiSessionClient('fake-token', session);
+        client.updateMetadata(metadata => ({ ...metadata, claudeSessionId: 'provider-thread-1' }));
+        await Promise.resolve();
+        client.updateMetadata(metadata => ({ ...metadata, currentModelCode: 'chosen-model', currentOperatingModeCode: 'read-only' }));
+        expect(mockCheckpointSession).toHaveBeenLastCalledWith(expect.objectContaining({
+            metadata: expect.objectContaining({ claudeSessionId: 'provider-thread-1' }),
+            model: 'chosen-model',
+            permissionMode: 'read-only',
+        }));
+        await client.close();
+        expect(mockStopSessionRecovery).not.toHaveBeenCalled();
+    });
+
+    it('records explicit archive intent before invoking cleanup listeners', () => {
+        const client = new ApiSessionClient('fake-token', session);
+        const onArchived = vi.fn(() => {
+            expect(mockStopSessionRecovery).toHaveBeenCalledWith(session.id);
+        });
+        client.on('archived', onArchived);
+        emitSocketEvent('update', {
+            body: { t: 'update-session', metadata: {
+                version: 1,
+                value: encryptContent(session, { ...session.metadata, lifecycleState: 'archiveRequested' }),
+            } },
+        });
+        expect(onArchived).toHaveBeenCalledOnce();
+    });
+
+    it('does not stop recovery for a suppressed stale archive or a completed provider turn', async () => {
+        mockAxiosPost.mockResolvedValue({ data: { messages: [] } });
+        const client = new ApiSessionClient('fake-token', session);
+        client.suppressNextArchiveSignal();
+        emitSocketEvent('update', {
+            body: { t: 'update-session', metadata: {
+                version: 1,
+                value: encryptContent(session, { ...session.metadata, lifecycleState: 'archived' }),
+            } },
+        });
+        client.sendAgentMessage('codex', { type: 'task_complete', id: 'turn-1' });
+        client.keepAlive(false, 'remote');
+        expect(mockStopSessionRecovery).not.toHaveBeenCalled();
+        expect(mockCheckpointSession).toHaveBeenLastCalledWith(expect.objectContaining({
+            metadata: expect.objectContaining({ lifecycleState: 'running' }),
+        }));
+        await client.close();
     });
 
     it('retries after initial socket connection error', async () => {
@@ -731,6 +807,23 @@ describe('ApiSessionClient v3 messages API migration', () => {
         });
     });
 
+    it('delivers a new prompt arriving during recovery while skipping only the saved history boundary', async () => {
+        session.seq = 8;
+        const client = new ApiSessionClient('fake-token', session);
+        client.skipExistingMessages();
+        const onUserMessage = vi.fn();
+        client.onUserMessage(onUserMessage);
+        const message = { role: 'user', content: { type: 'text', text: 'sent immediately after restore' } };
+        mockAxiosGet.mockResolvedValueOnce({ data: { messages: [{
+            id: 'new-prompt', seq: 9,
+            content: { t: 'encrypted', c: encryptContent(session, message) },
+        }], hasMore: false } });
+        await (client as any).fetchMessages();
+        expect(mockAxiosGet.mock.calls[0][1].params.after_seq).toBe(8);
+        expect(onUserMessage).toHaveBeenCalledExactlyOnceWith(message);
+        await client.close();
+    });
+
     it('fetchMessages uses after_seq=0 initially and routes user messages to callback', async () => {
         const client = new ApiSessionClient('fake-token', session);
         const onUserMessage = vi.fn();
@@ -1182,6 +1275,43 @@ describe('ApiSessionClient v3 messages API migration', () => {
         await vi.advanceTimersByTimeAsync(10000);
         expect(mockSocket.connect).not.toHaveBeenCalled();
         expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('replays an early archive to the provider and blocks a queued reconnect write', async () => {
+        vi.stubEnv('TALOS_AUTOMATIC_RESUME', '1');
+        const client = new ApiSessionClient('fake-token', session);
+        vi.unstubAllEnvs();
+        emitSocketEvent('update', {
+            body: { t: 'update-session', id: session.id, metadata: {
+                version: 2, value: encryptContent(session, { ...session.metadata, lifecycleState: 'archived' }),
+            } },
+        });
+        const archived = vi.fn();
+        client.on('archived', archived);
+        client.updateMetadata(meta => ({ ...meta, lifecycleState: 'running' }));
+        await waitForCheck(() => expect(archived).toHaveBeenCalledTimes(1));
+        expect(mockSocket.emitWithAck).not.toHaveBeenCalled();
+        expect(mockStopSessionRecovery).toHaveBeenCalledWith(session.id);
+        await client.close();
+    });
+
+    it('honors an archive racing automatic recovery instead of retrying an unarchive', async () => {
+        vi.stubEnv('TALOS_AUTOMATIC_RESUME', '1');
+        const client = new ApiSessionClient('fake-token', session);
+        vi.unstubAllEnvs();
+        const archived = vi.fn();
+        client.on('archived', archived);
+        mockSocket.emitWithAck.mockResolvedValue({
+            result: 'version-mismatch', version: 2,
+            metadata: encryptContent(session, { ...session.metadata, lifecycleState: 'archived' }),
+        });
+        client.updateMetadata(meta => ({ ...meta, lifecycleState: 'running' }));
+        await waitForCheck(() => expect(archived).toHaveBeenCalledTimes(1));
+        expect(mockSocket.emitWithAck).toHaveBeenCalledTimes(1);
+        expect(mockStopSessionRecovery).toHaveBeenCalledWith(session.id);
+        client.updateMetadata(meta => ({ ...meta, lifecycleState: 'running' }));
+        expect(mockSocket.emitWithAck).toHaveBeenCalledTimes(1);
+        await client.close();
     });
 
     it('stops send and receive sync loops on close', async () => {

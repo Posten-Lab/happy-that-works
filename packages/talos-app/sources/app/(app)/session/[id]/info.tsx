@@ -8,7 +8,8 @@ import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { Avatar } from '@/components/Avatar';
-import { useSession, useIsDataReady } from '@/sync/storage';
+import { useSession, useIsDataReady, useMachine } from '@/sync/storage';
+import { getSessionRecovery, hasUnresolvedSessionRecovery } from '@/utils/sessionRecovery';
 import { getSessionName, useSessionStatus, formatOSPlatform, formatPathRelativeToHome, getSessionAvatarId, getResumeCommand } from '@/utils/sessionUtils';
 import * as Clipboard from 'expo-clipboard';
 import { Modal } from '@/modal';
@@ -129,7 +130,9 @@ function SessionInfoContent({ session }: { session: Session }) {
     const router = useRouter();
     const devModeEnabled = __DEV__;
     const sessionName = getSessionName(session);
-    const sessionStatus = useSessionStatus(session);
+    const machine = useMachine(session.metadata?.machineId ?? '');
+    const recovery = getSessionRecovery(machine?.daemonState, session.id, session.metadata?.lifecycleState);
+    const sessionStatus = useSessionStatus(session, hasUnresolvedSessionRecovery(recovery));
     const {
         canShowResume,
         canFork,
@@ -169,7 +172,8 @@ function SessionInfoContent({ session }: { session: Session }) {
         // Try to kill the CLI process; if it's already dead, force-archive via server
         const killResult = await sessionKill(session.id);
         if (!killResult.success) {
-            await sessionArchive(session.id);
+            const result = await sessionArchive(session.id);
+            if (!result.success) throw new Error(result.message || 'Could not archive session');
         }
         // Success - navigate back
         router.back();

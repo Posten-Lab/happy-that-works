@@ -96,6 +96,7 @@ type MachineRpcHandlers = {
     resumeSession?: (sessionId: string, options?: { model?: string; permissionMode?: string }) => Promise<SpawnSessionResult>;
     stopSession: (sessionId: string) => boolean;
     requestShutdown: () => void;
+    setSessionRecovery?: (enabled: boolean) => Promise<{ enabled: boolean }>;
 }
 
 function requireNonEmptyString(value: unknown, name: string): string {
@@ -143,9 +144,18 @@ export class ApiMachineClient {
         spawnSession,
         resumeSession,
         stopSession,
-        requestShutdown
+        requestShutdown,
+        setSessionRecovery,
     }: MachineRpcHandlers) {
         this.resumeSessionHandler = resumeSession ?? null;
+        if (setSessionRecovery) {
+            this.rpcHandlerManager.registerHandler('set-session-recovery', async (params: unknown) => {
+                if (!params || typeof params !== 'object' || !('enabled' in params) || typeof params.enabled !== 'boolean') {
+                    throw new Error('enabled must be a boolean');
+                }
+                return setSessionRecovery(params.enabled);
+            });
+        }
 
         // Register spawn session handler
         this.rpcHandlerManager.registerHandler(rpcMethods.spawnSession, async (params: any) => {
@@ -458,6 +468,8 @@ export class ApiMachineClient {
             }
         });
     }
+
+    isConnected(): boolean { return this.socket?.connected === true; }
 
     connect() {
         const serverUrl = configuration.serverUrl.replace(/^http/, 'ws');

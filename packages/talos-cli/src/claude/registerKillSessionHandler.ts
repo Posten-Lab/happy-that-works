@@ -1,5 +1,6 @@
 import { RpcHandlerManager } from "@/api/rpc/RpcHandlerManager";
 import { logger } from "@/lib";
+import { stopSessionRecovery } from '@/daemon/recovery/checkpoint';
 
 interface KillSessionRequest {
     // No parameters needed
@@ -13,10 +14,14 @@ interface KillSessionResponse {
 
 export function registerKillSessionHandler(
     rpcHandlerManager: RpcHandlerManager,
-    killThisTalos: () => Promise<void>
+    killThisTalos: () => Promise<void>,
+    sessionId: string,
 ) {
     rpcHandlerManager.registerHandler<KillSessionRequest, KillSessionResponse>('killSession', async () => {
         logger.debug('Kill session request received');
+        // Record intent before any asynchronous provider cleanup. This works
+        // even when the daemon or server is unavailable during shutdown.
+        stopSessionRecovery(sessionId);
 
         // This will start the cleanup process
         void killThisTalos();

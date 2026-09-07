@@ -1,3 +1,4 @@
+import { en as defaultTranslations } from '../_default';
 /**
  * Chinese (Traditional) translations for the Talos app
  * Values can be:
@@ -804,6 +805,9 @@ export const zhHant: TranslationStructure = {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} 已複製到剪貼簿`
     },
+
+    // Use English until recovery translations are available.
+    sessionRecovery: defaultTranslations.sessionRecovery,
 
     machine: {
         launchNewSessionInDirectory: '在目錄中啟動新工作階段',

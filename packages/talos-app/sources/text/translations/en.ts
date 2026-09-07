@@ -819,6 +819,21 @@ export const en: TranslationStructure = {
         copiedToClipboard: ({ label }: { label: string }) => `${label} copied to clipboard`
     },
 
+    sessionRecovery: {
+        title: 'Session recovery',
+        automaticRestore: 'Restore sessions automatically',
+        description: 'Restore previously running sessions when this computer restarts or reconnects. Stopped and archived sessions stay stopped.',
+        offlineSettings: 'Connect this computer to change automatic recovery settings.',
+        updateFailed: 'Could not save automatic recovery settings. Please try again when the computer is online.',
+        pending: 'Waiting to restore',
+        restoring: 'Restoring session…',
+        restored: 'Session restored',
+        failed: 'Could not restore this session',
+        paused: 'Automatic restore is paused',
+        waitingForMachine: 'Waiting for this computer to reconnect',
+        retryHint: 'Open the session to try Resume again.',
+    },
+
     machine: {
         launchNewSessionInDirectory: 'Launch New Session in Directory',
         offlineUnableToSpawn: 'Launcher disabled while machine is offline',

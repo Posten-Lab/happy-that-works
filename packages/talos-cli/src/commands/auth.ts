@@ -7,6 +7,8 @@ import { createInterface } from 'node:readline';
 import { stopDaemon, checkIfDaemonRunningAndCleanupStaleState } from '@/daemon/controlClient';
 import { logger } from '@/ui/logger';
 import os from 'node:os';
+import { ensureDaemonRunning } from '@/daemon/ensureDaemonRunning';
+import { stopDaemonService } from '@/daemon/service';
 
 export async function handleAuthCommand(args: string[]): Promise<void> {
   const subcommand = args[0];
@@ -65,6 +67,7 @@ async function handleAuthLogin(args: string[]): Promise<void> {
     console.log(chalk.gray('  • Re-authenticate and register machine\n'));
 
     // Stop daemon if running
+    await stopDaemonService();
     try {
       logger.debug('Stopping daemon for force auth...');
       await stopDaemon();
@@ -94,6 +97,7 @@ async function handleAuthLogin(args: string[]): Promise<void> {
       console.log(chalk.gray(`  Machine ID: ${settings.machineId}`));
       console.log(chalk.gray(`  Host: ${os.hostname()}`));
       console.log(chalk.gray(`  Use 'talos auth login --force' to re-authenticate`));
+      await ensureDaemonRunning();
       return;
     } else if (existingCreds && !settings?.machineId) {
       console.log(chalk.yellow('⚠️  Credentials exist but machine ID is missing'));
@@ -108,6 +112,7 @@ async function handleAuthLogin(args: string[]): Promise<void> {
     const result = await authAndSetupMachineIfNeeded();
     console.log(chalk.green('\n✓ Authentication successful'));
     console.log(chalk.gray(`  Machine ID: ${result.machineId}`));
+    await ensureDaemonRunning();
   } catch (error) {
     console.error(chalk.red('Authentication failed:'), error instanceof Error ? error.message : 'Unknown error');
     process.exit(1);
@@ -143,6 +148,7 @@ async function handleAuthLogout(): Promise<void> {
   if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
     try {
       // Stop daemon if running
+      await stopDaemonService();
       try {
         await stopDaemon();
         console.log(chalk.gray('Stopped daemon'));

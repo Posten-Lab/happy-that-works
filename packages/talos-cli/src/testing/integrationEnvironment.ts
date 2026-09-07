@@ -79,6 +79,9 @@ export function applyEnvironmentToProcess(env: IntegrationEnvironment) {
     process.env.TALOS_HOME_DIR = join(env.envDir, 'cli', 'home');
     process.env.TALOS_PROJECT_DIR = env.projectPath;
     process.env.TALOS_VARIANT = 'dev';
+    // Normal integration fixtures must never register services on the host.
+    // Service lifecycle E2E explicitly provisions its own isolated adapter.
+    process.env.TALOS_AUTOSTART = '0';
     process.env.DEBUG = '1';
 }
 

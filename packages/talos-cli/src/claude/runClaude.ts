@@ -1,10 +1,11 @@
+import { reconnectMetadata } from '@/daemon/recovery/reconnectMetadata';
 import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 
 import { ApiClient } from '@/api/api';
 import { logger } from '@/ui/logger';
 import { loop } from '@/claude/loop';
-import { AgentGoalStatus, AgentState, Metadata } from '@/api/types';
+import { AgentGoalStatus, AgentState, Metadata, MessageMetaSchema } from '@/api/types';
 import packageJson from '../../package.json';
 import { Credentials, readSettings } from '@/persistence';
 import { EnhancedMode, PermissionMode } from './loop';
@@ -33,6 +34,7 @@ import {
 } from '@/claude/claudeGoalStatus';
 import { Session } from './session';
 import { applySandboxPermissionPolicy, resolveInitialClaudePermissionMode, resolveRemoteClaudePermissionMode } from './utils/permissionMode';
+import { stopSessionRecovery } from '@/daemon/recovery/checkpoint';
 import { decodeBase64, encodeBase64 } from '@/api/encryption';
 import type { Session as ApiSession } from '@/api/types';
 import { getProjectPath } from './utils/path';
@@ -97,8 +99,10 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     let machineId = settings?.machineId
     const sandboxConfig = options.noSandbox ? undefined : settings?.sandboxConfig;
     const sandboxEnabled = Boolean(sandboxConfig?.enabled);
+    const recoveredPermission = MessageMetaSchema.shape.permissionMode.safeParse(process.env.TALOS_RECONNECT_PERMISSION_MODE);
+    const initialModel = options.model ?? process.env.TALOS_RECONNECT_MODEL ?? DEFAULT_CLAUDE_MODEL;
     const initialPermissionMode = applySandboxPermissionPolicy(
-        resolveInitialClaudePermissionMode(options.permissionMode ?? DEFAULT_CLAUDE_PERMISSION_MODE, options.claudeArgs),
+        resolveInitialClaudePermissionMode(options.permissionMode ?? (recoveredPermission.success ? recoveredPermission.data : undefined) ?? DEFAULT_CLAUDE_PERMISSION_MODE, options.claudeArgs),
         sandboxEnabled,
     );
     const dangerouslySkipPermissions =
@@ -121,6 +125,8 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     // Lineage from the daemon's spawn RPC (set by app-side fork / duplicate).
     const forkedFromSessionId = process.env.TALOS_FORKED_FROM_SESSION_ID;
     const forkedFromMessageId = process.env.TALOS_FORKED_FROM_MESSAGE_ID;
+    const resumeArgumentIndex = options.claudeArgs?.findIndex(arg => arg === '--resume' || arg === '-r') ?? -1;
+    const resumedProviderId = resumeArgumentIndex >= 0 ? options.claudeArgs?.[resumeArgumentIndex + 1] : undefined;
 
     let metadata: Metadata = {
         path: workingDirectory,
@@ -141,6 +147,9 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         flavor: 'claude',
         sandbox: sandboxConfig?.enabled ? sandboxConfig : null,
         dangerouslySkipPermissions,
+        currentModelCode: initialModel,
+        currentOperatingModeCode: initialPermissionMode,
+        ...(resumedProviderId && !resumedProviderId.startsWith('-') ? { claudeSessionId: resumedProviderId } : {}),
         ...(forkedFromSessionId ? { parentSessionId: forkedFromSessionId } : {}),
         ...(forkedFromMessageId ? { forkedFromMessageId } : {}),
     };
@@ -156,6 +165,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     let response: ApiSession | null;
     if (reconnectSessionId && reconnectKeyBase64 && reconnectVariant) {
         logger.debug(`[START] Reconnecting to existing session ${reconnectSessionId}`);
+        Object.assign(metadata, reconnectMetadata(metadata));
         response = {
             id: reconnectSessionId,
             seq: parseInt(reconnectSeq || '0', 10),
@@ -174,6 +184,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     // Note: connectionState.notifyOffline() was already called by api.ts with error details
     if (!response) {
         let offlineSessionId: string | null = null;
+        let reconnectedSessionId: string | undefined;
 
         const reconnection = startOfflineReconnection({
             serverUrl: configuration.serverUrl,
@@ -181,6 +192,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
                 const resp = await api.getOrCreateSession({ tag: randomUUID(), metadata, state });
                 if (!resp) throw new Error('Server unavailable');
                 const session = api.sessionSyncClient(resp);
+                reconnectedSessionId = session.sessionId;
                 let latestClaudeGoalStatus: AgentGoalStatus | null = null;
                 const observedClaudeGoalRevisions = new Set<string>();
                 const goalCommandSupported = () => {
@@ -245,6 +257,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
                 allowedTools: [],
                 sandboxConfig,
             });
+            if (reconnectedSessionId) stopSessionRecovery(reconnectedSessionId);
         } finally {
             reconnection.cancel();
         }
@@ -280,7 +293,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
 
     // On reconnect, un-archive the session and skip replaying old messages.
     if (reconnectSessionId) {
-        session.suppressNextArchiveSignal();
+        if (!process.env.TALOS_RECONNECT_METADATA) session.suppressNextArchiveSignal();
         session.skipExistingMessages();
         session.updateMetadata((meta) => ({
             ...meta,
@@ -528,7 +541,13 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     // Forward messages to the queue
     // Permission modes: Use the unified 7-mode type, mapping happens at SDK boundary in claudeRemote.ts
     let currentPermissionMode: PermissionMode | undefined = initialPermissionMode;
-    let currentModel: string | undefined = options.model ?? DEFAULT_CLAUDE_MODEL; // Track current model state
+    let currentModel: string | undefined = initialModel; // Track current model state
+    const checkpointCurrentMode = () => session.updateMetadata(metadata => ({
+        ...metadata,
+        currentModelCode: currentModel,
+        currentOperatingModeCode: currentPermissionMode,
+    }));
+    checkpointCurrentMode();
     let currentFallbackModel: string | undefined = undefined; // Track current fallback model
     let currentCustomSystemPrompt: string | undefined = undefined; // Track current custom system prompt
     let currentAppendSystemPrompt: string | undefined = undefined; // Track current append system prompt
@@ -538,7 +557,8 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
 
     const resetCurrentModeDefaults = () => {
         currentPermissionMode = initialPermissionMode;
-        currentModel = options.model ?? DEFAULT_CLAUDE_MODEL;
+        currentModel = initialModel;
+        checkpointCurrentMode();
         currentFallbackModel = undefined;
         currentCustomSystemPrompt = undefined;
         currentAppendSystemPrompt = undefined;
@@ -691,6 +711,9 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         } else {
             logger.debug(`[loop] User message received with no model override, using current: ${currentModel || 'default'}`);
         }
+        if (message.meta?.permissionMode || message.meta?.hasOwnProperty('model')) {
+            checkpointCurrentMode();
+        }
 
         // Resolve custom system prompt - use message.meta.customSystemPrompt if provided, otherwise use current
         let messageCustomSystemPrompt = currentCustomSystemPrompt;
@@ -842,9 +865,12 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     // the metadata stamped — it routes through the killSession RPC
     // handler which calls cleanup({ archive: true }).
     //
-    // Crashes (uncaughtException / unhandledRejection) keep archiving
-    // because the session is genuinely toast at that point.
-    const cleanup = async (opts: { archive?: boolean } = { archive: true }) => {
+    // Explicit stops disable automatic recovery; OS termination and crashes
+    // preserve the running intent so the daemon can restore the conversation.
+    let recoveryInterrupted = false;
+    const cleanup = async (opts: { archive?: boolean; recover?: boolean; exitCode?: number } = { archive: true }) => {
+        recoveryInterrupted ||= opts.recover === true;
+        if (!opts.recover) stopSessionRecovery(session.sessionId);
         logger.debug(`[START] Received termination signal, cleaning up (archive=${opts.archive ?? true})...`);
 
         try {
@@ -898,40 +924,37 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
             await remoteScanner.cleanup();
 
             logger.debug('[START] Cleanup complete, exiting');
-            process.exit(0);
+            process.exit(opts.exitCode ?? 0);
         } catch (error) {
             logger.debug('[START] Error during cleanup:', error);
             process.exit(1);
         }
     };
 
-    // Handle termination signals — Ctrl-C / SIGTERM are user-initiated
-    // exits, treat as "I'll come back to this session later" rather than
-    // "archive forever".
-    process.on('SIGTERM', () => { void cleanup({ archive: false }); });
+    // Ctrl-C is an intentional stop; SIGTERM also happens during reboot.
+    process.on('SIGTERM', () => { void cleanup({ archive: false, recover: true }); });
     process.on('SIGINT', () => { void cleanup({ archive: false }); });
 
-    // Crashes archive on the way out so the session shows up correctly
-    // in the app rather than masquerading as live.
+    // Crashes go inactive without being archived or disabling recovery.
     process.on('uncaughtException', (error) => {
         logger.debug('[START] Uncaught exception:', error);
-        void cleanup({ archive: true });
+        void cleanup({ archive: false, recover: true, exitCode: 1 });
     });
 
     process.on('unhandledRejection', (reason) => {
         logger.debug('[START] Unhandled rejection:', reason);
-        void cleanup({ archive: true });
+        void cleanup({ archive: false, recover: true, exitCode: 1 });
     });
 
     // Browser-side "Archive" button routes through this RPC and DOES
     // want the metadata stamped — it's the user explicitly choosing to
     // retire the session, not just disconnecting.
-    registerKillSessionHandler(session.rpcHandlerManager, () => cleanup({ archive: true }));
+    registerKillSessionHandler(session.rpcHandlerManager, () => cleanup({ archive: true }), session.sessionId);
 
     // Create claude loop
     const exitCode = await loop({
         path: workingDirectory,
-        model: options.model,
+        model: initialModel,
         permissionMode: initialPermissionMode,
         startingMode: options.startingMode,
         messageQueue,
@@ -963,6 +986,8 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         hookSettingsPath,
         jsRuntime: options.jsRuntime
     });
+
+    if (exitCode === 0 && !recoveryInterrupted) stopSessionRecovery(session.sessionId);
 
     // Cleanup session resources (intervals, callbacks) - prevents memory leak
     // Note: currentSession is set by onSessionReady callback during loop()

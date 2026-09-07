@@ -1,6 +1,6 @@
 {
   "name": "talosapp",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Talos \u2014 secure control of your coding agents from any device",
   "author": "Ahmed Posten",
   "license": "MIT",
@@ -62,7 +62,7 @@
     "test:integration": "pnpm run build && vitest run --project integration-empty --project integration-plan-mode --project integration-authenticated",
     "cli:install": "node scripts/install-local.cjs",
     "prepublishOnly": "pnpm test",
-    "postinstall": "node scripts/unpack-tools.cjs"
+    "postinstall": "node scripts/unpack-tools.cjs && node scripts/daemon-service.cjs postinstall"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.14.1",

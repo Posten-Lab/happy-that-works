@@ -7,6 +7,7 @@ import { rpcMethods } from '@ahmadposten/talos-wire';
 import { apiSocket } from './apiSocket';
 import { sync } from './sync';
 import type { MachineMetadata } from './storageTypes';
+import { persistSessionArchiveIntent } from './sessionArchiveMetadata';
 
 // Strict type definitions for all operations
 
@@ -499,6 +500,15 @@ export async function machineStopDaemon(machineId: string): Promise<{ message: s
     return result;
 }
 
+export async function machineSetSessionRecovery(machineId: string, enabled: boolean): Promise<{ enabled: boolean }> {
+    return apiSocket.machineRPC<{ enabled: boolean }, { enabled: boolean }>(
+        machineId,
+        'set-session-recovery',
+        { enabled },
+        15_000,
+    );
+}
+
 /**
  * Execute a bash command on a specific machine
  */
@@ -814,6 +824,7 @@ export async function sessionKill(sessionId: string): Promise<SessionKillRespons
  */
 export async function sessionArchive(sessionId: string): Promise<{ success: boolean; message?: string }> {
     try {
+        await persistSessionArchiveIntent(sessionId);
         const response = await apiSocket.request(`/v1/sessions/${sessionId}/archive`, {
             method: 'POST'
         });
