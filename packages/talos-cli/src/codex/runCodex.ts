@@ -1,3 +1,4 @@
+import { reconnectMetadata } from '@/daemon/recovery/reconnectMetadata';
 import { render } from "ink";
 import React from "react";
 import { ApiClient } from '@/api/api';
@@ -29,6 +30,7 @@ import { connectionState } from '@/utils/serverConnectionErrors';
 import { setupOfflineReconnection } from '@/utils/setupOfflineReconnection';
 import type { PermissionMode } from '@/api/types';
 import type { ApiSessionClient } from '@/api/apiSession';
+import { stopSessionRecovery } from '@/daemon/recovery/checkpoint';
 import { resolveCodexExecutionPolicy } from './executionPolicy';
 import {
     mapCodexMcpMessageToSessionEnvelopes,
@@ -73,6 +75,7 @@ function describeCodexFailure(msg: any): string | null {
 const DEFAULT_CODEX_MODEL = 'gpt-5.5';
 const DEFAULT_CODEX_EFFORT: ReasoningEffort = 'medium';
 const DEFAULT_CODEX_PERMISSION_MODE: PermissionMode = 'yolo';
+const VALID_REMOTE_PERMISSION_MODES: readonly PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
 
 /**
  * Main entry point for the codex command with ink UI
@@ -136,7 +139,11 @@ export async function runCodex(opts: {
     // Create session
     //
 
-    const initialPermissionMode = opts.permissionMode ?? DEFAULT_CODEX_PERMISSION_MODE;
+    const recoveredPermission = process.env.TALOS_RECONNECT_PERMISSION_MODE as PermissionMode | undefined;
+    const initialPermissionMode = opts.permissionMode
+        ?? (recoveredPermission && VALID_REMOTE_PERMISSION_MODES.includes(recoveredPermission) ? recoveredPermission : undefined)
+        ?? DEFAULT_CODEX_PERMISSION_MODE;
+    const initialModel = process.env.TALOS_RECONNECT_MODEL ?? DEFAULT_CODEX_MODEL;
     // Lineage from the daemon's spawn RPC (set by app-side fork / duplicate).
     const forkedFromSessionId = process.env.TALOS_FORKED_FROM_SESSION_ID;
     const forkedFromMessageId = process.env.TALOS_FORKED_FROM_MESSAGE_ID;
@@ -152,6 +159,9 @@ export async function runCodex(opts: {
     });
 
     const skillCommands = await discoverCodexSkillCommands();
+    metadata.currentModelCode = initialModel;
+    metadata.currentOperatingModeCode = initialPermissionMode;
+    metadata.codexThreadId = opts.resumeThreadId;
     if (skillCommands.length > 0) {
         metadata.skills = skillCommands;
         metadata.slashCommands = Array.from(new Set([...(metadata.slashCommands ?? []), ...skillCommands]));
@@ -168,6 +178,7 @@ export async function runCodex(opts: {
     let response: ApiSession | null;
     if (reconnectSessionId && reconnectKeyBase64 && reconnectVariant) {
         logger.debug(`[START] Reconnecting to existing session ${reconnectSessionId}`);
+        Object.assign(metadata, reconnectMetadata(metadata));
         response = {
             id: reconnectSessionId,
             seq: parseInt(reconnectSeq || '0', 10),
@@ -208,7 +219,7 @@ export async function runCodex(opts: {
 
     // On reconnect, un-archive the session and skip replaying old messages.
     if (reconnectSessionId) {
-        session.suppressNextArchiveSignal();
+        if (!process.env.TALOS_RECONNECT_METADATA) session.suppressNextArchiveSignal();
         session.skipExistingMessages();
         session.updateMetadata((meta) => ({
             ...meta,
@@ -258,13 +269,20 @@ export async function runCodex(opts: {
     // Track current overrides to apply per message
     // Use shared PermissionMode type from api/types for cross-agent compatibility
     let currentPermissionMode: PermissionMode | undefined = initialPermissionMode;
-    let currentModel: string | undefined = DEFAULT_CODEX_MODEL;
+    let currentModel: string | undefined = initialModel;
+    const checkpointCurrentMode = () => session.updateMetadata(metadata => ({
+        ...metadata,
+        currentModelCode: currentModel,
+        currentOperatingModeCode: currentPermissionMode,
+    }));
+    checkpointCurrentMode();
     let currentEffort: ReasoningEffort | undefined = DEFAULT_CODEX_EFFORT;
     let currentAppendSystemPrompt: string | undefined = undefined;
 
     const resetCurrentModeDefaults = () => {
-        currentPermissionMode = DEFAULT_CODEX_PERMISSION_MODE;
-        currentModel = DEFAULT_CODEX_MODEL;
+        currentPermissionMode = initialPermissionMode;
+        currentModel = initialModel;
+        checkpointCurrentMode();
         currentEffort = DEFAULT_CODEX_EFFORT;
         currentAppendSystemPrompt = undefined;
         logger.debug('[Codex] Reset current mode defaults after abort');
@@ -279,12 +297,6 @@ export async function runCodex(opts: {
     // accepted and then fall through to the `default` branch in
     // resolveCodexExecutionPolicy() — or worse, an attacker-chosen valid value
     // could escalate sandbox scope (issue #1092).
-    const VALID_REMOTE_PERMISSION_MODES: readonly PermissionMode[] = [
-        'default',
-        'read-only',
-        'safe-yolo',
-        'yolo',
-    ];
 
     const handleUserMessage = createSerialAsyncHandler<UserMessage>(async (message) => {
         // Refresh immediately before consuming model/effort overrides so a
@@ -319,6 +331,9 @@ export async function runCodex(opts: {
             logger.debug(`[Codex] Model updated from user message: ${messageModel || 'reset to default'}`);
         } else {
             logger.debug(`[Codex] User message received with no model override, using current: ${currentModel || 'default'}`);
+        }
+        if (message.meta?.permissionMode || message.meta?.hasOwnProperty('model')) {
+            checkpointCurrentMode();
         }
 
         // Resolve effort — passed straight to sendTurnAndWait. Validate the
@@ -485,7 +500,7 @@ export async function runCodex(opts: {
             } catch (error) {
                 logger.debug('[Codex] Error during abort:', error);
             } finally {
-                resetCurrentModeDefaults();
+                if (!shouldExit) resetCurrentModeDefaults();
                 // Wake up message queue wait if idle
                 abortController.abort();
                 abortController = new AbortController();
@@ -503,6 +518,7 @@ export async function runCodex(opts: {
      * Kill terminates the entire process.
      */
     const handleKillSession = async () => {
+        stopSessionRecovery(session.sessionId);
         logger.debug('[Codex] Kill session requested - terminating process');
         await handleAbort();
         logger.debug('[Codex] Abort completed, proceeding with termination');
@@ -545,7 +561,21 @@ export async function runCodex(opts: {
     // Register abort handler
     session.rpcHandlerManager.registerHandler('abort', handleAbort);
 
-    registerKillSessionHandler(session.rpcHandlerManager, handleKillSession);
+    registerKillSessionHandler(session.rpcHandlerManager, handleKillSession, session.sessionId);
+    session.on('archived', handleKillSession);
+
+    // Preserve recovery intent when the OS terminates the process. Ctrl-C is
+    // an explicit stop, including when running without the interactive UI.
+    let systemTermination = false;
+    const handleSignalStop = () => {
+        shouldExit = true;
+        messageQueue.close();
+        void handleAbort();
+    };
+    const handleSigterm = () => { systemTermination = true; handleSignalStop(); };
+    const handleSigint = () => { stopSessionRecovery(session.sessionId); handleSignalStop(); };
+    process.on('SIGTERM', handleSigterm);
+    process.on('SIGINT', handleSigint);
 
     //
     // Initialize Ink UI
@@ -563,7 +593,9 @@ export async function runCodex(opts: {
             onExit: async () => {
                 // Exit the agent
                 logger.debug('[codex]: Exiting agent via Ctrl-C');
+                stopSessionRecovery(session.sessionId);
                 shouldExit = true;
+                messageQueue.close();
                 await handleAbort();
             }
         }), {
@@ -1075,7 +1107,10 @@ export async function runCodex(opts: {
             }
         }
 
+        if (!systemTermination) stopSessionRecovery(session.sessionId);
     } finally {
+        process.off('SIGTERM', handleSigterm);
+        process.off('SIGINT', handleSigint);
         // Clean up resources when main loop exits
         logger.debug('[codex]: Final cleanup start');
         logActiveHandles('cleanup-start');

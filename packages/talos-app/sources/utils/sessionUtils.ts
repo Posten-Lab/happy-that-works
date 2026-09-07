@@ -19,8 +19,8 @@ export interface SessionStatus {
  * Get the current state of a session based on presence and thinking status.
  * Uses centralized session state from storage.ts
  */
-export function useSessionStatus(session: Session): SessionStatus {
-    const isOnline = session.presence === "online";
+export function useSessionStatus(session: Session, forceDisconnected = false): SessionStatus {
+    const isOnline = session.presence === "online" && !forceDisconnected;
     const hasPermissions = (session.agentState?.requests && Object.keys(session.agentState.requests).length > 0 ? true : false);
 
     const vibingMessage = React.useMemo(() => {

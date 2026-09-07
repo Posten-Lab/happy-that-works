@@ -1,4 +1,4 @@
-import type { TranslationStructure } from '../_default';
+import { en as defaultTranslations, type TranslationStructure } from '../_default';
 
 /**
  * Portuguese plural helper function
@@ -803,6 +803,9 @@ export const pt: TranslationStructure = {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copiado para a área de transferência`
     },
+
+    // Use English until recovery translations are available.
+    sessionRecovery: defaultTranslations.sessionRecovery,
 
     machine: {
         offlineUnableToSpawn: 'Inicializador desativado enquanto a máquina está offline',

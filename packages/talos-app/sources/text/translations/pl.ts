@@ -1,4 +1,4 @@
-import type { TranslationStructure } from '../_default';
+import { en as defaultTranslations, type TranslationStructure } from '../_default';
 
 /**
  * Polish plural helper function
@@ -820,6 +820,9 @@ export const pl: TranslationStructure = {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} skopiowano do schowka`
     },
+
+    // Use English until recovery translations are available.
+    sessionRecovery: defaultTranslations.sessionRecovery,
 
     machine: {
         offlineUnableToSpawn: 'Launcher wyłączony, gdy maszyna jest offline',

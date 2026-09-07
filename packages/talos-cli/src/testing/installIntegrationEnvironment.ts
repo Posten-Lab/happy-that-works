@@ -25,8 +25,13 @@ export async function installIntegrationEnvironment(profile: IntegrationEnvironm
         TALOS_PROJECT_DIR: process.env.TALOS_PROJECT_DIR,
         TALOS_VARIANT: process.env.TALOS_VARIANT,
         DEBUG: process.env.DEBUG,
+        TALOS_AUTOSTART: process.env.TALOS_AUTOSTART,
+        TALOS_DISABLE_CAFFEINATE: process.env.TALOS_DISABLE_CAFFEINATE,
     };
 
+    // Seed starts a daemon too, so isolation must apply before environment creation.
+    process.env.TALOS_AUTOSTART = '0';
+    process.env.TALOS_DISABLE_CAFFEINATE = '1';
     const env = await createIntegrationEnvironment(profile);
     applyEnvironmentToProcess(env);
     globalThis.__talosIntegrationEnv = env;

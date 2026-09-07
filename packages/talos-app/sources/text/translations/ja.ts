@@ -1,3 +1,4 @@
+import { en as defaultTranslations } from '../_default';
 /**
  * Japanese translations for the Talos app
  * Values can be:
@@ -805,6 +806,9 @@ export const ja: TranslationStructure = {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label}がクリップボードにコピーされました`
     },
+
+    // Use English until recovery translations are available.
+    sessionRecovery: defaultTranslations.sessionRecovery,
 
     machine: {
         launchNewSessionInDirectory: 'ディレクトリで新しいセッションを起動',

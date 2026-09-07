@@ -17,6 +17,7 @@ import { getSessionForkSource } from '@/utils/sessionFork';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/sync/storage';
 import { DuplicateSheet } from '@/components/DuplicateSheet';
+import { getMachineRecovery, getSessionRecovery, hasUnresolvedSessionRecovery } from '@/utils/sessionRecovery';
 
 export interface SessionActionItem {
     id: string;
@@ -108,14 +109,22 @@ export function useSessionQuickActions(
     } = options;
     const router = useRouter();
     const navigateToSession = useNavigateToSession();
-    const sessionStatus = useSessionStatus(session);
     const machineId = session.metadata?.machineId ?? '';
     const machine = useMachine(machineId);
+    const recovery = getMachineRecovery(machine?.daemonState);
+    const sessionRecovery = getSessionRecovery(machine?.daemonState, session.id, session.metadata?.lifecycleState);
+    const sessionStatus = useSessionStatus(session, hasUnresolvedSessionRecovery(sessionRecovery));
+    const restoringAutomatically = !!recovery?.enabled && (sessionRecovery?.status === 'pending' || sessionRecovery?.status === 'restoring');
     const devModeEnabled = useLocalSetting('devModeEnabled');
     const expResumeSession = useSetting('expResumeSession');
     const resumeAvailability = React.useMemo(
-        () => expResumeSession ? getResumeAvailability(session, machine, sessionStatus.isConnected) : { canResume: false, canShowResume: false, subtitle: '', message: '' },
-        [machine, session, sessionStatus.isConnected, expResumeSession],
+        () => {
+            if (restoringAutomatically) return { canResume: false, canShowResume: false, subtitle: '', message: t('sessionRecovery.restoring') };
+            return expResumeSession || recovery
+                ? getResumeAvailability(session, machine, sessionStatus.isConnected)
+                : { canResume: false, canShowResume: false, subtitle: '', message: '' };
+        },
+        [machine, session, sessionStatus.isConnected, expResumeSession, !!recovery, restoringAutomatically],
     );
 
     // Fork eligibility — separate from resume because fork works on both
@@ -206,7 +215,8 @@ export function useSessionQuickActions(
         // Try to kill the CLI process; if it's already dead, force-archive via server
         const killResult = await sessionKill(session.id);
         if (!killResult.success) {
-            await sessionArchive(session.id);
+            const result = await sessionArchive(session.id);
+            if (!result.success) throw new TalosError(result.message || 'Could not archive session', false);
         }
         onAfterArchive?.();
     });

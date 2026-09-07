@@ -1,4 +1,4 @@
-import type { TranslationStructure } from '../_default';
+import { en as defaultTranslations, type TranslationStructure } from '../_default';
 
 /**
  * Catalan plural helper function
@@ -804,6 +804,9 @@ export const ca: TranslationStructure = {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copiat al porta-retalls`
     },
+
+    // Use English until recovery translations are available.
+    sessionRecovery: defaultTranslations.sessionRecovery,
 
     machine: {
         offlineUnableToSpawn: 'El llançador està desactivat mentre la màquina està fora de línia',

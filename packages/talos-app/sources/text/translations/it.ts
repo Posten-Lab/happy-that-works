@@ -1,4 +1,4 @@
-import type { TranslationStructure } from '../_default';
+import { en as defaultTranslations, type TranslationStructure } from '../_default';
 
 /**
  * Italian plural helper function
@@ -802,6 +802,9 @@ export const it: TranslationStructure = {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copiato negli appunti`
     },
+
+    // Use English until recovery translations are available.
+    sessionRecovery: defaultTranslations.sessionRecovery,
 
     machine: {
         launchNewSessionInDirectory: 'Avvia nuova sessione nella directory',

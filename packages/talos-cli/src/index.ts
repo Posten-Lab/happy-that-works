@@ -34,6 +34,7 @@ import { execFileSync } from 'node:child_process'
 import { extractNoSandboxFlag } from './utils/sandboxFlags'
 import { handleResumeCommand } from '@/resume/handleResumeCommand'
 import { ensureDaemonRunning } from './daemon/ensureDaemonRunning'
+import { getDaemonServiceStatus, stopDaemonService } from './daemon/service'
 import { handleCodexCommand } from './commands/codexCommand'
 import { sweepAttachmentsDir } from '@/claude/utils/attachmentRouter'
 
@@ -524,24 +525,13 @@ Conversation history is preserved on the server, but in-flight tool calls are in
       }
       return
 
-    } else if (daemonSubcommand === 'start') {
-      // Spawn detached daemon process
-      const child = spawnTalosCLI(['daemon', 'start-sync'], {
-        detached: true,
-        stdio: 'ignore',
-        env: process.env
-      });
-      child.unref();
-
-      // Wait for daemon to write state file (up to 5 seconds)
-      let started = false;
-      for (let i = 0; i < 50; i++) {
-        if (await checkIfDaemonRunningAndCleanupStaleState()) {
-          started = true;
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
+    } else if (daemonSubcommand === 'start' || daemonSubcommand === 'restart') {
+      if (daemonSubcommand === 'restart') {
+        await stopDaemonService();
+        await stopDaemon();
       }
+      await ensureDaemonRunning();
+      const started = await checkIfDaemonRunningAndCleanupStaleState();
 
       if (started) {
         console.log('Daemon started successfully');
@@ -554,9 +544,13 @@ Conversation history is preserved on the server, but in-flight tool calls are in
       await startDaemon()
       process.exit(0)
     } else if (daemonSubcommand === 'stop') {
+      await stopDaemonService()
       await stopDaemon()
       process.exit(0)
     } else if (daemonSubcommand === 'status') {
+      const service = getDaemonServiceStatus()
+      console.log(`Automatic startup: ${service.enabled ? service.installed ? service.manager : 'not installed' : 'disabled'}`)
+      if (service.serviceFile && service.installed) console.log(`Service: ${service.serviceFile}`)
       await runDoctorDaemon()
       process.exit(0)
     } else if (daemonSubcommand === 'logs') {
@@ -587,8 +581,11 @@ Conversation history is preserved on the server, but in-flight tool calls are in
 ${chalk.bold('talos daemon')} - Daemon management
 
 ${chalk.bold('Usage:')}
-  talos daemon start              Start the daemon (detached)
+  talos daemon start              Start the background service
+  talos daemon restart            Restart the background service
   talos daemon stop               Stop the daemon (sessions stay alive)
+  talos daemon install            Enable automatic startup and start now
+  talos daemon uninstall          Disable automatic startup and stop now
   talos daemon status             Show daemon status
   talos daemon list               List active sessions
 

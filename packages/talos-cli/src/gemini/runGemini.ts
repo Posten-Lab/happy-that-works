@@ -411,7 +411,7 @@ export async function runGemini(opts: {
   };
 
   session.rpcHandlerManager.registerHandler('abort', handleAbort);
-  registerKillSessionHandler(session.rpcHandlerManager, handleKillSession);
+  registerKillSessionHandler(session.rpcHandlerManager, handleKillSession, session.sessionId);
 
   //
   // Initialize Ink UI

@@ -19,6 +19,7 @@ import { useNavigateToSession } from '@/hooks/useNavigateToSession';
 import { machineSpawnNewSession } from '@/sync/ops';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
 import { MultiTextInput, type MultiTextInputHandle } from '@/components/MultiTextInput';
+import { MachineRecoverySettings } from '@/components/MachineRecoverySettings';
 
 const styles = StyleSheet.create((theme) => ({
     pathInputContainer: {
@@ -448,6 +449,8 @@ export default function MachineDetailScreen() {
                         </ItemGroup>
                     </>
                 )}
+
+                <MachineRecoverySettings machine={machine} sessions={machineSessions} />
 
                 {/* Daemon */}
                 <ItemGroup title={t('machine.daemon')}>

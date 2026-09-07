@@ -22,6 +22,9 @@ export interface TrackedSession {
   talosSessionMetadataFromLocalWebhook?: Metadata;
   encryption?: SessionEncryptionData;
   pid: number;
+  /** Kernel birth identity for safe adoption and termination after PID reuse. */
+  processIdentity?: string | null;
+  stopRequested?: boolean;
   childProcess?: ChildProcess;
   error?: string;
   directoryCreated?: boolean;

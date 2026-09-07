@@ -1,4 +1,4 @@
-import type { TranslationStructure } from '../_default';
+import { en as defaultTranslations, type TranslationStructure } from '../_default';
 
 /**
  * Russian plural helper function
@@ -808,6 +808,9 @@ export const ru: TranslationStructure = {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} скопировано в буфер обмена`
     },
+
+    // Use English until recovery translations are available.
+    sessionRecovery: defaultTranslations.sessionRecovery,
 
     machine: {
         offlineUnableToSpawn: 'Запуск отключен: машина offline',

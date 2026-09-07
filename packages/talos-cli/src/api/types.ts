@@ -165,6 +165,13 @@ export const DaemonStateSchema = z.object({
   pid: z.number().optional(),
   httpPort: z.number().optional(),
   startedAt: z.number().optional(),
+  recovery: z.object({
+    enabled: z.boolean(),
+    sessions: z.array(z.object({
+      sessionId: z.string(), status: z.enum(['pending', 'restoring', 'restored', 'failed']),
+      attempts: z.number(), updatedAt: z.number(), error: z.string().optional(),
+    })),
+  }).optional(),
   shutdownRequestedAt: z.number().optional(),
   shutdownSource:
     z.union([
