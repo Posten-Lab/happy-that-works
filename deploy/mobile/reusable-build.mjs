@@ -9,9 +9,11 @@ export function reusableBuild(builds, head, runtime, runGit = git) {
   if (!Array.isArray(builds) || !/^[a-f0-9]{40}$/.test(head || '') || !/^[a-f0-9]{40}$/.test(runtime || '')) {
     throw Error('Reuse requires exact checkout, runtime and EAS build history');
   }
-  if (runGit('rev-parse', 'HEAD').trim() !== head || runGit('status', '--porcelain', '--untracked-files=normal')) {
-    throw Error('Reuse requires a clean reviewed checkout');
+  if (runGit('rev-parse', 'HEAD').trim() !== head) {
+    throw Error('Reuse requires a clean reviewed checkout: HEAD differs from the requested commit');
   }
+  const status = runGit('status', '--porcelain', '--untracked-files=normal');
+  if (status) throw Error(`Reuse requires a clean reviewed checkout; Git status: ${JSON.stringify(status)}`);
   for (const candidate of builds) {
     try {
       verifiedBuild(candidate, candidate?.gitCommitHash, runtime);
