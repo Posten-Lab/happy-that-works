@@ -10,10 +10,11 @@ terminal process; `runManagedProvider` owns Talos encrypted transport, permissio
 message queue, daemon registration, heartbeat and shutdown. Messages use the
 existing active `sendAgentMessage` format; the frozen session protocol is untouched.
 
-**Not ready to merge:** login and live model discovery work, but Meta rejects
-model inference with HTTP 402 `Billing verification failed`. The real acceptance
-suite fails on its first model response. No successful conversation, real edit,
-or approval round trip is claimed. See [validation evidence](evidence/muse/README.md).
+**Not ready to merge:** billing access now works, first model responses succeed,
+and live approval denial/interruption passes. Conversation resume after a model
+change fails in native Muse 1.0.3 with a provider-private history replay error.
+The same error was reproduced independently of Talos. See
+[validation evidence](evidence/muse/README.md) and the native reproduction fixture.
 
 ## Architectural consistency requirement
 
@@ -210,4 +211,5 @@ Current limits requiring follow-up before declaring full support:
 - Talos-specific MCP tools are not injected. Existing native Muse configuration is
   inherited; dynamic MCP/tool registration needs separate verification.
 - Full model-backed acceptance, question/approval UI exercise, populated-history
-  handoff and restart recovery remain blocked by the Meta account billing failure.
+  handoff and restart recovery remain incomplete; native Muse history replay after
+  a model change is the current blocker.

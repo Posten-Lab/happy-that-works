@@ -5,9 +5,17 @@ Environment: macOS arm64, Node 25.1.0, pnpm 10.30.1, official Muse CLI
 server/app/daemon environment. IPv6 localhost was used because local IPv4
 connections timed out; the user's production Talos installation was not replaced.
 
+## Current status
+
+Billing now works. The first real model response succeeds, and the live
+approval-denial/interruption test passes. The model-change/resume acceptance test
+still fails, now with a native Muse history replay error rather than HTTP 402.
+This error was independently reproduced using only the official SDK and `muse
+serve`, without importing Talos adapters or transport. PR #25 remains a draft.
+
 ## Passed
 
-- CLI build/typecheck and all 856 unit tests (97 files).
+- CLI build/typecheck and all 859 unit tests (97 files).
 - App typecheck and 13 selected provider-default/model-discovery tests (4 files).
 - Talos identity verification: 7 workspaces and 29 assets.
 - Official Muse login completed and live native model discovery returned four models.
@@ -22,7 +30,7 @@ connections timed out; the user's production Talos installation was not replaced
   session` passed. It started a live turn, cancelled it, closed the owner,
   resumed the same ID and verified an invalid model is rejected.
 
-## Blocked / not passed
+## Earlier billing blocker — resolved on the latest retry
 
 The real `answers multiple turns, changes model and resumes durable history`
 acceptance test failed after Muse's 10 retries (about 258 seconds):
@@ -30,8 +38,9 @@ acceptance test failed after Muse's 10 retries (about 258 seconds):
 > API error 402: Billing verification failed. Please check your payment method.
 
 Request ID: `46ca93f5-8703-49e9-b299-822f6f019aa7`.
-The separate tool approval test was not run after the account-level failure.
-Login success does not establish model access. This draft is not ready to merge.
+The separate tool approval test was not run during that earlier attempt.
+The latest retry below confirms billing access now works, but a different native
+resume failure still prevents merging.
 
 The experimental terminal automation harness made native Muse exit early and was
 not retained. Its attempts are not counted as passing E2E evidence. The direct
@@ -77,3 +86,36 @@ Outer request ID: `3ff30f3c-03e2-4793-9af4-bd39dbe650fc`.
 The remaining two acceptance cases were not selected in this retry. No application
 code changed. PR #25 remains a draft; its existing CI checks are green, including
 packaged CLI checks on Linux and Windows with Node 20 and 24.
+
+## Latest retry — billing resolved; native resume failure
+
+`answers multiple turns, changes model and resumes durable history` now gets the
+expected `copper-otter` first response. After closing and resuming its native host,
+the next turn fails with:
+
+> provider-private history is incompatible with the active route
+
+Muse reports missing provider attribution on a reasoning replay item after a
+provider switch. The independent native reproduction starts a default session,
+selects `muse-spark-1.3` with explicit `providerId: meta`, completes one turn,
+restarts/resumes, reapplies the same selection, and fails on the second turn.
+
+Run from `packages/talos-cli`:
+
+```sh
+node tests/muse-e2e/native-model-resume-repro.mjs
+```
+
+A separate native probe starting directly with `muse-spark-1.3` succeeded across
+resume when the same selection was reapplied. It also exposed a case where the
+resume response reported the startup Contributor model instead of the original
+model. The adapter now reads the stored model before resume, restores its
+advertised routing if substituted, and refuses an unavailable saved model rather
+than silently accepting another one. Model selection also retains the advertised
+provider/profile. These guards do **not** solve the native history replay error.
+
+Additional live result: `routes real approvals, interrupts work, and rejects
+unsupported permission modes` passed (8.50s). It observed and denied a real shell
+approval, verified no file was written, then interrupted another admitted turn.
+The exact model-backed resume failure remains an acceptance gate; no history is
+discarded or rewritten to hide it.

@@ -6,7 +6,7 @@ import { MuseSession } from './MuseSession';
 function fixture() {
     let notify: (method: string, params: any) => void = () => {};
     const command = vi.fn(async (method: string) => method.startsWith('session/') ? { session: { sessionId: 'native-id' }, history: { mode: 'inline', items: [] } } : { turnId: 'turn-1' });
-    const request = vi.fn(async () => ({ models: [] }));
+    const request = vi.fn(async (_method: string) => ({ models: [] } as any));
     const close = vi.fn(async () => {});
     const host = { connection: { command, request, mintCommandId: () => 'turn-1' }, close, exited: new Promise(() => {}) };
     mock.connect.mockImplementation(async (_: string, callback: typeof notify) => { notify = callback; return host; });
@@ -82,6 +82,43 @@ describe('MuseSession lifecycle', () => {
             requirementId: { approvalId: 'approval', sourceIndex: 2 }, choiceId: 'deny',
         })));
         expect(f.command.mock.calls.filter(([method]) => method === 'approval/decide')).toHaveLength(1);
+        await f.session.dispose();
+    });
+
+    it('preserves the advertised provider and profile when selecting a model', async () => {
+        const f = fixture();
+        f.request.mockResolvedValue({ models: [{ modelId: 'muse-model', providerId: 'meta', profileId: 'profile-a' }] } as any);
+        await f.session.start();
+        f.command.mockImplementation(async (method) => {
+            if (method === 'turn/start') f.notify('turn/completed', { turnId: 'turn-1', terminal: 'completed' });
+            return {} as any;
+        });
+        await f.session.prompt('hello', { model: 'muse-model' });
+        expect(f.command).toHaveBeenCalledWith('session/setModel', { sessionId: 'native-id', model: {
+            modelId: 'muse-model', providerId: 'meta', profileId: 'profile-a',
+        } });
+        await f.session.dispose();
+    });
+
+    it('restores the saved route if the host substitutes its default on resume', async () => {
+        const f = fixture();
+        f.request.mockImplementation(async method => method === 'session/read'
+            ? { session: { modelId: 'selected-model', providerId: 'meta' } }
+            : { models: [{ modelId: 'selected-model', providerId: 'meta', profileId: 'saved-profile' }] });
+        f.command.mockResolvedValue({ session: { sessionId: 'native-id', modelId: 'startup-default', providerId: 'meta' },
+            history: { mode: 'inline', items: [] } } as any);
+        await f.session.start('native-id');
+        expect(f.command).toHaveBeenCalledWith('session/setModel', { sessionId: 'native-id', model: {
+            modelId: 'selected-model', providerId: 'meta', profileId: 'saved-profile',
+        } });
+        await f.session.dispose();
+    });
+
+    it('refuses a substituted default when the saved model is no longer available', async () => {
+        const f = fixture();
+        f.request.mockImplementation(async method => method === 'session/read'
+            ? { session: { modelId: 'missing-model', providerId: 'meta' } } : { models: [] });
+        await expect(f.session.start('native-id')).rejects.toThrow('refusing to use a different model');
         await f.session.dispose();
     });
 

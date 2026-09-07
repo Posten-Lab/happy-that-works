@@ -33,6 +33,7 @@ export class MuseSession {
     private turn: { id?: string; resolve(): void; reject(error: Error): void } | null = null;
     private approvals = new Map<string, string>();
     private approvalRequests = new Map<string, JsonObject>();
+    private models: JsonObject[] = [];
     sessionId = '';
     mode: 'local' | 'remote' = 'remote';
 
@@ -71,7 +72,7 @@ export class MuseSession {
         this.sessionId = resumeId ?? '';
         const host = await this.connect();
         const result = resumeId
-            ? await host.connection.command('session/resume', { sessionId: resumeId, history: 'inline' })
+            ? await this.resumeHost(host, resumeId)
             : await host.connection.command('session/start', { workspaceRoot: this.cwd });
         const session = object(result.session);
         this.sessionId = text(session.sessionId);
@@ -85,6 +86,25 @@ export class MuseSession {
         await this.refreshModels();
         if (mode === 'local') await this.switchMode('local');
         else this.callbacks.mode('remote');
+    }
+
+    private async resumeHost(host: SpawnedMspConnection, sessionId: string) {
+        // Muse 1.0.3 may stamp its startup model into the resume record. Read the
+        // durable selection first so resuming cannot silently change the route.
+        const stored = object((await host.connection.request('session/read', { sessionId, excludeItems: true })).session);
+        const result = await host.connection.command('session/resume', { sessionId, history: 'inline' });
+        const resumed = object(result.session);
+        const modelId = text(stored.modelId);
+        if (modelId && (modelId !== resumed.modelId || stored.providerId !== resumed.providerId)) {
+            const catalog = await host.connection.request('model/list', { sessionId });
+            const selected = (Array.isArray(catalog.models) ? catalog.models : []).map(object)
+                .find(m => m.modelId === modelId && (!stored.providerId || m.providerId === stored.providerId));
+            if (!selected) throw new Error(`Muse cannot restore the previous model ${modelId}; refusing to use a different model`);
+            await host.connection.command('session/setModel', { sessionId, model: {
+                modelId, providerId: selected.providerId, profileId: selected.profileId ?? null,
+            } });
+        }
+        return result;
     }
 
     private async history(response: JsonObject) {
@@ -209,6 +229,7 @@ export class MuseSession {
         if (!this.host) return;
         const result = await this.host.connection.request('model/list', this.mode === 'remote' ? { sessionId: this.sessionId } : {});
         const models = (Array.isArray(result.models) ? result.models : []).map(object);
+        this.models = models;
         this.callbacks.metadata({ models: models.map(m => ({ code: text(m.modelId), value: text(m.displayLabel) || text(m.modelId) })),
             currentModelCode: text(models.find(m => m.isActive)?.modelId),
             operatingModes: musePermissionModes.map(m => ({ code: m.id, value: m.name })), currentOperatingModeCode: this.permissionMode });
@@ -249,7 +270,7 @@ export class MuseSession {
                     await this.readLocal();
                     await this.closeHost();
                     const host = await this.connect();
-                    const result = await host.connection.command('session/resume', { sessionId: this.sessionId, history: 'inline' });
+                    const result = await this.resumeHost(host, this.sessionId);
                     await this.history(result);
                     this.mode = 'remote';
                     await this.refreshModels();
@@ -287,7 +308,14 @@ export class MuseSession {
         const host = this.host;
         if (!host) throw new Error('Muse is not connected');
         if (this.turn) throw new Error('Muse already has an active turn');
-        if (options.model && options.model !== 'default') await host.connection.command('session/setModel', { sessionId: this.sessionId, model: { modelId: options.model } });
+        if (options.model && options.model !== 'default') {
+            if (!this.models.some(m => m.modelId === options.model)) await this.refreshModels();
+            const selected = this.models.find(m => m.modelId === options.model);
+            if (!selected) throw new Error(`Muse does not advertise model ${options.model}`);
+            await host.connection.command('session/setModel', { sessionId: this.sessionId, model: {
+                modelId: options.model, providerId: selected.providerId, profileId: selected.profileId ?? null,
+            } });
+        }
         if (options.permissionMode) {
             const mode = musePermissionModes.find(m => m.id === options.permissionMode);
             if (!mode) throw new Error(`Unsupported Muse permission mode: ${options.permissionMode}`);
