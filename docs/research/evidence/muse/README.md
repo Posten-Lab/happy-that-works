@@ -210,3 +210,15 @@ for permission RPCs. `ApiSessionClient.close()` now latches closed state, cancel
 both reconnect timers, and refuses late reconnects. A regression test includes
 both a pending reconnect and disconnect/error events during shutdown. The final
 CLI unit suite passes 862 tests across 97 files.
+
+Live shutdown verification after the fix: stopping resumed PID 12237 with SIGTERM
+made the browser session inactive and exposed Resume Session. The process then
+exited and stayed absent, instead of reconnecting. A preceding test with the old
+build required terminating stale processes and sending session-end for their
+abandoned test presence; that cleanup is not counted as automatic crash recovery.
+The raw `talos resume` command also reported missing imported session keys in this
+seeded account; the app/daemon resume path was the path validated here.
+
+Stale Muse model preferences in existing session settings and saved message
+snapshots are now ignored by the updated app, preventing an invisible old model
+choice from trapping the fixed-model UI. Native routing checks remain authoritative.

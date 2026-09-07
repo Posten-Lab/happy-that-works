@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { resolveMessageModeMeta, resolveSendMessageModeMeta } from './messageMeta';
 
 describe('resolveMessageModeMeta', () => {
+    it('does not resend stale Muse model selections from settings, sessions, or drafts', () => {
+        const session = { permissionMode: null, modelMode: 'muse-spark-1.3', effortLevel: null, metadata: { flavor: 'muse' } } as any;
+        const settings = { agentDefaultOverrides: { muse: { modelMode: 'muse-spark-1.2' } } } as any;
+        expect(resolveMessageModeMeta(session, settings).model).toBeNull();
+        expect(resolveSendMessageModeMeta(session, settings, { model: 'muse-spark-1.2' }).model).toBeNull();
+    });
+
     it('omits agent mode metadata when nothing was explicitly overridden', () => {
         const meta = resolveMessageModeMeta({
             permissionMode: null,
