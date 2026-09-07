@@ -119,7 +119,7 @@ it('immediately explains old daemons without a network wait or automatic retry',
     await mount();
     expect(context.read).not.toHaveBeenCalled();
     expect(result.refreshing).toBe(false);
-    expect(result.entries.every(entry => entry.error?.includes('version 1.0.1'))).toBe(true);
+    expect(result.entries.every(entry => entry.error?.includes('version 1.0.2'))).toBe(true);
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
     expect(context.read).not.toHaveBeenCalled();
     context.machines[0].metadata.talosCliVersion = '1.0.1';

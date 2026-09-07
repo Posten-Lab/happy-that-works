@@ -16,7 +16,7 @@ export type ProviderUsageEntry = {
     sources?: Array<{ machineId: string; label: string; online: boolean; refreshing: boolean; message?: string }>;
 };
 
-export const USAGE_CLI_UPDATE_MESSAGE = 'Update Talos on this machine to version 1.0.1 or later, then restart its daemon to view account limits.';
+export const USAGE_CLI_UPDATE_MESSAGE = 'Update Talos on this machine to version 1.0.2 or later, then restart its daemon to view account limits.';
 
 /** Capabilities survive renamed products whose version numbers are not comparable. */
 export function requiresUsageCliUpdate(metadata: { providerUsage?: { rpcAvailable: boolean } } | null | undefined): boolean {

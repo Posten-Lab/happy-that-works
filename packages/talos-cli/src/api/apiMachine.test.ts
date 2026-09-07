@@ -38,6 +38,7 @@ vi.mock('@/api/rpc/RpcHandlerManager', () => ({
         onSocketDisconnect = vi.fn();
         handleRequest = vi.fn(async () => '');
         registerHandler = vi.fn();
+        hasHandler = vi.fn(() => false);
         unregisterHandler = vi.fn();
     }
 }));
@@ -145,4 +146,24 @@ describe('ApiMachineClient socket reconnection', () => {
 
         client.shutdown();
     });
+    it('refreshes capabilities on an existing machine after connection and reconnection', async () => {
+        vi.useFakeTimers();
+        const machine = makeMachine();
+        machine.metadata!.talosCliVersion = '1.0.0';
+        machine.metadata!.host = 'User computer name';
+        const client = new ApiMachineClient('fake-token', machine);
+        vi.spyOn(client, 'updateDaemonState').mockResolvedValue();
+        const update = vi.spyOn(client, 'updateMachineMetadata').mockResolvedValue();
+        client.connect();
+        emitSocketEvent('connect');
+        const refreshed = update.mock.calls[0][0](machine.metadata);
+        expect(refreshed.providerUsage).toEqual({ rpcAvailable: true });
+        expect(refreshed.talosCliVersion).toBe('test');
+        expect(refreshed.host).toBe('User computer name');
+        emitSocketEvent('disconnect', 'transport close');
+        emitSocketEvent('connect');
+        expect(update).toHaveBeenCalledTimes(2);
+        client.shutdown();
+    });
+
 });

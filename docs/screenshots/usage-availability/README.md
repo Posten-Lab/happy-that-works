@@ -16,6 +16,8 @@ The navigation header is now Usage & limits. The synchronous Codex version probe
 - Screenshots show actual provider usage plus synthetic older-machine status rows. Personal account and actual machine labels were replaced before capture; quota values are unchanged.
 - Packed `talosapp@1.0.1` contains both the quota RPC and capability metadata and depends on `@ahmadposten/talos-wire@0.1.1`.
 
-## Delivery status at verification
+## Delivery verification
 
-The new publishing flow is `pnpm release wire --publish`, followed by `pnpm release cli --publish`; it retains prepublish checks. npm authentication currently returns HTTP 401, so these patch packages have not been uploaded or installed on the production Mac or Dell. Existing production installations remain 1.0.0. Jenkins web/API/mobile success does not publish npm packages or update machine daemons.
+`@ahmadposten/talos-wire@0.1.1` and `talosapp@1.0.2` are published under npm latest through the new `pnpm release` flow, with prepublish checks enabled. 1.0.2 corrects an existing-machine upgrade case found during production verification: registration returns saved metadata, so the daemon now refreshes its quota capability and running version after registering RPC handlers on each connection. A regression test verifies initial connection and reconnection while preserving machine labels.
+
+The final CLI suite passes 834 tests; the app passes 764 tests, and wire passes 29 tests. Both production machine installations are verified separately against the tested bundle hashes and through encrypted provider RPC. Publication no longer depends on the expired default npm login; it uses the operator-provided npm user configuration without copying credentials.

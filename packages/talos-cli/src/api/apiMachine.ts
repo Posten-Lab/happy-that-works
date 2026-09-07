@@ -488,6 +488,13 @@ export class ApiMachineClient {
 
             this.rpcHandlerManager.onSocketConnect(this.socket);
             this.syncResumeSessionRpcRegistration();
+            // Existing machine registration returns saved metadata. Refresh the
+            // running daemon's capabilities after its RPC handlers are registered.
+            void this.updateMachineMetadata(metadata => ({
+                ...(metadata || this.machine.metadata)!,
+                talosCliVersion: configuration.currentCliVersion,
+                providerUsage: { rpcAvailable: true },
+            })).catch(error => logger.debug('[API MACHINE] Failed to refresh daemon capabilities:', error));
             this.startKeepAlive();
         });
 
