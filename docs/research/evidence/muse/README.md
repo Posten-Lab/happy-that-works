@@ -64,3 +64,16 @@ MUSE_TEST_SIGNAL=/tmp/talos-muse-handoff pnpm exec tsx tests/muse-e2e/handoff-fi
 Once Muse has rendered its resumed session, create `/tmp/talos-muse-handoff` from
 another terminal. The fixture switches back to remote ownership and verifies the
 unchanged session ID. It has a 90-second cleanup deadline.
+
+## Retry after reported billing fix — 2026-09-07
+
+Re-ran `pnpm --filter talosapp exec vitest run --project integration-muse -t
+'answers multiple turns'` with the existing authenticated CLI. The first model
+response again failed after all 10 provider attempts (256.74 seconds): HTTP 402
+`Billing verification failed. Please check your payment method.`
+
+Meta request ID: `d9d9aa3e-edd7-4472-88f1-eaa2a314bfc9`.
+Outer request ID: `3ff30f3c-03e2-4793-9af4-bd39dbe650fc`.
+The remaining two acceptance cases were not selected in this retry. No application
+code changed. PR #25 remains a draft; its existing CI checks are green, including
+packaged CLI checks on Linux and Windows with Node 20 and 24.
