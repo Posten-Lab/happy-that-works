@@ -17,6 +17,7 @@ import { AgentState } from "@/api/types";
 export interface PermissionResponse {
     id: string;
     approved: boolean;
+    updatedInput?: unknown;
     decision?: 'approved' | 'approved_for_session' | 'denied' | 'abort';
 }
 
@@ -34,6 +35,7 @@ export interface PendingRequest {
  * Result of a permission request.
  */
 export interface PermissionResult {
+    updatedInput?: unknown;
     decision: 'approved' | 'approved_for_session' | 'denied' | 'abort';
 }
 
@@ -90,6 +92,7 @@ export abstract class BasePermissionHandler {
                     ? { decision: response.decision === 'approved_for_session' ? 'approved_for_session' : 'approved' }
                     : { decision: response.decision === 'denied' ? 'denied' : 'abort' };
 
+                if (response.updatedInput !== undefined) result.updatedInput = response.updatedInput;
                 pending.resolve(result);
 
                 // Move request to completed in agent state

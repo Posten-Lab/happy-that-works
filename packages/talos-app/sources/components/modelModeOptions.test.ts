@@ -70,6 +70,12 @@ describe('modelModeOptions', () => {
         expect(getDefaultEffortKey('codex')).toBe('medium');
     });
 
+    it('restricts Muse to the verified model even with stale server metadata', () => {
+        const models = getAvailableModels('muse', { models: [{ code: 'muse-spark-1.3', value: 'Other model' }] }, translate);
+        expect(models.map(model => model.key)).toEqual(['default']);
+        expect(models[0].description).toContain('preserve resume');
+    });
+
     it('prefers metadata models over hardcoded fallbacks', () => {
         const models = getAvailableModels('gemini', {
             models: [

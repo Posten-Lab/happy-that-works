@@ -36,7 +36,8 @@ export function parseResumeCommandArgs(args: string[]): { showHelp: boolean; ses
     };
 }
 
-function resolveFlavor(metadata: Metadata): 'codex' | 'claude' | null {
+function resolveFlavor(metadata: Metadata): 'codex' | 'claude' | 'muse' | null {
+    if (metadata.flavor === 'muse') return 'muse';
     if (metadata.flavor === 'codex' || metadata.codexThreadId) {
         return 'codex';
     }
@@ -49,6 +50,11 @@ function resolveFlavor(metadata: Metadata): 'codex' | 'claude' | null {
 export function buildResumeLaunch(session: ResumableTalosSession, options: ResumeLaunchOptions = {}): ResumeLaunch {
     const { metadata } = session;
     const flavor = resolveFlavor(metadata);
+
+    if (flavor === 'muse') {
+        if (!metadata.museSessionId) throw new Error('Talos session is missing its Muse session ID');
+        return { cwd: metadata.path, args: ['muse', '--resume', metadata.museSessionId, '--talos-starting-mode', 'remote', ...(options.startedBy ? ['--started-by', options.startedBy] : [])] };
+    }
 
     if (flavor === 'codex') {
         if (!metadata.codexThreadId) {

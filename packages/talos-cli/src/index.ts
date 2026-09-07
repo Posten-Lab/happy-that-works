@@ -376,6 +376,10 @@ Conversation history is preserved on the server, but in-flight tool calls are in
       process.exit(1)
     }
     return;
+  } else if (subcommand === 'muse') {
+    const { handleMuseCommand } = await import('@/commands/museCommand');
+    await handleMuseCommand(args.slice(1));
+    return;
   } else if (subcommand === 'acp') {
     try {
       const { runAcp, resolveAcpAgentConfig } = await import('@/agent/acp');
@@ -702,6 +706,7 @@ ${chalk.bold('Usage:')}
   talos resume            Resume a previous Talos session by Talos session ID
   talos codex             Start Codex mode
   talos gemini            Start Gemini mode (ACP)
+  talos muse              Start Muse Code with native terminal handoff
   talos acp               Start a generic ACP-compatible agent
   talos connect           Connect AI vendor API keys
   talos sandbox           Configure and manage OS-level sandboxing

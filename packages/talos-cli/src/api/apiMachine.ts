@@ -300,6 +300,11 @@ export class ApiMachineClient {
         const providerUsage = new ProviderUsageService();
         this.rpcHandlerManager.registerHandler('provider-usage', (params) => providerUsage.read(params));
 
+        this.rpcHandlerManager.registerHandler('muse-list-models', async () => {
+            const { discoverMuseModels } = await import('@/muse/museClient');
+            return { type: 'success', models: await discoverMuseModels(process.cwd()) };
+        });
+
         this.rpcHandlerManager.registerHandler('claude-list-models', async () => ({
             type: 'success',
             models: await discoverClaudeModels(),
@@ -561,7 +566,7 @@ export class ApiMachineClient {
             const prev = this.lastKnownCLIAvailability;
             const newResumeSupport = detectResumeSupport();
             const prevResume = this.lastKnownResumeSupport;
-            const cliAvailabilityChanged = !prev || prev.claude !== newAvailability.claude || prev.codex !== newAvailability.codex || prev.gemini !== newAvailability.gemini || prev.openclaw !== newAvailability.openclaw;
+            const cliAvailabilityChanged = !prev || prev.claude !== newAvailability.claude || prev.codex !== newAvailability.codex || prev.gemini !== newAvailability.gemini || prev.openclaw !== newAvailability.openclaw || prev.muse !== newAvailability.muse;
             const resumeSupportChanged = !prevResume
                 || prevResume.rpcAvailable !== newResumeSupport.rpcAvailable
                 || prevResume.talosAgentAuthenticated !== newResumeSupport.talosAgentAuthenticated;

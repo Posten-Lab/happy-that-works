@@ -403,7 +403,7 @@ export async function startDaemon(): Promise<void> {
           // Construct command for the CLI
           const cliPath = join(projectPath(), 'dist', 'index.mjs');
           // Determine agent command - support claude, codex, and gemini
-          const agent = options.agent === 'gemini' ? 'gemini' : (options.agent === 'codex' ? 'codex' : (options.agent === 'openclaw' ? 'openclaw' : 'claude'));
+          const agent = options.agent === 'muse' ? 'muse' : options.agent === 'gemini' ? 'gemini' : (options.agent === 'codex' ? 'codex' : (options.agent === 'openclaw' ? 'openclaw' : 'claude'));
           const resumeId = agent === 'claude'
             ? options.resumeClaudeSessionId
             : (agent === 'codex' ? options.resumeCodexThreadId : undefined);
@@ -504,6 +504,9 @@ export async function startDaemon(): Promise<void> {
               break;
             case 'gemini':
               agentCommand = 'gemini';
+              break;
+            case 'muse':
+              agentCommand = 'muse';
               break;
             case 'openclaw':
               agentCommand = 'openclaw';
@@ -676,7 +679,8 @@ export async function startDaemon(): Promise<void> {
         // Fetch fresh metadata from server if needed.
         let metadata = tracked.talosSessionMetadataFromLocalWebhook;
         const needsFetch = (!metadata.claudeSessionId && (!metadata.flavor || metadata.flavor === 'claude'))
-          || (!metadata.codexThreadId && metadata.flavor === 'codex');
+          || (!metadata.codexThreadId && metadata.flavor === 'codex')
+          || (!metadata.museSessionId && metadata.flavor === 'muse');
         if (needsFetch) {
           logger.debug(`[DAEMON RUN] Session ${talosSessionId} missing agent session ID in webhook metadata, fetching from server`);
           const serverMetadata = await fetchServerSessionMetadata(talosSessionId, tracked.encryption.encryptionKey, tracked.encryption.encryptionVariant);

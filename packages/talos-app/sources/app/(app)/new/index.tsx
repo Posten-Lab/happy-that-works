@@ -45,6 +45,7 @@ import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useDocumentPicker } from '@/hooks/useDocumentPicker';
 import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
+import { useProviderModels } from '@/hooks/useProviderModels';
 import { useClaudeProviderModels } from '@/hooks/useClaudeProviderModels';
 import { AgentInputAttachmentStrip } from '@/components/AgentInputAttachmentStrip';
 import { useShallow } from 'zustand/react/shallow';
@@ -79,6 +80,7 @@ const ALL_AGENTS: { key: AgentKey; label: string }[] = [
     { key: 'codex', label: 'codex' },
     { key: 'openclaw', label: 'openclaw' },
     { key: 'gemini', label: 'gemini' },
+    { key: 'muse', label: 'Muse Code' },
 ];
 
 type PickerItem = { key: string; label: string; subtitle?: string; dimmed?: boolean };
@@ -758,7 +760,8 @@ function NewSessionScreen() {
         selectedMachineId ? [selectedMachineId] : [],
         selectedAgent === 'claude' && canDiscoverModels,
     );
-    const liveModels = selectedAgent === 'claude' ? liveClaudeModels : liveCodexModels;
+    const liveMuseModels = useProviderModels('muse', selectedMachineId ? [selectedMachineId] : [], selectedAgent === 'muse' && canDiscoverModels);
+    const liveModels = selectedAgent === 'muse' ? liveMuseModels : selectedAgent === 'claude' ? liveClaudeModels : liveCodexModels;
     const providerModelMetadata = React.useMemo(() => (
         liveModels && liveModels.length > 0
             ? { models: liveModels }
@@ -1204,11 +1207,9 @@ function NewSessionScreen() {
                                     onPress={() => togglePicker('agent')}
                                     style={(p) => [styles.configInlineField, p.pressed && styles.configRowPressed]}
                                 >
-                                    <RNImage
-                                        source={agentIcons[agent.key]}
+                                    {agent.key === 'muse' ? <Ionicons name="code-slash" size={16} color={theme.colors.textSecondary} /> : <RNImage source={agentIcons[agent.key]}
                                         style={[styles.agentIcon, { tintColor: theme.colors.textSecondary }]}
-                                        resizeMode="contain"
-                                    />
+                                        resizeMode="contain" />}
                                     <Text style={[styles.configLabel, styles.configInlineText]} numberOfLines={1}>
                                         {agent.label}
                                     </Text>
@@ -1314,11 +1315,9 @@ function NewSessionScreen() {
                                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                                 style={(p) => [styles.collapsedIconButton, p.pressed && styles.configRowPressed]}
                             >
-                                <RNImage
-                                    source={agentIcons[agent.key]}
+                                {agent.key === 'muse' ? <Ionicons name="code-slash" size={16} color={theme.colors.textSecondary} /> : <RNImage source={agentIcons[agent.key]}
                                     style={[styles.collapsedAgentIcon, { tintColor: theme.colors.textSecondary }]}
-                                    resizeMode="contain"
-                                />
+                                    resizeMode="contain" />}
                             </Pressable>
 
                             {showPermission && (

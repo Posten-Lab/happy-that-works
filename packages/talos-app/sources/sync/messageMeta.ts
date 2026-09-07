@@ -32,6 +32,7 @@ export function resolveMessageModeMeta(
         meta.effort = effort;
     }
 
+    if (session.metadata?.flavor === 'muse') meta.model = null;
     return meta;
 }
 
@@ -43,5 +44,6 @@ export function resolveSendMessageModeMeta(
     return {
         ...resolveMessageModeMeta(session, settings),
         ...snapshot,
+        ...(session.metadata?.flavor === 'muse' ? { model: null } : {}),
     };
 }
