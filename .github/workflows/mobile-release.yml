@@ -25,3 +25,4 @@ jobs:
           cache: pnpm
       - run: SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter talos-app... --config.node-linker=isolated --config.shamefully-hoist=false
       - run: node --test deploy/mobile/*.test.cjs deploy/mobile/*.test.mjs scripts/store-continuity.test.cjs
+      - run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/mobile -p 'test_ios_ipa.py' -v

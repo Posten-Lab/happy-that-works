@@ -1,0 +1,60 @@
+{
+  "passed": true,
+  "ipaSha256": "50a1a477dfa6f51d70a89e65cdb62b5f2f2732f4db94b74eed8ba6b09f4515cc",
+  "ipaBytes": 60880042,
+  "bundleIdentifier": "com.ahposten.happyimproved",
+  "displayName": "Talos",
+  "version": "2.0.0",
+  "buildNumber": "21",
+  "runtimeVersion": "86d99034771c86a8c2ff5ad743c06e0650f848f6",
+  "executableSignature": {
+    "tool": "rcodesign",
+    "version": "0.29.0",
+    "slices": [
+      {
+        "index": 0,
+        "codeDirectoryIdentifier": "com.ahposten.happyimproved",
+        "codeDirectoryTeam": "H2XR8XWZXW",
+        "xmlAndDerEntitlementsMatch": true,
+        "entitlements": {
+          "application-identifier": "H2XR8XWZXW.com.ahposten.happyimproved",
+          "aps-environment": "production",
+          "beta-reports-active": true,
+          "com.apple.developer.team-identifier": "H2XR8XWZXW",
+          "get-task-allow": false
+        },
+        "effectiveDefaultKeychainGroup": "H2XR8XWZXW.com.ahposten.happyimproved",
+        "cmsSignaturesVerified": true
+      }
+    ],
+    "verificationReportedNoProblems": true,
+    "limit": "rcodesign 0.29.0 documents incomplete/known-buggy verification; this is not complete Apple codesign validation."
+  },
+  "profile": {
+    "applicationIdentifier": "H2XR8XWZXW.com.ahposten.happyimproved",
+    "team": "H2XR8XWZXW",
+    "prefix": "H2XR8XWZXW",
+    "keychainAccessGroups": [
+      "H2XR8XWZXW.*",
+      "com.apple.token"
+    ],
+    "expires": "2027-02-22T15:04:27+00:00",
+    "cmsIntegrityVerified": true,
+    "certificateChainTrustVerified": false
+  },
+  "icons": [
+    {
+      "name": "AppIcon60x60@2x.png",
+      "sha256": "275316dc483916405e1fc0c03235e6b3c543425d69973375115953a71e4e3a1a"
+    },
+    {
+      "name": "AppIcon76x76@2x~ipad.png",
+      "sha256": "e90cd38696765cc434521b6bb3fbb2081d9227ed6e4bbcb9757f23621bf3d7c8"
+    }
+  ],
+  "limits": [
+    "rcodesign checks effective XML/DER entitlements and reports signature problems; upstream documents incomplete verification. A Mac codesign comparison remains additional evidence.",
+    "Icon presence is verified; the extracted release icon still requires visual brand inspection.",
+    "This artifact check does not perform a physical-device upgrade."
+  ]
+}

@@ -52,3 +52,15 @@ A real Jenkins feature-branch run validates checkout, the Linux agent, isolated
 pnpm installation, tests, and iOS export without sending a production update.
 Actual OTA receipt on a device and TestFlight processing need post-merge release
 validation; a successful export is not proof of either.
+
+A retry in `auto` mode may reuse an already finished production artifact only
+when its runtime and fingerprint match, its commit is an ancestor of the checkout,
+and every intervening path is classified as having no mobile impact. Any bundle,
+native, dependency or unknown input change requires a new build. The artifact's
+original commit is verified and recorded separately from the delivery checkout.
+Explicit `native` mode always builds again. All reused artifacts still pass the
+full IPA identity/signature/runtime checks before exact-ID submission.
+
+Fingerprint-policy IPAs use Expo's `file:fingerprint` sentinel. The verifier reads
+`EXUpdates.bundle/fingerprint`, validates the exact hash and compares it to the
+reviewed runtime; it does not compare the sentinel literally or skip the check.

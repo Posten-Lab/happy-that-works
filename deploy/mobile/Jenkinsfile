@@ -222,10 +222,23 @@ pipeline {
               IPA_VERSION=$(node -e 'const c=require("./ipa-expected-config.json"); if (typeof c.version !== "string" || !c.version) process.exit(1); console.log(c.version)')
               IPA_RUNTIME=$(cat runtime-version.txt)
               export TALOS_EXPECTED_RUNTIME_VERSION="$IPA_RUNTIME"
-              eas build -p ios --profile production --non-interactive --wait --json > build-result.json
-              node ../../deploy/mobile/build-id.cjs build-result.json > build-id.txt
+              ARTIFACT_COMMIT="$GIT_COMMIT"
+              REUSED=no
+              if [ "$MOBILE_RELEASE_MODE" = auto ]; then
+                eas build:list --platform ios --build-profile production --channel production \
+                  --distribution store --status finished --runtime-version "$IPA_RUNTIME" \
+                  --limit 50 --json --non-interactive > compatible-builds.json
+                REUSED=$(node ../../deploy/mobile/reusable-build.mjs)
+              fi
+              if [ "$REUSED" = yes ]; then
+                ARTIFACT_COMMIT=$(node -p 'require("./dist-ci/artifact-reuse.json").buildCommit')
+                echo 'Reusing finished binary: application and native inputs are unchanged'
+              else
+                eas build -p ios --profile production --non-interactive --wait --json > build-result.json
+              fi
+              GIT_COMMIT="$ARTIFACT_COMMIT" node ../../deploy/mobile/build-id.cjs build-result.json > build-id.txt
               IPA_DIR=$(mktemp -d /tmp/talos-ios-artifact.XXXXXX)
-              node ../../deploy/mobile/download-ios-artifact.cjs build-result.json "$IPA_DIR/verified.ipa" > artifact-download.json
+              GIT_COMMIT="$ARTIFACT_COMMIT" node ../../deploy/mobile/download-ios-artifact.cjs build-result.json "$IPA_DIR/verified.ipa" > artifact-download.json
               python3 ../../deploy/mobile/verify-ios-ipa.py "$IPA_DIR/verified.ipa" \
                 --expected-version "$IPA_VERSION" --expected-runtime "$IPA_RUNTIME" \
                 --signature-tools "$SIGNATURE_TOOLS_ROOT/tools" --output ipa-verification.json
@@ -249,7 +262,7 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'packages/talos-app/build-id.txt,packages/talos-app/artifact-download.json,packages/talos-app/ipa-verification.json,packages/talos-app/fingerprint-result.json,packages/talos-app/runtime-version.txt,packages/talos-app/runtime-compatibility.json', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'packages/talos-app/build-id.txt,packages/talos-app/artifact-download.json,packages/talos-app/ipa-verification.json,packages/talos-app/fingerprint-result.json,packages/talos-app/runtime-version.txt,packages/talos-app/runtime-compatibility.json,packages/talos-app/dist-ci/artifact-reuse.json', allowEmptyArchive: true
       sh '''
         case "${SIGNATURE_TOOLS_ROOT:-}" in
           /tmp/talos-signature-tools.*) rm -rf -- "$SIGNATURE_TOOLS_ROOT" ;;
