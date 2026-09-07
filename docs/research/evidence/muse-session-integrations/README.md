@@ -4,11 +4,12 @@ Validated with installed Muse Code 1.0.3, a real Meta account, Talos's local API
 
 - `compact-tools-and-todos.png`: automatic chat title, a collapsed native `read_file` row, and the shared task panel at 1/3 with the next step in progress.
 - `tool-details.png`: clicking the compact tool row opens the existing shared detail view with the full input and output.
+- `image-tools.png`: the shared Talos image tool publishes a local PNG that loads at its real 1024×1024 dimensions in the browser.
 - `renamed-and-completed.png`: an explicit rename request updates the sidebar and chat header; completing the native plan updates the task panel to 3/3.
 
 The native provider acceptance test covers explicit title changes, restoring todos on resume, and clearing the task list. The PTY fixture `packages/talos-cli/tests/muse-e2e/session-integrations-fixture.ts` checks the same session through remote → native terminal → remote control, including title changes and todo completion after handoff.
 
-Muse 1.0.3 filters environment variables from MCP child processes, so the bridge locates its launching Talos process through a private registry and checks the process start time. Ordinary Muse sessions receive no Talos MCP tools. Native terminal resume can drop MCP registrations; the installed Talos skill documents the CLI fallback to the same HTTP session tools. It does not create a second title or image service.
+Muse 1.0.3 filters environment variables from MCP child processes, so the bridge locates its launching Talos process through a private registry and checks the process start time. Ordinary Muse sessions receive no Talos MCP tools. Native terminal resume can drop MCP registrations; the installed Talos skill documents the CLI fallback to the same HTTP session tools. It does not create a second title or image service. Shared MCP image publication now supplies a protocol turn ID so clients accept the attachment, and compact native tool rendering preserves file previews.
 
 Validation commands:
 

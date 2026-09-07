@@ -65,7 +65,8 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
     let hideDefaultError = false;
     
     // Native provider tools share compact progress rows and the existing detail view.
-    const compactUnknownTools = ['gemini', 'muse'].includes(props.metadata?.flavor ?? '');
+    const compactUnknownTools = props.metadata?.flavor === 'gemini'
+        || (props.metadata?.flavor === 'muse' && tool.name !== 'file');
     if (!knownTool && compactUnknownTools) {
         minimal = true;
     }

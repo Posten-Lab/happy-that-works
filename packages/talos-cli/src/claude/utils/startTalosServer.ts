@@ -35,11 +35,13 @@ export async function publishLocalImage(client: ApiSessionClient, path: string, 
         throw new Error('Only PNG, JPEG, GIF, and WebP images can be published');
     }
 
+    // MCP calls also run outside a provider turn. Agent attachments still need
+    // a protocol turn identity or clients correctly reject their envelopes.
     const envelope = await client.uploadLocalImageAttachmentEnvelope({
         data,
         mimeType: detected.mimeType,
         name: alt?.trim() || basename(path),
-    }, {}, 'agent');
+    }, { turn: randomUUID() }, 'agent');
     client.sendSessionProtocolMessage(envelope);
     return envelope;
 }
