@@ -2,6 +2,9 @@
 
 Talos is the product name across web, iOS, Android, desktop, the CLI, and the agent runtime. The command is `talos`; companion commands are `talos-mcp` and `talos-agent`. Workspace packages and build paths use `talos-*`.
 
+For future npm releases, use the approved private credential and procedure in the
+[canonical npm publishing runbook](npm-publishing.md).
+
 ## Visual identity
 
 Use the supplied Talos artwork without redrawing it. Bronze accents, charcoal surfaces, warm ivory backgrounds, restrained corners, and a spaced uppercase wordmark distinguish the interface. Keep status, permission, and diff colors semantic. Both light and dark themes, narrow screens, keyboard navigation, and text scaling remain supported.

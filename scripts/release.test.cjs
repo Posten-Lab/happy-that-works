@@ -4,8 +4,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { parseArgs, releasePlan, runRelease, registry } = require('./release.cjs');
+const { parseArgs, releasePlan, runRelease, publishingEnvironment, registry } = require('./release.cjs');
 const root = path.resolve(__dirname, '..');
+const credentialHome = fs.mkdtempSync(path.join(os.tmpdir(), 'talos-publish-credentials-'));
+const canonicalConfig = path.join(credentialHome, '.config/talos/npm-publish.npmrc');
+fs.mkdirSync(path.dirname(canonicalConfig), { recursive: true, mode: 0o700 });
+fs.writeFileSync(canonicalConfig, '# test fixture; no real credentials\n', { mode: 0o600 });
+test.after(() => fs.rmSync(credentialHome, { recursive: true, force: true }));
 
 function mockRegistry({ owner = 'ahmadposten', published = [], failPublish = false, registryError, wireTestFailure = false } = {}) {
     const versions = new Set(published); const calls = [];
@@ -26,7 +31,7 @@ function mockRegistry({ owner = 'ahmadposten', published = [], failPublish = fal
         }
         throw Error(`Unexpected command ${command}`);
     };
-    return { run, calls, versions, log() {}, env: { APP_ENV: 'production',
+    return { run, calls, versions, home: credentialHome, log() {}, env: { APP_ENV: 'production',
         EXPO_PUBLIC_TALOS_SERVER_URL: 'https://api.talosapp.ai',
         EXPO_PUBLIC_TALOS_WEBAPP_URL: 'https://talosapp.ai' } };
 }
@@ -35,6 +40,38 @@ test('default and dry-run are plans with explicit package identities and depende
     assert.deepEqual(releasePlan(parseArgs([])).map(item => item.id), ['wire', 'server', 'agent', 'cli']);
     for (const args of [[], ['all'], ['wire', '--plan'], ['--', 'cli', '--dry-run']]) {
         const state = mockRegistry(); runRelease(parseArgs(args), state); assert.equal(state.calls.length, 0);
+    }
+});
+
+test('canonical credentials override inherited npm login configuration for every release subprocess', () => {
+    const state = mockRegistry();
+    Object.assign(state.env, { NPM_CONFIG_USERCONFIG: '/wrong-uppercase', npm_config_userconfig: '/wrong-lowercase' });
+    runRelease(parseArgs(['all', '--publish']), state);
+    for (const call of state.calls) {
+        assert.equal(call.options.env.NPM_CONFIG_USERCONFIG, canonicalConfig);
+        assert.equal(call.options.env.npm_config_userconfig, canonicalConfig);
+    }
+});
+
+test('CI credential files require an explicit absolute Talos override', () => {
+    const file = path.join(credentialHome, 'ci.npmrc');
+    fs.writeFileSync(file, '# private CI fixture\n', { mode: 0o600 });
+    assert.equal(publishingEnvironment({ TALOS_NPM_USERCONFIG: file }, '/missing-home').NPM_CONFIG_USERCONFIG, file);
+    assert.throws(() => publishingEnvironment({ TALOS_NPM_USERCONFIG: 'relative.npmrc' }), /absolute/);
+});
+
+test('missing, directory, symlink and insecure credential files cannot reach registry commands', () => {
+    const directory = path.join(credentialHome, 'directory'); fs.mkdirSync(directory);
+    const paths = [path.join(credentialHome, 'missing'), directory];
+    if (process.platform !== 'win32') {
+        const link = path.join(credentialHome, 'link'); fs.symlinkSync(canonicalConfig, link); paths.push(link);
+        const publicFile = path.join(credentialHome, 'public.npmrc');
+        fs.writeFileSync(publicFile, '# insecure fixture\n'); fs.chmodSync(publicFile, 0o644); paths.push(publicFile);
+    }
+    for (const file of paths) {
+        const state = mockRegistry(); state.env.TALOS_NPM_USERCONFIG = file;
+        assert.throws(() => runRelease(parseArgs(['wire', '--publish']), state), /credentials/);
+        assert.equal(state.calls.length, 0);
     }
 });
 

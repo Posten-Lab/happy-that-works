@@ -1,5 +1,18 @@
 # Agent Workflow
 
+## npm publishing credentials
+
+- Use `pnpm release <target> --publish` for npm releases. It selects the canonical
+  private credential file `~/.config/talos/npm-publish.npmrc`; do not substitute
+  the general npm login or ask for a new token while this credential works.
+- Rotate the credential with `python3 scripts/configure-npm-publishing.py`.
+  Never print, commit, or paste its contents into logs, PRs, or chat.
+- A future CI publishing job must bind the same approved credential as a private
+  file and set `TALOS_NPM_USERCONFIG` to its absolute path. Existing Jenkins
+  web/API/mobile deployments do not publish npm packages.
+- See [the npm publishing runbook](docs/rebrand/npm-publishing.md) for the
+  credential location, release procedure, and current automation boundaries.
+
 ## Required delivery workflow
 
 - Every Talos change must go through a pull request. Never push directly to

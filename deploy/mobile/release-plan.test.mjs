@@ -20,6 +20,11 @@ for (const [path, expected] of [
   ['packages/talos-server/src/index.ts', 'none'],
   ['deploy/mobile/Jenkinsfile', 'none'],
   ['AGENTS.md', 'none'],
+  ['scripts/release.cjs', 'none'],
+  ['scripts/configure-npm-publishing.py', 'none'],
+  ['scripts/release-ota.cjs', 'native'],
+  ['scripts/verify-release-config.cjs', 'native'],
+  ['packages/talos-app/release.cjs', 'native'],
   ['unknown-native-input', 'native'],
 ]) test(`${path}: ${expected}`, () => assert.equal(classifyPath(path), expected));
 
@@ -80,6 +85,37 @@ test('server and web image changes skip mobile delivery without hiding bundled o
     assert.equal(run(base, native), 'native');
     const unknown = commit('Dockerfile.mobile');
     assert.equal(run(native, unknown), 'native');
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('npm tooling skips mobile delivery but mixed changes and native-input renames still release', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'talos-npm-release-test-'));
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const selector = new URL('./release-plan.mjs', import.meta.url).pathname;
+  const run = (base, head) => execFileSync(process.execPath, [selector, base, head, 'auto'],
+    { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const commit = file => {
+    mkdirSync(dirname(join(cwd, file)), { recursive: true });
+    writeFileSync(join(cwd, file), `fixture for ${file}\n`);
+    git('add', '.'); git('commit', '-qm', file); return git('rev-parse', 'HEAD');
+  };
+  try {
+    git('init', '-q'); git('config', 'user.name', 'CI test'); git('config', 'user.email', 'ci@example.invalid');
+    const base = commit('README.md');
+    const publisher = commit('scripts/release.cjs');
+    assert.equal(run(base, publisher), 'none');
+    const credentials = commit('scripts/configure-npm-publishing.py');
+    assert.equal(run(base, credentials), 'none');
+    const bundled = commit('packages/talos-app/sources/session.ts');
+    assert.equal(run(base, bundled), 'ota');
+    const native = commit('packages/talos-app/app.config.js');
+    assert.equal(run(base, native), 'native');
+    git('mv', '-f', 'packages/talos-app/app.config.js', 'scripts/release.cjs');
+    git('commit', '-qm', 'Move native input into excluded tooling path');
+    const renamed = git('rev-parse', 'HEAD');
+    assert.equal(run(native, renamed), 'native');
+    const unknown = commit('scripts/unknown-release.cjs');
+    assert.equal(run(renamed, unknown), 'native');
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
