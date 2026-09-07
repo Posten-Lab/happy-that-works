@@ -2,6 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { approvalChoice, MuseMessageMapper } from './museProtocol';
 
 describe('Muse transcript mapping', () => {
+    it('projects native todos into the shared task list, preserving clears and revision resets', () => {
+        const mapper = new MuseMessageMapper();
+        const first = { revision: 9, items: [{ text: 'Investigate', status: 'inProgress' }, { text: 'Verify', status: 'pending' }, { text: 'Dropped', status: 'cancelled' }] };
+        const messages = mapper.todos(first, 'cursor-1');
+        expect(messages[0].data).toMatchObject({ name: 'TodoWrite', input: { todos: [
+            { content: 'Investigate', status: 'in_progress' }, { content: 'Verify', status: 'pending' },
+        ] } });
+        expect(messages[1].data).toMatchObject({ output: { newTodos: [
+            { content: 'Investigate', status: 'in_progress' }, { content: 'Verify', status: 'pending' },
+        ] } });
+        expect(mapper.todos(first, 'cursor-1')).toEqual([]);
+        expect(mapper.todos({ revision: 1, items: [] }, 'cursor-2')[1].data).toMatchObject({ output: { newTodos: [] } });
+        expect(mapper.todos(first, 'cursor-3')).toHaveLength(2);
+        expect(mapper.map({ itemId: 'native-todo', kind: 'toolCall', tool: 'write_todos', status: 'completed', args: '{"todos":[]}' })).toEqual([]);
+    });
     it('imports native prompts but does not duplicate Talos-submitted prompts', () => {
         const mapper = new MuseMessageMapper();
         mapper.submitted('talos-command');

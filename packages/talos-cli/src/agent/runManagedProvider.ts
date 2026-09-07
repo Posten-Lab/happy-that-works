@@ -13,6 +13,7 @@ import { MessageQueue2 } from '@/utils/MessageQueue2';
 import { hashObject } from '@/utils/deterministicJson';
 import { registerKillSessionHandler } from '@/claude/registerKillSessionHandler';
 import { logger } from '@/ui/logger';
+import { startTalosServer } from '@/claude/utils/startTalosServer';
 
 export type ProviderPromptOptions = { model?: string | null; permissionMode?: string; effort?: string };
 export interface ManagedProviderCallbacks {
@@ -62,7 +63,7 @@ export async function runManagedProvider(opts: {
     startedBy?: 'daemon' | 'terminal';
     startingMode: 'local' | 'remote';
     resumeId?: string;
-    create(callbacks: ManagedProviderCallbacks, sessionId: string): ManagedProvider;
+    create(callbacks: ManagedProviderCallbacks, sessionId: string, sessionToolsUrl: string): ManagedProvider;
 }): Promise<void> {
     const api = await ApiClient.create(opts.credentials);
     const settings = await readSettings();
@@ -114,7 +115,8 @@ export async function runManagedProvider(opts: {
         if (message.user !== undefined) session.sendProviderUserMessage(message.user, message.id);
         if (message.data) session.sendAgentMessage(opts.flavor, message.data, message.id);
     }
-    driver = opts.create({
+    const sessionTools = await startTalosServer(() => session);
+    try { driver = opts.create({
         message: forwardMessage,
         metadata(update) {
             latestMetadata = { ...latestMetadata, ...update };
@@ -134,7 +136,13 @@ export async function runManagedProvider(opts: {
         permission: (id, tool, input) => permissions.request(id, tool, input),
         cancelPermission: id => permissions.cancel(id),
         exited(error) { failure = error; ending = true; queue.close(); },
-    }, session.sessionId);
+    }, session.sessionId, sessionTools.url); }
+    catch (error) {
+        sessionTools.stop();
+        reconnect.reconnectionHandle?.cancel();
+        await session.close();
+        throw error;
+    }
     function bind() {
         session.onFileEvent(message => {
             session.sendFileStatus(message.content.data.ev.ref, 'rejected', 'unsupported');
@@ -175,7 +183,7 @@ export async function runManagedProvider(opts: {
         process.off('SIGINT', stop);
         reconnect.reconnectionHandle?.cancel();
         permissions.abortAll();
-        await driver.dispose();
+        try { await driver.dispose(); } finally { sessionTools.stop(); }
         session.updateMetadata(current => ({ ...current, lifecycleState: 'archived', lifecycleStateSince: Date.now(), archivedBy: 'cli', archiveReason: 'Session ended' }));
         session.sendSessionDeath();
         await session.flush();

@@ -111,13 +111,14 @@ function createMcpServer(
     return mcp;
 }
 
-export async function startTalosServer(client: ApiSessionClient) {
-    logger.debug(`[talosMCP] server:start sessionId=${client.sessionId}`);
+export async function startTalosServer(clientOrGet: ApiSessionClient | (() => ApiSessionClient)) {
+    const getClient = () => typeof clientOrGet === 'function' ? clientOrGet() : clientOrGet;
+    logger.debug(`[talosMCP] server:start sessionId=${getClient().sessionId}`);
 
     const titleHandler = async (title: string) => {
         logger.debug('[talosMCP] Changing title to:', title);
         try {
-            client.sendClaudeSessionMessage({
+            getClient().sendClaudeSessionMessage({
                 type: 'summary',
                 summary: title,
                 leafUuid: randomUUID()
@@ -128,7 +129,7 @@ export async function startTalosServer(client: ApiSessionClient) {
         }
     };
     const imageHandler = async (path: string, alt?: string) => {
-        await publishLocalImage(client, path, alt);
+        await publishLocalImage(getClient(), path, alt);
     };
 
     const server = createServer(async (req, res) => {
@@ -159,13 +160,13 @@ export async function startTalosServer(client: ApiSessionClient) {
         });
     });
 
-    logger.debug(`[talosMCP] server:ready sessionId=${client.sessionId} url=${baseUrl.toString()}`);
+    logger.debug(`[talosMCP] server:ready sessionId=${getClient().sessionId} url=${baseUrl.toString()}`);
 
     return {
         url: baseUrl.toString(),
         toolNames: ['change_title', 'present_image'],
         stop: () => {
-            logger.debug(`[talosMCP] server:stop sessionId=${client.sessionId}`);
+            logger.debug(`[talosMCP] server:stop sessionId=${getClient().sessionId}`);
             server.close();
         }
     }

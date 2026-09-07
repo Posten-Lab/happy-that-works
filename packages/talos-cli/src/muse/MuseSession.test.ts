@@ -15,6 +15,36 @@ function fixture() {
 }
 beforeEach(() => vi.clearAllMocks());
 describe('MuseSession lifecycle', () => {
+    it('forwards live todo updates and ignores other sessions', async () => {
+        const f = fixture(); await f.session.start();
+        const params = { sessionId: 'native-id', viewCursor: 'todo-1', items: [{ text: 'Verify', status: 'inProgress' }] };
+        f.notify('session/todoListChanged', { ...params, sessionId: 'another-session' });
+        expect(f.callbacks.message).not.toHaveBeenCalled();
+        f.notify('session/todoListChanged', params);
+        f.notify('session/todoListChanged', params);
+        expect(f.callbacks.message).toHaveBeenCalledTimes(2);
+        expect(f.callbacks.message.mock.calls[1][0].data.output.newTodos).toEqual([{ content: 'Verify', status: 'in_progress' }]);
+        await f.session.dispose();
+    });
+    it('restores todos from a snapshot without replaying older plans', async () => {
+        const f = fixture();
+        f.command.mockResolvedValue({ session: { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' }, history: {
+            mode: 'snapshot', snapshot: { viewCursor: 'snapshot-1', state: { items: [], todoList: { items: [{ text: 'Verify', status: 'completed' }] } } },
+        } } as any);
+        await f.session.start();
+        expect(f.callbacks.message.mock.calls[1][0].data.output.newTodos).toEqual([{ content: 'Verify', status: 'completed' }]);
+        expect(f.request).not.toHaveBeenCalledWith('view/page', expect.anything());
+        await f.session.dispose();
+    });
+    it('restores todo events even when resume includes inline transcript items', async () => {
+        const f = fixture();
+        f.request.mockImplementation(async method => method === 'view/page' ? {
+            events: [{ method: 'session/todoListChanged', params: { viewCursor: 'todo-1', items: [] } }], nextCursor: null,
+        } : { models: [] });
+        await f.session.start();
+        expect(f.callbacks.message.mock.calls[1][0].data.output.newTodos).toEqual([]);
+        await f.session.dispose();
+    });
     it('completes a turn whose terminal arrives before its command ack', async () => {
         const f = fixture(); await f.session.start();
         f.command.mockImplementation(async (method) => {

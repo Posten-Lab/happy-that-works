@@ -16,6 +16,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { z } from 'zod';
+import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { findMuseSessionBridge } from '@/muse/museSessionBridge';
 
 function parseArgs(argv: string[]): { url: string | null } {
   let url: string | null = null;
@@ -32,9 +34,10 @@ function parseArgs(argv: string[]): { url: string | null } {
 async function main() {
   // Resolve target HTTP MCP URL
   const { url: urlFromArgs } = parseArgs(process.argv.slice(2));
-  const baseUrl = urlFromArgs || process.env.TALOS_HTTP_MCP_URL || '';
+  const museSession = process.argv.includes('--muse-session');
+  const baseUrl = museSession ? await findMuseSessionBridge() : urlFromArgs || process.env.TALOS_HTTP_MCP_URL || '';
 
-  if (!baseUrl) {
+  if (!baseUrl && !museSession) {
     // Write to stderr; never stdout.
     process.stderr.write(
       '[talos-mcp] Missing target URL. Set TALOS_HTTP_MCP_URL or pass --url <http://127.0.0.1:PORT>\n'
@@ -51,23 +54,42 @@ async function main() {
       { capabilities: {} }
     );
 
-    const transport = new StreamableHTTPClientTransport(new URL(baseUrl));
+    const transport = new StreamableHTTPClientTransport(new URL(baseUrl!));
     await client.connect(transport);
     httpClient = client;
     return client;
+  }
+
+  // Native harnesses can invoke the same tools when a resumed MCP catalog is unavailable.
+  const callIndex = process.argv.indexOf('--call');
+  if (callIndex !== -1) {
+    const name = process.argv[callIndex + 1];
+    if (!['change_title', 'present_image'].includes(name)) throw new Error('Unknown Talos session tool');
+    if (!baseUrl) throw new Error('No launching Talos session found');
+    const argumentsIndex = process.argv.indexOf('--arguments');
+    if (argumentsIndex === -1) throw new Error('Pass tool arguments as JSON with --arguments');
+    const args = JSON.parse(process.argv[argumentsIndex + 1]);
+    const client = await ensureHttpClient();
+    try {
+      const response = await client.callTool({ name, arguments: args });
+      process.stdout.write(`${JSON.stringify(response)}\n`);
+      if (response.isError) process.exitCode = 1;
+    } finally { await client.close(); }
+    return;
   }
 
   // Create STDIO MCP server
   const server = new McpServer({
     name: 'Talos MCP Bridge',
     version: '1.0.0',
-  });
+  }, { capabilities: { tools: {} } });
+  if (!baseUrl) server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
 
   // Register the single tool and forward to HTTP MCP
-  server.registerTool(
+  if (baseUrl) server.registerTool(
     'change_title',
     {
-      description: 'Change the title of the current chat session',
+      description: 'Change the title of the current Talos chat session. Call at the start of a new conversation with a concise title matching the task, when the topic changes substantially, or whenever the user asks to rename this chat.',
       title: 'Change Chat Title',
       inputSchema: {
         title: z.string().describe('The new title for the chat session'),
@@ -90,7 +112,7 @@ async function main() {
     }
   );
 
-  server.registerTool(
+  if (baseUrl) server.registerTool(
     'present_image',
     {
       description: 'Publish a local image into the current Talos chat so remote clients can load it. Use this instead of Markdown image links for local files or private/authenticated URLs.',

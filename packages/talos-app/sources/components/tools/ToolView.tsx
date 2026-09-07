@@ -64,11 +64,9 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
     let noStatus = false;
     let hideDefaultError = false;
     
-    // For Gemini: unknown tools should be rendered as minimal (hidden)
-    // This prevents showing raw INPUT/OUTPUT for internal Gemini tools
-    // that we haven't explicitly added to knownTools
-    const isGemini = props.metadata?.flavor === 'gemini';
-    if (!knownTool && isGemini) {
+    // Native provider tools share compact progress rows and the existing detail view.
+    const compactUnknownTools = ['gemini', 'muse'].includes(props.metadata?.flavor ?? '');
+    if (!knownTool && compactUnknownTools) {
         minimal = true;
     }
 

@@ -4,10 +4,40 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MuseSession, type MuseSessionCallbacks } from './MuseSession';
 import { connectMuse, discoverMuseModels } from './museClient';
+import { startTalosServer } from '@/claude/utils/startTalosServer';
+import type { ApiSessionClient } from '@/api/apiSession';
 
 // Acceptance tests use the installed CLI and the user's authenticated Meta account.
 // No provider, protocol, permission, or inference mocks.
 describe('Muse Code real provider acceptance', () => {
+    it('uses Talos session tools and restores and clears native todos on resume', async () => {
+        const cwd = mkdtempSync(join(tmpdir(), 'talos-muse-session-tools-'));
+        const titles: string[] = [];
+        const plans: unknown[] = [];
+        const server = await startTalosServer({ sessionId: 'muse-acceptance', sendClaudeSessionMessage(message: { summary: string }) {
+            titles.push(message.summary);
+        } } as unknown as ApiSessionClient);
+        const callbacks: MuseSessionCallbacks = {
+            message(m) { if (m.data?.type === 'tool-result' && typeof m.data.output === 'object' && m.data.output !== null && 'newTodos' in m.data.output) plans.push(m.data.output.newTodos); },
+            metadata() {}, mode() {}, activity() {}, notice() {}, permission: async () => ({ decision: 'approved' }), exited() {},
+        };
+        let session = new MuseSession(cwd, callbacks, [], undefined, undefined, server.url);
+        try {
+            await session.start();
+            await session.prompt('Rename this chat to Copper Otter Review using the Talos title tool. Then use write_todos with exactly two tasks: Read fixture (in progress), Verify fixture (pending). Stop after these tool calls.');
+            expect(titles).toContain('Copper Otter Review');
+            expect(plans.at(-1)).toEqual([{ content: 'Read fixture', status: 'in_progress' }, { content: 'Verify fixture', status: 'pending' }]);
+            const id = session.sessionId;
+            await session.dispose();
+            plans.length = 0;
+            session = new MuseSession(cwd, callbacks, [], undefined, undefined, server.url);
+            await session.start(id);
+            expect(plans.at(-1)).toEqual([{ content: 'Read fixture', status: 'in_progress' }, { content: 'Verify fixture', status: 'pending' }]);
+            await session.prompt('Clear the task list by calling write_todos with an empty todos array. Then rename this chat to Copper Otter Complete.');
+            expect(plans.at(-1)).toEqual([]);
+            expect(titles.at(-1)).toBe('Copper Otter Complete');
+        } finally { await session.dispose(); server.stop(); rmSync(cwd, { recursive: true, force: true }); }
+    }, 360000);
     it('answers multiple turns, rejects model changes and resumes durable history', async () => {
         const cwd = mkdtempSync(join(tmpdir(), 'talos-muse-acceptance-'));
         const messages: string[] = [];

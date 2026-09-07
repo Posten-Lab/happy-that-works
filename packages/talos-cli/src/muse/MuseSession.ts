@@ -6,6 +6,7 @@ import type { SpawnedMspConnection } from '@muse-code/sdk';
 import type { PermissionResult } from '@/utils/BasePermissionHandler';
 import { connectMuse, museExecutable } from './museClient';
 import { approvalChoice, museToolName, MuseMessageMapper, musePermissionModes, object, text, type JsonObject, type MuseMessage } from './museProtocol';
+import { ensureMuseSessionPlugin, registerMuseSessionBridge } from './museSessionBridge';
 
 export interface MuseSessionCallbacks {
     message(message: MuseMessage): void;
@@ -30,6 +31,7 @@ export class MuseSession {
     private reading = false;
     private disposed = false;
     private disposal: Promise<void> | undefined;
+    private unregisterBridge?: () => Promise<void>;
     private controls: MuseControlState = { permissionMode: 'default', effort: 'high', hostArgs: [] };
     private get permissionMode() { return this.controls.permissionMode; }
     private set permissionMode(mode: string) { this.controls.permissionMode = mode; }
@@ -47,7 +49,8 @@ export class MuseSession {
     constructor(private readonly cwd: string, private readonly callbacks: MuseSessionCallbacks,
         private readonly nativeArgs: string[] = [],
         private readonly submissions?: { load(): string[]; record(commandId: string): void },
-        private readonly controlStore?: MuseControlStore) {
+        private readonly controlStore?: MuseControlStore,
+        private readonly sessionToolsUrl?: string) {
         assertMuseNativeArgs(nativeArgs);
         this.parsedControls = parseMuseControls(nativeArgs);
         this.controls = { ...this.controls, ...this.parsedControls.overrides };
@@ -81,6 +84,10 @@ export class MuseSession {
     }
 
     async start(resumeId?: string, mode: 'local' | 'remote' = 'remote') {
+        if (this.sessionToolsUrl) {
+            await ensureMuseSessionPlugin();
+            this.unregisterBridge = await registerMuseSessionBridge(this.sessionToolsUrl);
+        }
         this.sessionId = resumeId ?? '';
         this.nativeHandoff = Boolean(resumeId);
         if (resumeId) {
@@ -162,14 +169,18 @@ export class MuseSession {
         if (Array.isArray(items)) {
             for (const item of items) this.item(item);
             if (this.mode === 'local') this.callbacks.activity(Boolean(object(snapshot.state).activeTurn));
-            return;
+            if (object(snapshot.state).todoList !== undefined) {
+                this.todos(object(snapshot.state).todoList, text(snapshot.viewCursor));
+                return;
+            }
         }
         if (!history.mode || !this.host) return;
         let cursor: string | undefined;
         do {
             const page = await this.host.connection.request('view/page', { sessionId: this.sessionId, limit: 1000, ...(cursor ? { cursor } : {}) });
             for (const event of Array.isArray(page.events) ? page.events.map(object) : []) {
-                if (text(event.method).startsWith('item/')) this.item(object(event.params).item);
+                if (!Array.isArray(items) && text(event.method).startsWith('item/')) this.item(object(event.params).item);
+                if (event.method === 'session/todoListChanged') this.todos(event.params, text(object(event.params).viewCursor));
             }
             const next = text(page.nextCursor);
             if (next && next === cursor) throw new Error('Muse history cursor did not advance');
@@ -181,9 +192,14 @@ export class MuseSession {
         for (const message of this.mapper.map(item)) this.callbacks.message(message);
     }
 
+    private todos(state: unknown, cursor: string) {
+        for (const message of this.mapper.todos(state, cursor)) this.callbacks.message(message);
+    }
+
     private notification(method: string, params: JsonObject) {
         if (text(params.sessionId) && text(params.sessionId) !== this.sessionId) return;
         if (method === 'item/started' || method === 'item/updated' || method === 'item/completed') this.item(params.item);
+        if (method === 'session/todoListChanged') this.todos(params, text(params.viewCursor));
         if (method === 'turn/started') {
             if (this.turn) this.turn.id = text(params.turnId);
             this.callbacks.activity(true);
@@ -248,7 +264,10 @@ export class MuseSession {
             try { input = JSON.parse(text(params.rawArgs)); } catch { /* Keep provider input when it is not JSON. */ }
             // Muse 1.0.3 can still deliver MSP approval requests in allowAll/denyUnmatched.
             // Enforce the user's selected non-interactive mode using native offered choices.
-            const decision: PermissionResult = ['yolo', 'bypassPermissions'].includes(this.permissionMode)
+            const isSessionTool = Boolean(this.sessionToolsUrl) && [
+                'mcp__plugin_talos_session_talos__change_title', 'mcp__plugin_talos_session_talos__present_image',
+            ].includes(text(params.toolName));
+            const decision: PermissionResult = isSessionTool || ['yolo', 'bypassPermissions'].includes(this.permissionMode)
                 ? { decision: 'approved' }
                 : this.permissionMode === 'never' ? { decision: 'denied' }
                 : await this.callbacks.permission(key, museToolName(params.toolName), input);
@@ -455,8 +474,13 @@ export class MuseSession {
                 const terminal = events.find(e => e.method === 'turn/completed' && object(e.params).turnId === this.turn?.id
                     // Read-only folds synthesize "incomplete" while a live writer is running.
                     && !(object(e.params).terminal === 'failed' && (object(e.params).reason === 'incomplete' || object(object(e.params).error).message === 'incomplete')));
+                for (const event of events) {
+                    if (event.method === 'session/todoListChanged') this.todos(event.params, text(object(event.params).viewCursor));
+                }
                 if (terminal) {
-                    for (const event of events) if (text(event.method).startsWith('item/')) this.item(object(event.params).item);
+                    for (const event of events) {
+                        if (text(event.method).startsWith('item/')) this.item(object(event.params).item);
+                    }
                     this.notification('turn/completed', object(terminal.params));
                 } else if (this.turn) {
                     const pending = await host.connection.request('approval/listPending', { sessionId: this.sessionId });
@@ -492,7 +516,9 @@ export class MuseSession {
         clearInterval(this.poll);
         this.finishTurn(new Error('Muse session closed'));
         await this.operations;
-        await this.stopNative();
-        await this.closeHost();
+        try {
+            await this.stopNative();
+            await this.closeHost();
+        } finally { await this.unregisterBridge?.(); }
     }
 }
