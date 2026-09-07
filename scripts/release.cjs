@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { validateReleaseConfig } = require('./verify-release-config.cjs');
 const repoRoot = path.resolve(__dirname, '..');
@@ -53,7 +54,23 @@ function releasePlan(options, root = repoRoot) {
     });
 }
 
-function runRelease(options, { root = repoRoot, run = spawnSync, env = process.env, log = console.log } = {}) {
+function publishingEnvironment(env = process.env, home = os.homedir()) {
+    const userconfig = env.TALOS_NPM_USERCONFIG || path.join(home, '.config/talos/npm-publish.npmrc');
+    if (!path.isAbsolute(userconfig)) throw Error('TALOS_NPM_USERCONFIG must be an absolute private file path.');
+    let info;
+    try { info = fs.lstatSync(userconfig); } catch {
+        throw Error('Talos publishing credentials are missing. Run python3 scripts/configure-npm-publishing.py, or bind a private CI file with TALOS_NPM_USERCONFIG.');
+    }
+    if (!info.isFile() || (process.platform !== 'win32' &&
+        ((info.mode & 0o077) !== 0 || info.uid !== process.getuid()))) {
+        throw Error('Talos publishing credentials must be a regular private file owned by the publishing user (mode 0600 on Unix).');
+    }
+    // Set both spellings: npm lifecycle environments can contain a lowercase
+    // value that otherwise overrides the uppercase operator configuration.
+    return { npm_config_userconfig: userconfig, NPM_CONFIG_USERCONFIG: userconfig };
+}
+
+function runRelease(options, { root = repoRoot, run = spawnSync, env = process.env, home = os.homedir(), log = console.log } = {}) {
     const plan = releasePlan(options, root);
     log(JSON.stringify({ mode: options.publish ? 'publish' : 'plan', registry, publisher, packages: plan }, null, 2));
     if (!options.publish) return plan;
@@ -66,6 +83,7 @@ function runRelease(options, { root = repoRoot, run = spawnSync, env = process.e
         const errors = validateReleaseConfig(releaseEnv, 'web');
         if (errors.length) throw Error(`Server publication configuration is invalid: ${errors.join(' ')}`);
     }
+    Object.assign(releaseEnv, publishingEnvironment(env, home));
     const capture = (command, args) => {
         const result = run(command, args, { cwd: root, env: releaseEnv, encoding: 'utf8', stdio: 'pipe' });
         if (result.error) throw Error(`Unable to run ${command}.`);
@@ -123,4 +141,4 @@ if (require.main === module) {
     try { main(process.argv.slice(2)); }
     catch (error) { console.error(error.message); process.exitCode = 1; }
 }
-module.exports = { parseArgs, releasePlan, runRelease, registry, publisher };
+module.exports = { parseArgs, releasePlan, runRelease, publishingEnvironment, registry, publisher };

@@ -43,17 +43,13 @@ Targets are `wire`, `server`, `agent`, `cli`, and `all`; `--dry-run` also prints
 
 The command verifies the npm publisher, registry, package identities, unpublished versions, and required wire dependency before uploading. Server publication requires `APP_ENV=production` and Bun on PATH. Every upload runs `pnpm publish` with its complete prepublish hooks; the command does not bump versions, create git tags, push branches, or retry failed uploads. Complete the build/packaging checks above before choosing `--publish`.
 
-For a reviewed manual publication, run from the package directory:
-
-```sh
-pnpm publish --access public --tag latest --no-git-checks
-```
-
-Use the requested tag if it differs. **Use `pnpm publish`, never `npm publish`, and never pass `--ignore-scripts`.** Prepublish scripts rebuild, test, and stamp the version immediately before upload.
+Use the root release wrapper so all subprocesses use the canonical credential. **The wrapper uses `pnpm publish`, never `npm publish`, and never passes `--ignore-scripts`.** Prepublish scripts rebuild, test, and stamp the version immediately before upload.
 
 If an upload fails, inspect registry metadata before retrying: a package version is immutable and the upload may already have succeeded. Authentication failures need the account's required 2FA or an appropriately configured token; do not weaken account security to bypass them.
 
-For an operator-supplied granular token, use `python3 scripts/configure-npm-publishing.py` to enter it with hidden input. This writes only `~/.config/talos/npm-publish.npmrc` with private permissions and preserves the existing npm login. Set `NPM_CONFIG_USERCONFIG` to that absolute path for identity checks and publication. The token must grant package read/write access and satisfy the registry's publishing 2FA requirement; successful `whoami` alone does not verify those permissions. Never put token values in chat, shell arguments, documentation, or tracked files.
+The approved token is already stored at `~/.config/talos/npm-publish.npmrc` on the operator MacBook. Use it for future releases; do not fall back to the general npm login or ask for another token while it remains valid. The release wrapper selects this private file automatically and sets both npm userconfig spellings. For CI only, bind the same approved credential as a private file and set its absolute path in `TALOS_NPM_USERCONFIG`. Current Jenkins deployment jobs do not publish npm packages. See [the canonical publishing runbook](../../../docs/rebrand/npm-publishing.md).
+
+For rotation, use `python3 scripts/configure-npm-publishing.py` to enter a replacement with hidden input. This updates only the private publishing file and preserves the existing npm login. The token must grant package read/write access and satisfy the registry's publishing 2FA requirement; successful `whoami` alone does not verify those permissions. Never put token values in chat, shell arguments, documentation, or tracked files.
 
 After publication, verify registry version/dist-tags and perform a real install into an isolated prefix. Check `talos --version` and `talos-agent --version` against the published versions. Metadata alone does not verify bundle contents. Install the global `talos` command only within the user's requested scope, without restarting existing sessions.
 
