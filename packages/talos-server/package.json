@@ -1,6 +1,6 @@
 {
   "name": "@ahmadposten/talos-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Talos self-host server and bundled web app",
   "author": "Kirill Dubovitskiy",
   "license": "MIT",
