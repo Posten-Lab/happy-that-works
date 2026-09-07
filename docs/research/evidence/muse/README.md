@@ -119,3 +119,40 @@ unsupported permission modes` passed (8.50s). It observed and denied a real shel
 approval, verified no file was written, then interrupted another admitted turn.
 The exact model-backed resume failure remains an acceptance gate; no history is
 discarded or rewritten to hide it.
+
+## Unchanged-model verification — 2026-09-07
+
+With Muse 1.0.3 and SDK 0.1.1, real authenticated inference confirmed:
+
+- Native default session: first response plus two host restart/resume cycles
+  retained `copper-otter`; stored and resumed model stayed
+  `muse-spark-1.3-contributor` (provider `meta`).
+- Native explicitly initialized Contributor session: the same three turns and
+  two restart/resume cycles passed with unchanged routing.
+- Native explicitly initialized `muse-spark-1.3`: all three answers passed,
+  **but stored and resumed routing reported Contributor**. This is not evidence
+  of preserving the non-default model. No probe called `session/setModel`.
+- Talos MuseSession adapter, no model option: three turns across two fresh host
+  restarts retained both session identity and the code word. A second run passed
+  those checks and then switched the populated session into the actual native
+  terminal in a PTY, displayed the restored conversation and Contributor model,
+  switched back into Talos, and answered the context question successfully.
+  Handoff session: `01a07c41-b250-7502-be0a-2efe61399481`.
+
+Reproduce from `packages/talos-cli`:
+
+```sh
+node tests/muse-e2e/native-unchanged-model-probe.mjs
+pnpm exec tsx tests/muse-e2e/unchanged-model-probe.ts
+# Requires a real terminal; exposes native Muse for eight seconds.
+MUSE_TEST_HANDOFF=1 pnpm exec tsx tests/muse-e2e/unchanged-model-probe.ts
+```
+
+These probes establish a viable default-model-only path, not universal resume
+reliability. The terminal probe restores populated history but does not submit a
+new prompt from the native terminal. No application restriction is implemented
+by this verification change. A temporary restriction would need to reject model
+changes in the adapter as well as disable the picker, and account for changes
+made outside Talos in the native CLI. Existing sessions with model-switch history
+are not repaired by locking their model now. Non-default initial selection needs
+further routing verification before it can be included in the supported path.
