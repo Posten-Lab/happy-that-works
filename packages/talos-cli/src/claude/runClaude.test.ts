@@ -9,6 +9,7 @@ const {
     mockStartTalosServer,
     mockStartHookServer,
     mockRegisterKillSessionHandler,
+    mockStopSessionRecovery,
 } = vi.hoisted(() => ({
     mockApiClientCreate: vi.fn(),
     mockCreateSessionScanner: vi.fn(),
@@ -18,6 +19,11 @@ const {
     mockStartTalosServer: vi.fn(),
     mockStartHookServer: vi.fn(),
     mockRegisterKillSessionHandler: vi.fn(),
+    mockStopSessionRecovery: vi.fn(),
+}));
+
+vi.mock('@/daemon/recovery/checkpoint', () => ({
+    stopSessionRecovery: mockStopSessionRecovery,
 }));
 
 vi.mock('@/api/api', () => ({
@@ -113,6 +119,7 @@ async function startRemoteRunClaudeHarness(opts: {
     metadata?: Record<string, unknown>;
     updateAgentState?: ReturnType<typeof vi.fn>;
     registerHandler?: ReturnType<typeof vi.fn>;
+    claudeArgs?: string[];
 } = {}) {
     let metadata = opts.metadata ?? {
         claudeSessionId: 'claude-session-1',
@@ -170,6 +177,7 @@ async function startRemoteRunClaudeHarness(opts: {
     } as any, {
         startingMode: 'remote',
         shouldStartDaemon: false,
+        claudeArgs: opts.claudeArgs,
     });
 
     await vi.waitFor(() => {
@@ -186,11 +194,11 @@ async function startRemoteRunClaudeHarness(opts: {
     loopOptions.onSessionReady(runtimeSession);
     const goalActionHandler = registerHandler.mock.calls.find(([method]) => method === 'goal-action')?.[1];
 
-    const finish = async () => {
+    const finish = async (code = 0) => {
         const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {
             throw new Error('process.exit');
         }) as never);
-        loopDeferred.resolve(0);
+        loopDeferred.resolve(code);
         await expect(runPromise).rejects.toThrow('process.exit');
         exitSpy.mockRestore();
     };
@@ -247,6 +255,8 @@ describe('runClaude remote JSONL scanner', () => {
         delete process.env.TALOS_RECONNECT_SEQ;
         delete process.env.TALOS_RECONNECT_METADATA_VERSION;
         delete process.env.TALOS_RECONNECT_AGENT_STATE_VERSION;
+        delete process.env.TALOS_RECONNECT_MODEL;
+        delete process.env.TALOS_RECONNECT_PERMISSION_MODE;
         delete process.env.TALOS_FORKED_FROM_SESSION_ID;
         delete process.env.TALOS_FORKED_FROM_MESSAGE_ID;
         delete process.env.TALOS_FORK_CLAUDE_SESSION_ID;
@@ -279,6 +289,49 @@ describe('runClaude remote JSONL scanner', () => {
             }
         }
         originalListeners.clear();
+        vi.unstubAllEnvs();
+    });
+
+    it.each([
+        ['SIGINT', true],
+        ['SIGTERM', false],
+        ['uncaughtException', false],
+        ['unhandledRejection', false],
+    ] as const)('handles %s with the appropriate recovery intent', async (event, shouldStop) => {
+        const harness = await startRemoteRunClaudeHarness();
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+        const listener = process.listeners(event as any).at(-1) as unknown as (error?: Error) => void;
+        listener(new Error('interrupted'));
+        await vi.waitFor(() => expect(exitSpy).toHaveBeenCalled());
+        if (shouldStop) expect(mockStopSessionRecovery).toHaveBeenCalledWith('talos-session-1');
+        else expect(mockStopSessionRecovery).not.toHaveBeenCalled();
+        const metadataUpdates = harness.sessionClient.updateMetadata.mock.calls.map(([update]) => update({}));
+        expect(metadataUpdates.some(metadata => metadata.lifecycleState === 'archived')).toBe(false);
+        exitSpy.mockRestore();
+        await harness.finish(1);
+    });
+
+    it('stops recovery on successful process completion and retains it after an unsuccessful exit', async () => {
+        const completed = await startRemoteRunClaudeHarness();
+        await completed.finish();
+        expect(mockStopSessionRecovery).toHaveBeenCalledWith('talos-session-1');
+        mockStopSessionRecovery.mockClear();
+        const interrupted = await startRemoteRunClaudeHarness();
+        await interrupted.finish(1);
+        expect(mockStopSessionRecovery).not.toHaveBeenCalled();
+    });
+
+    it('restores model, permission mode and provider identity before the backend starts', async () => {
+        vi.stubEnv('TALOS_RECONNECT_MODEL', 'recovered-model');
+        vi.stubEnv('TALOS_RECONNECT_PERMISSION_MODE', 'plan');
+        const harness = await startRemoteRunClaudeHarness({ claudeArgs: ['--resume', 'provider-session-123'] });
+        expect(harness.loopOptions).toMatchObject({ model: 'recovered-model', permissionMode: 'plan' });
+        expect(harness.api.getOrCreateSession).toHaveBeenCalledWith(expect.objectContaining({
+            metadata: expect.objectContaining({
+                claudeSessionId: 'provider-session-123', currentModelCode: 'recovered-model', currentOperatingModeCode: 'plan',
+            }),
+        }));
+        await harness.finish();
     });
 
     it('does not forward terminal JSONL messages while local mode owns the transcript', async () => {

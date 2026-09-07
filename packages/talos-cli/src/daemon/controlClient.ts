@@ -4,12 +4,40 @@
  */
 
 import { logger } from '@/ui/logger';
-import { clearDaemonState, readDaemonState } from '@/persistence';
+import { clearDaemonState, readDaemonState, type DaemonLocallyPersistedState } from '@/persistence';
 import { Metadata } from '@/api/types';
 import { configuration } from '@/configuration';
+import { readFileSync, statSync } from 'node:fs';
+import { getProcessIdentity, getProcessStartTime } from '@/utils/processIdentity';
 
-async function daemonPost(path: string, body?: any): Promise<{ error?: string } | any> {
-  const state = await readDaemonState();
+/** Unknown ownership must never authorize a signal or removal of a live owner's state. */
+function inspectDaemonOwner(state: DaemonLocallyPersistedState): { identity?: string; stale: boolean } {
+  if (!Number.isSafeInteger(state.pid) || state.pid <= 0) return { stale: true };
+  const identity = getProcessIdentity(state.pid);
+  if (!identity) {
+    try { process.kill(state.pid, 0); }
+    catch (error) { return { stale: (error as NodeJS.ErrnoException).code === 'ESRCH' }; }
+    return { stale: false };
+  }
+  if (state.processIdentity) {
+    return identity === state.processIdentity ? { identity, stale: false } : { stale: true };
+  }
+  // Legacy state had no birth identity. Its file predates any PID reuse after
+  // reboot. Capture the verified current birth now and recheck it before killing.
+  try {
+    const current = JSON.parse(readFileSync(configuration.daemonStateFile, 'utf8')) as DaemonLocallyPersistedState;
+    if (current.pid !== state.pid || current.startTime !== state.startTime || current.processIdentity !== state.processIdentity) {
+      return { stale: false };
+    }
+    const startedAt = getProcessStartTime(state.pid);
+    if (startedAt === null) return { stale: false };
+    if (startedAt > statSync(configuration.daemonStateFile).mtimeMs + 1000) return { stale: true };
+    return { identity, stale: false };
+  } catch { return { stale: false }; }
+}
+
+async function daemonPost(path: string, body?: any, owner?: { state: DaemonLocallyPersistedState; identity: string }): Promise<{ error?: string } | any> {
+  const state = owner?.state ?? await readDaemonState();
   if (!state?.httpPort) {
     const errorMessage = 'No daemon running, no state file found';
     logger.debug(`[CONTROL CLIENT] ${errorMessage}`);
@@ -18,10 +46,9 @@ async function daemonPost(path: string, body?: any): Promise<{ error?: string } 
     };
   }
 
-  try {
-    process.kill(state.pid, 0);
-  } catch (error) {
-    const errorMessage = 'Daemon is not running, file is stale';
+  const identity = owner?.identity ?? inspectDaemonOwner(state).identity;
+  if (!identity || getProcessIdentity(state.pid) !== identity) {
+    const errorMessage = 'Daemon process ownership could not be verified';
     logger.debug(`[CONTROL CLIENT] ${errorMessage}`);
     return {
       error: errorMessage
@@ -109,50 +136,21 @@ export async function stopDaemonHttp(): Promise<void> {
   await daemonPost('/stop');
 }
 
-/**
- * The version check is still quite naive.
- * For instance we are not handling the case where we upgraded talos,
- * the daemon is still running, and it recieves a new message to spawn a new session.
- * This is a tough case - we need to somehow figure out to restart ourselves,
- * yet still handle the original request.
- * 
- * Options:
- * 1. Periodically check during the health checks whether our version is the same as CLIs version. If not - restart.
- * 2. Wait for a command from the machine session, or any other signal to
- * check for version & restart.
- *   a. Handle the request first
- *   b. Let the request fail, restart and rely on the client retrying the request
- * 
- * I like option 1 a little better.
- * Maybe we can ... wait for it ... have another daemon to make sure 
- * our daemon is always alive and running the latest version.
- * 
- * That seems like an overkill and yet another process to manage - lets not do this :D
- * 
- * TODO: This function should return a state object with
- * clear state - if it is running / or errored out or something else.
- * Not just a boolean.
- * 
- * We can destructure the response on the caller for richer output.
- * For instance when running `talos daemon status` we can show more information.
- */
+/** Verify process ownership and HTTP readiness without releasing a live owner's lock. */
 export async function checkIfDaemonRunningAndCleanupStaleState(): Promise<boolean> {
   const state = await readDaemonState();
   if (!state) {
     return false;
   }
 
-  // Check if the PID is alive
-  try {
-    process.kill(state.pid, 0);
-  } catch {
-    logger.debug('[DAEMON RUN] Daemon PID not running, cleaning up state');
-    await cleanupDaemonState();
+  const owner = inspectDaemonOwner(state);
+  if (!owner.identity) {
+    if (owner.stale) await cleanupDaemonState(state);
     return false;
   }
 
-  // PID is alive, but on Windows PIDs get reused after reboot.
-  // Verify it's actually our daemon by HTTP pinging its control server.
+  // HTTP readiness is separate from process ownership. A slow live owner keeps
+  // its state and lock even when the readiness check times out.
   if (state.httpPort) {
     try {
       const response = await fetch(`http://127.0.0.1:${state.httpPort}/list`, {
@@ -162,17 +160,15 @@ export async function checkIfDaemonRunningAndCleanupStaleState(): Promise<boolea
         signal: AbortSignal.timeout(2000)
       });
       if (response.ok) {
-        return true;
+        return getProcessIdentity(state.pid) === owner.identity;
       }
     } catch {
-      // HTTP check failed - the PID is not our daemon (likely reused by OS after reboot)
-      logger.debug(`[DAEMON RUN] PID ${state.pid} is alive but HTTP health check failed on port ${state.httpPort}, cleaning up stale state`);
-      await cleanupDaemonState();
-      return false;
+      logger.debug(`[DAEMON RUN] Daemon PID ${state.pid} did not answer its health check; retaining process ownership`);
     }
+    return false;
   }
 
-  return true;
+  return false;
 }
 
 /**
@@ -215,9 +211,9 @@ export async function isDaemonRunningCurrentlyInstalledTalosVersion(): Promise<b
   return currentCliVersion === state.startedWithCliVersion;
 }
 
-export async function cleanupDaemonState(): Promise<void> {
+export async function cleanupDaemonState(expected?: DaemonLocallyPersistedState): Promise<void> {
   try {
-    await clearDaemonState();
+    await clearDaemonState(expected);
     logger.debug('[DAEMON RUN] Daemon state file removed');
   } catch (error) {
     logger.debug('[DAEMON RUN] Error cleaning up daemon metadata', error);
@@ -232,14 +228,20 @@ export async function stopDaemon() {
       return;
     }
 
+    const owner = inspectDaemonOwner(state);
+    if (!owner.identity) {
+      logger.debug('Daemon stop skipped because process ownership could not be verified');
+      if (owner.stale) await cleanupDaemonState(state);
+      return;
+    }
     logger.debug(`Stopping daemon with PID ${state.pid}`);
 
     // Try HTTP graceful stop
     try {
-      await stopDaemonHttp();
+      await daemonPost('/stop', undefined, { state, identity: owner.identity });
 
       // Wait for daemon to die
-      await waitForProcessDeath(state.pid, 2000);
+      await waitForProcessDeath(state.pid, owner.identity, 2000);
       logger.debug('Daemon stopped gracefully via HTTP');
       return;
     } catch (error) {
@@ -248,6 +250,7 @@ export async function stopDaemon() {
 
     // Force kill
     try {
+      if (getProcessIdentity(state.pid) !== owner.identity) return;
       process.kill(state.pid, 'SIGKILL');
       logger.debug('Force killed daemon');
     } catch (error) {
@@ -258,15 +261,11 @@ export async function stopDaemon() {
   }
 }
 
-async function waitForProcessDeath(pid: number, timeout: number): Promise<void> {
+async function waitForProcessDeath(pid: number, identity: string, timeout: number): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeout) {
-    try {
-      process.kill(pid, 0);
-      await new Promise(resolve => setTimeout(resolve, 100));
-    } catch {
-      return; // Process is dead
-    }
+    if (getProcessIdentity(pid) !== identity) return;
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
   throw new Error('Process did not die within timeout');
 }

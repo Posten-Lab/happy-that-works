@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-09-07T21:19:13.166659+00:00",
+  "implementationCommit": "39d37b22658e8c3a1ad720c0a7b5605eb7c425c2",
+  "artifact": {
+    "file": "talosapp-1.0.4.tgz",
+    "sha256": "cbfff7c1709a2c958fdee779d2d0aeb7c681e127245758aba373e4fc99b85a5c",
+    "creationCommand": "pnpm --filter talosapp pack --pack-destination /tmp/talos-linux-service-pack-verified",
+    "sameArtifactUsedForBothPlatforms": true
+  },
+  "reproduction": {
+    "guide": "packages/talos-cli/tests/service-e2e/linux-README.md",
+    "harness": "packages/talos-cli/tests/service-e2e/linux-verify.cjs",
+    "unpairedInstallHarness": "packages/talos-cli/tests/service-e2e/linux-unpaired.cjs",
+    "commands": [
+      "npm install -g --foreground-scripts /artifacts/talosapp-1.0.4.tgz",
+      "talos auth login",
+      "node /artifacts/linux-verify.cjs crash-existing",
+      "docker restart --timeout 15 <task-container>",
+      "node /artifacts/linux-verify.cjs after-reboot",
+      "node /artifacts/linux-verify.cjs stop",
+      "docker restart --timeout 15 <task-container>",
+      "node /artifacts/linux-verify.cjs after-stop-reboot",
+      "TALOS_HOME_DIR=/home/talos/.talos-unpaired npm install -g --foreground-scripts /artifacts/talosapp-1.0.4.tgz",
+      "TALOS_HOME_DIR=/home/talos/.talos-unpaired node /artifacts/linux-unpaired.cjs",
+      "node /artifacts/linux-verify.cjs pause-daemon"
+    ],
+    "apiPath": "Actual encrypted relay RPC and messages, matching the UI; actual authenticated provider processes and model replies."
+  },
+  "platforms": [
+    {
+      "distribution": "Debian GNU/Linux 12 (bookworm)",
+      "serviceManager": "systemd",
+      "serviceManagerVersion": "252.39-1~deb12u2",
+      "nodeVersion": "22.23.2",
+      "runtimeUid": 1001,
+      "realProviders": [
+        "Claude Code",
+        "Codex"
+      ],
+      "sessions": [
+        {
+          "provider": "claude",
+          "sessionId": "cmtrpaj060015rib9qjd6d0re",
+          "pid": 662,
+          "claudeSessionId": "c7cba5fb-55c7-4a8a-8e02-2839c5851a1a"
+        },
+        {
+          "provider": "codex",
+          "sessionId": "cmtrpalut001hrib93j4xs8xl",
+          "pid": 733,
+          "codexThreadId": "01a07d95-e50d-74a2-9293-2edb79b105e1"
+        }
+      ],
+      "checks": {
+        "exactPackedGlobalInstallBeforePairing": {
+          "check": "global-npm-installed-before-pairing",
+          "manager": "systemd",
+          "service": "talos-daemon-525a33c89aef1f65",
+          "separateHomePreserved": "talos-daemon-b68e8169764195c5",
+          "noCredentials": true,
+          "noCodingSessionStarted": true
+        },
+        "isolatedHomeUninstallPreservesOtherService": {
+          "check": "isolated-unpaired-service-removed-without-affecting-paired-service",
+          "manager": "systemd"
+        },
+        "daemonSigkillAdoptsExistingProcessesWithoutDuplicates": {
+          "check": "final-daemon-crash-adopted-existing-processes",
+          "manager": "systemd",
+          "oldPid": 727,
+          "newPid": 758,
+          "children": [
+            {
+              "startedBy": "recovered",
+              "talosSessionId": "cmtrpaj060015rib9qjd6d0re",
+              "pid": 96
+            },
+            {
+              "startedBy": "recovered",
+              "talosSessionId": "cmtrpalut001hrib93j4xs8xl",
+              "pid": 113
+            }
+          ]
+        },
+        "containerBootRestoresSameSessionsAndProviderThreads": {
+          "check": "reboot-restored-same-sessions-and-provider-threads",
+          "manager": "systemd",
+          "sessions": [
+            {
+              "provider": "claude",
+              "sessionId": "cmtrpaj060015rib9qjd6d0re"
+            },
+            {
+              "provider": "codex",
+              "sessionId": "cmtrpalut001hrib93j4xs8xl"
+            }
+          ]
+        },
+        "immediatePostRestorePromptsReceivedNewReplies": [
+          "TALOS_LINUX_CLAUDE_AFTER_REBOOT_e2114443",
+          "TALOS_LINUX_CODEX_AFTER_REBOOT_8ed145a3"
+        ],
+        "restoredProvidersRecalledOriginalConversation": [
+          {
+            "check": "provider-recalled-original-context",
+            "provider": "claude",
+            "sessionId": "cmtrpaj060015rib9qjd6d0re",
+            "originalMarker": "TALOS_LINUX_CLAUDE_READY"
+          },
+          {
+            "check": "provider-recalled-original-context",
+            "provider": "codex",
+            "sessionId": "cmtrpalut001hrib93j4xs8xl",
+            "originalMarker": "TALOS_LINUX_CODEX_READY"
+          }
+        ],
+        "explicitStopSessionRpcRecordedDurably": {
+          "check": "intentional-stops-persisted",
+          "sessions": [
+            "cmtrpaj060015rib9qjd6d0re",
+            "cmtrpalut001hrib93j4xs8xl"
+          ]
+        },
+        "intentionallyStoppedSessionsRemainStoppedAcrossBoot": {
+          "check": "stopped-sessions-stayed-stopped-after-reboot",
+          "manager": "systemd"
+        },
+        "appDaemonStopRemainsOfflineThroughSupervisorRestartWindow": {
+          "check": "app-stopped-daemon-stayed-offline",
+          "manager": "systemd"
+        },
+        "automaticLingerEnabledAndPreservedAfterUninstallingSeparateService": "Linger=yes"
+      }
+    },
+    {
+      "distribution": "Alpine Linux",
+      "serviceManager": "openrc",
+      "serviceManagerVersion": "0.63.2",
+      "nodeVersion": "22.23.2",
+      "runtimeUid": 1001,
+      "realProviders": [
+        "Claude Code",
+        "Codex"
+      ],
+      "sessions": [
+        {
+          "provider": "claude",
+          "sessionId": "cmtrpavnq001trib9206rgg31",
+          "pid": 1038,
+          "claudeSessionId": "6f5821be-dd5f-44d4-9b62-32c37412afb5"
+        },
+        {
+          "provider": "codex",
+          "sessionId": "cmtrpayqq002jrib90owgvkz5",
+          "pid": 1109,
+          "codexThreadId": "01a07d96-26b1-73c2-b78e-094474e4ab80"
+        }
+      ],
+      "checks": {
+        "exactPackedGlobalInstallBeforePairing": {
+          "check": "global-npm-installed-before-pairing",
+          "manager": "openrc",
+          "service": "talos-daemon-525a33c89aef1f65",
+          "separateHomePreserved": "talos-daemon-b68e8169764195c5",
+          "noCredentials": true,
+          "noCodingSessionStarted": true
+        },
+        "isolatedHomeUninstallPreservesOtherService": {
+          "check": "isolated-unpaired-service-removed-without-affecting-paired-service",
+          "manager": "openrc"
+        },
+        "daemonSigkillAdoptsExistingProcessesWithoutDuplicates": {
+          "check": "final-daemon-crash-adopted-existing-processes",
+          "manager": "openrc",
+          "oldPid": 885,
+          "newPid": 938,
+          "children": [
+            {
+              "startedBy": "recovered",
+              "talosSessionId": "cmtrpayqq002jrib90owgvkz5",
+              "pid": 170
+            },
+            {
+              "startedBy": "recovered",
+              "talosSessionId": "cmtrpavnq001trib9206rgg31",
+              "pid": 245
+            }
+          ]
+        },
+        "containerBootRestoresSameSessionsAndProviderThreads": {
+          "check": "reboot-restored-same-sessions-and-provider-threads",
+          "manager": "openrc",
+          "sessions": [
+            {
+              "provider": "claude",
+              "sessionId": "cmtrpavnq001trib9206rgg31"
+            },
+            {
+              "provider": "codex",
+              "sessionId": "cmtrpayqq002jrib90owgvkz5"
+            }
+          ]
+        },
+        "immediatePostRestorePromptsReceivedNewReplies": [
+          "TALOS_LINUX_CLAUDE_AFTER_REBOOT_5a89089c",
+          "TALOS_LINUX_CODEX_AFTER_REBOOT_d81b5adf"
+        ],
+        "restoredProvidersRecalledOriginalConversation": [
+          {
+            "check": "provider-recalled-original-context",
+            "provider": "claude",
+            "sessionId": "cmtrpavnq001trib9206rgg31",
+            "originalMarker": "TALOS_LINUX_CLAUDE_READY"
+          },
+          {
+            "check": "provider-recalled-original-context",
+            "provider": "codex",
+            "sessionId": "cmtrpayqq002jrib90owgvkz5",
+            "originalMarker": "TALOS_LINUX_CODEX_READY"
+          }
+        ],
+        "explicitStopSessionRpcRecordedDurably": {
+          "check": "intentional-stops-persisted",
+          "sessions": [
+            "cmtrpavnq001trib9206rgg31",
+            "cmtrpayqq002jrib90owgvkz5"
+          ]
+        },
+        "intentionallyStoppedSessionsRemainStoppedAcrossBoot": {
+          "check": "stopped-sessions-stayed-stopped-after-reboot",
+          "manager": "openrc"
+        },
+        "appDaemonStopRemainsOfflineThroughSupervisorRestartWindow": {
+          "check": "app-stopped-daemon-stayed-offline",
+          "manager": "openrc"
+        },
+        "existingAccountLoginWithoutRenewedAdminAuthorization": {
+          "result": "passed",
+          "method": "Removed only the disposable container test sudoers file before talos auth login and app stop-daemon RPC.",
+          "authExitCode": 0,
+          "daemonPauseExitCode": 0
+        }
+      }
+    }
+  ],
+  "scope": {
+    "bootValidation": "Restarted each complete container PID namespace and its service manager. The Docker host/kernel was not rebooted, so its kernel boot ID did not change.",
+    "isolation": "Disposable filesystems and users. systemd used a private writable cgroup namespace with no host /run or /sys/fs/cgroup bind. OpenRC used its actual default runlevel and supervise-daemon.",
+    "network": "Host networking reached only the disposable relay through a loopback SSH reverse tunnel; no host network configuration services were enabled.",
+    "credentials": "Disposable relay account and privately copied authorized provider credentials; credentials and encryption keys are excluded from evidence."
+  },
+  "cleanup": {
+    "taskContainersRemoved": true,
+    "taskImagesRemoved": true,
+    "remoteTaskDirectoryAndPrivateCredentialCopiesRemoved": true,
+    "sshReverseTunnelTerminated": true,
+    "existingHostUserService": {
+      "name": "happy-daemon.service",
+      "activeState": "active",
+      "mainPid": 3779472,
+      "execMainStartTimestamp": "Sun 2026-09-06 14:08:55 BST",
+      "modifiedByTest": false
+    }
+  }
+}

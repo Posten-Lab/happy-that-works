@@ -1,15 +1,7 @@
-import { logger } from '@/ui/logger';
-import { install as installMac } from './mac/install';
+import { ensureDaemonService } from './service';
 
 export async function install(): Promise<void> {
-    if (process.platform !== 'darwin') {
-        throw new Error('Daemon installation is currently only supported on macOS');
-    }
-    
-    if (process.getuid && process.getuid() !== 0) {
-        throw new Error('Daemon installation requires sudo privileges. Please run with sudo.');
-    }
-    
-    logger.info('Installing Talos CLI daemon for macOS...');
-    await installMac();
+    const result = await ensureDaemonService({ enable: true });
+    if (!result.managed) throw new Error(result.message || 'Automatic background startup is disabled');
+    console.log(result.message || 'Talos background service installed and started.');
 }

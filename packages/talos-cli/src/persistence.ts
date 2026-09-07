@@ -6,13 +6,14 @@
 
 import { FileHandle } from 'node:fs/promises'
 import { readFile, writeFile, mkdir, open, unlink, rename, stat } from 'node:fs/promises'
-import { existsSync, writeFileSync, readFileSync, unlinkSync, renameSync } from 'node:fs'
+import { existsSync, writeFileSync, readFileSync, unlinkSync, renameSync, statSync } from 'node:fs'
 import { constants } from 'node:fs'
 import { configuration } from '@/configuration'
 import * as z from 'zod';
 import { encodeBase64, decodeBase64 } from '@/api/encryption';
 import type { Metadata } from '@/api/types';
 import { logger } from '@/ui/logger';
+import { getProcessIdentity, getProcessStartTime } from '@/utils/processIdentity';
 
 export const SandboxConfigSchema = z.object({
   enabled: z.boolean().default(false),
@@ -72,6 +73,7 @@ function migrateSettings(raw: any, fromVersion: number): any {
  */
 export interface DaemonLocallyPersistedState {
   pid: number;
+  processIdentity?: string | null;
   httpPort: number;
   startTime: string;
   startedWithCliVersion: string;
@@ -317,19 +319,16 @@ export function writeDaemonState(state: DaemonLocallyPersistedState): void {
 }
 
 /**
- * Clean up daemon state file and lock file
+ * Clean up a matching daemon state. Lock ownership is handled only by acquire/release.
  */
-export async function clearDaemonState(): Promise<void> {
+export async function clearDaemonState(expected?: DaemonLocallyPersistedState): Promise<void> {
   if (existsSync(configuration.daemonStateFile)) {
-    await unlink(configuration.daemonStateFile);
-  }
-  // Also clean up lock file if it exists (for stale cleanup)
-  if (existsSync(configuration.daemonLockFile)) {
-    try {
-      await unlink(configuration.daemonLockFile);
-    } catch {
-      // Lock file might be held by running daemon, ignore error
+    if (expected) {
+      const current = JSON.parse(readFileSync(configuration.daemonStateFile, 'utf8')) as DaemonLocallyPersistedState;
+      if (current.pid !== expected.pid || current.startTime !== expected.startTime
+        || current.processIdentity !== expected.processIdentity) return;
     }
+    unlinkSync(configuration.daemonStateFile);
   }
 }
 
@@ -342,32 +341,63 @@ export async function acquireDaemonLock(
   maxAttempts: number = 5,
   delayIncrementMs: number = 200
 ): Promise<FileHandle | null> {
+  const identity = getProcessIdentity(process.pid);
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       // O_EXCL ensures we only create if it doesn't exist (atomic lock acquisition)
       const fileHandle = await open(
         configuration.daemonLockFile,
-        constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY
+        constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY,
+        0o600,
       );
-      // Write PID to lock file for debugging
-      await fileHandle.writeFile(String(process.pid));
-      return fileHandle;
+      try {
+        // The service acquires its lock before pairing creates daemon.state.json.
+        // A PID by itself could identify an unrelated process after the next boot.
+        await fileHandle.writeFile(JSON.stringify({ version: 1, pid: process.pid, processIdentity: identity }));
+        await fileHandle.sync();
+        return fileHandle;
+      } catch (error) {
+        await releaseDaemonLock(fileHandle);
+        throw error;
+      }
     } catch (error: any) {
       if (error.code === 'EEXIST') {
-        // Lock file exists, check if process is still running
+        // Preserve live legacy PID-only owners while recognizing process births
+        // newer than their lock file. New owners carry an exact birth identity.
         try {
-          const lockPid = readFileSync(configuration.daemonLockFile, 'utf-8').trim();
-          if (lockPid && !isNaN(Number(lockPid))) {
+          const observed = statSync(configuration.daemonLockFile);
+          const raw = readFileSync(configuration.daemonLockFile, 'utf-8').trim();
+          let owner: { pid: number; processIdentity?: string | null } | null = null;
+          if (/^\d+$/.test(raw) && Number.isSafeInteger(Number(raw)) && Number(raw) > 0) owner = { pid: Number(raw) };
+          else {
             try {
-              process.kill(Number(lockPid), 0); // Check if process exists
-            } catch {
-              // Process doesn't exist, remove stale lock
-              unlinkSync(configuration.daemonLockFile);
-              continue; // Retry acquisition
+              const parsed = JSON.parse(raw);
+              if (parsed?.version === 1 && Number.isSafeInteger(parsed.pid) && parsed.pid > 0
+                && (parsed.processIdentity === null || typeof parsed.processIdentity === 'string')) owner = parsed;
+            } catch { /* The owner may still be writing its just-created lock. */ }
+          }
+          // Allow a new writer time to populate an empty file, but recover locks
+          // left incomplete by a crash instead of blocking every future boot.
+          let stale = !owner && Date.now() - observed.mtimeMs > 5000;
+          if (owner) {
+            try { process.kill(owner.pid, 0); }
+            catch (error) { stale = (error as NodeJS.ErrnoException).code === 'ESRCH'; }
+            if (!stale && owner.processIdentity) {
+              const currentIdentity = getProcessIdentity(owner.pid);
+              stale = currentIdentity !== null && currentIdentity !== owner.processIdentity;
+            } else if (!stale) {
+              const startedAt = getProcessStartTime(owner.pid);
+              stale = startedAt !== null && startedAt > observed.mtimeMs + 1000;
             }
           }
+          if (stale) {
+            const current = statSync(configuration.daemonLockFile);
+            if (current.dev === observed.dev && current.ino === observed.ino) unlinkSync(configuration.daemonLockFile);
+            continue;
+          }
         } catch {
-          // Can't read lock file, might be corrupted
+          // An unreadable lock or another contender replacing it is not proof
+          // that ownership is available. Retry through exclusive creation.
         }
       }
 
@@ -385,13 +415,16 @@ export async function acquireDaemonLock(
  * Release daemon lock by closing handle and deleting lock file
  */
 export async function releaseDaemonLock(lockHandle: FileHandle): Promise<void> {
+  let ownedFile: { dev: number; ino: number } | undefined;
+  try { ownedFile = await lockHandle.stat(); } catch { }
   try {
     await lockHandle.close();
   } catch { }
 
   try {
-    if (existsSync(configuration.daemonLockFile)) {
-      unlinkSync(configuration.daemonLockFile);
+    if (ownedFile && existsSync(configuration.daemonLockFile)) {
+      const current = statSync(configuration.daemonLockFile);
+      if (current.dev === ownedFile.dev && current.ino === ownedFile.ino) unlinkSync(configuration.daemonLockFile);
     }
   } catch { }
 }
@@ -444,4 +477,3 @@ export function persistSession(sessionId: string, session: PersistedSession): vo
     logger.debug(`[PERSISTENCE] Failed to persist session ${sessionId}:`, error);
   }
 }
-

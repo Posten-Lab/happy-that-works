@@ -24,6 +24,7 @@ import {
 } from '@/claude/utils/sessionProtocolMapper';
 import { InvalidateSync } from '@/utils/sync';
 import axios from 'axios';
+import { checkpointSession, stopSessionRecovery } from '@/daemon/recovery/checkpoint';
 
 /**
  * ACP (Agent Communication Protocol) message data types.
@@ -217,7 +218,6 @@ export class ApiSessionClient extends EventEmitter {
     private reconnectTimeout: NodeJS.Timeout | null = null;
     private closed = false;
     private ignoreArchiveSignal = false;
-    private skipInitialMessages = false;
     private claudeSessionProtocolState: ClaudeSessionProtocolState = {
         currentTurnId: null,
         uuidToProviderSubagent: new Map<string, string>(),
@@ -233,12 +233,21 @@ export class ApiSessionClient extends EventEmitter {
     private pendingOutbox: Array<{ content: string; localId: string }> = [];
     private readonly sendSync: InvalidateSync;
     private readonly receiveSync: InvalidateSync;
+    private recoveryMetadata: Metadata | null;
+    private readonly initialRecoverySeq: number;
+    private recoveryMetadataRevision = 0;
+    private recoveryAcknowledgedRevision = 0;
+    private lastRecoveryCheckpointAt = 0;
+    private automaticRecovery = process.env.TALOS_AUTOMATIC_RESUME === '1';
+    private recoveryArchiveConflict = false;
 
     constructor(token: string, session: Session) {
         super()
         this.token = token;
         this.sessionId = session.id;
         this.metadata = session.metadata;
+        this.recoveryMetadata = session.metadata;
+        this.initialRecoverySeq = session.seq;
         this.metadataVersion = session.metadataVersion;
         this.agentState = session.agentState;
         this.agentStateVersion = session.agentStateVersion;
@@ -246,6 +255,7 @@ export class ApiSessionClient extends EventEmitter {
         this.encryptionVariant = session.encryptionVariant;
         this.sendSync = new InvalidateSync(() => this.flushOutbox());
         this.receiveSync = new InvalidateSync(() => this.fetchMessages());
+        this.checkpointRecovery();
 
         // Initialize RPC handler manager
         this.rpcHandlerManager = new RpcHandlerManager({
@@ -337,14 +347,21 @@ export class ApiSessionClient extends EventEmitter {
                     if (data.body.metadata && data.body.metadata.version > this.metadataVersion) {
                         this.metadata = normalizeMetadata(decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(data.body.metadata.value)));
                         this.metadataVersion = data.body.metadata.version;
+                        if (this.recoveryAcknowledgedRevision === this.recoveryMetadataRevision) {
+                            this.recoveryMetadata = this.metadata;
+                        }
                         // Check if session was archived from web/mobile
                         const meta = this.metadata as any;
+                        if (meta?.lifecycleState === 'running') this.ignoreArchiveSignal = false;
                         if (meta?.lifecycleState === 'archiveRequested' || meta?.lifecycleState === 'archived') {
                             if (this.ignoreArchiveSignal) {
                                 logger.debug(`[SOCKET] Session archived (${meta.lifecycleState}) but suppressed for reconnect`);
                                 this.ignoreArchiveSignal = false;
+                                this.recoveryMetadata = { ...this.recoveryMetadata!, lifecycleState: 'running' };
                             } else {
                                 logger.debug(`[SOCKET] Session archived (${meta.lifecycleState}), exiting...`);
+                                if (this.automaticRecovery) this.recoveryArchiveConflict = true;
+                                stopSessionRecovery(this.sessionId);
                                 this.emit('archived');
                             }
                         }
@@ -353,6 +370,7 @@ export class ApiSessionClient extends EventEmitter {
                         this.agentState = data.body.agentState.value ? decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(data.body.agentState.value)) : null;
                         this.agentStateVersion = data.body.agentState.version;
                     }
+                    this.checkpointRecovery();
                 } else if (data.body.t === 'update-machine') {
                     // Session clients shouldn't receive machine updates - log warning
                     logger.debug(`[SOCKET] WARNING: Session client received unexpected machine update - ignoring`);
@@ -588,13 +606,6 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     private async fetchMessages() {
-        // On reconnect, skip processing existing messages — just advance lastSeq
-        const skipRouting = this.skipInitialMessages;
-        if (skipRouting) {
-            this.skipInitialMessages = false;
-            logger.debug('[API] Reconnect mode: skipping existing messages, advancing lastSeq');
-        }
-
         let afterSeq = this.lastSeq;
         while (true) {
             const response = await axios.get<V3GetSessionMessagesResponse>(
@@ -616,8 +627,6 @@ export class ApiSessionClient extends EventEmitter {
                 if (message.seq > maxSeq) {
                     maxSeq = message.seq;
                 }
-
-                if (skipRouting) continue;
 
                 if (message.content?.t !== 'encrypted') {
                     continue;
@@ -907,6 +916,9 @@ export class ApiSessionClient extends EventEmitter {
      * Send a ping message to keep the connection alive
      */
     keepAlive(thinking: boolean, mode: 'local' | 'remote') {
+        if (Date.now() - this.lastRecoveryCheckpointAt >= 10_000) {
+            this.checkpointRecovery();
+        }
         if (process.env.DEBUG) { // too verbose for production
             logger.debug(`[API] Sending keep alive message: ${thinking}`);
         }
@@ -962,6 +974,34 @@ export class ApiSessionClient extends EventEmitter {
         return this.metadata;
     }
 
+    override on(event: string | symbol, listener: (...args: any[]) => void): this {
+        super.on(event, listener);
+        // A server archive can arrive while the provider is still initializing.
+        // Its eventual termination handler must observe that earlier intent too.
+        if (event === 'archived' && this.recoveryArchiveConflict) {
+            queueMicrotask(() => { if (!this.closed) listener(); });
+        }
+        return this;
+    }
+
+    private checkpointRecovery(metadata = this.recoveryMetadata) {
+        if (!metadata || this.closed) return;
+        checkpointSession({
+            sessionId: this.sessionId,
+            metadata,
+            encryption: {
+                encryptionKey: encodeBase64(this.encryptionKey),
+                encryptionVariant: this.encryptionVariant,
+                seq: Math.max(this.initialRecoverySeq, this.lastSeq),
+                metadataVersion: this.metadataVersion,
+                agentStateVersion: this.agentStateVersion,
+            },
+            model: metadata.currentModelCode,
+            permissionMode: metadata.currentOperatingModeCode,
+        });
+        this.lastRecoveryCheckpointAt = Date.now();
+    }
+
     /**
      * Update session metadata
      * @param handler - Handler function that returns the updated metadata
@@ -971,21 +1011,48 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     skipExistingMessages() {
-        this.skipInitialMessages = true;
+        // Skip only history that existed at the daemon's recovery preflight.
+        // A user may send a new prompt after the spawn webhook, before this
+        // socket connects; that newer prompt must still be delivered.
+        this.lastSeq = Math.max(this.lastSeq, this.initialRecoverySeq);
     }
 
     updateMetadata(handler: (metadata: Metadata) => Metadata) {
+        if (this.recoveryArchiveConflict) return;
+        // Checkpoint independently of the socket queue. A disconnected socket
+        // can leave older updates awaiting acknowledgement indefinitely.
+        const recoveryRevision = ++this.recoveryMetadataRevision;
+        this.recoveryMetadata = handler(this.recoveryMetadata ?? this.metadata!);
+        this.checkpointRecovery();
         this.metadataLock.inLock(async () => {
             await backoff(async () => {
+                if (this.recoveryArchiveConflict) return;
                 let updated = handler(this.metadata!); // Weird state if metadata is null - should never happen but here we are
                 const answer = await this.socket.emitWithAck('update-metadata', { sid: this.sessionId, expectedVersion: this.metadataVersion, metadata: encodeBase64(encrypt(this.encryptionKey, this.encryptionVariant, toWireMetadata(updated))) });
                 if (answer.result === 'success') {
                     this.metadata = normalizeMetadata(decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata)));
                     this.metadataVersion = answer.version;
+                    if (this.metadata?.lifecycleState === 'running') this.ignoreArchiveSignal = false;
+                    if (this.metadata?.lifecycleState === 'running') this.automaticRecovery = false;
+                    if (recoveryRevision === this.recoveryMetadataRevision) {
+                        this.recoveryMetadata = this.metadata;
+                        this.recoveryAcknowledgedRevision = recoveryRevision;
+                    }
+                    this.checkpointRecovery();
                 } else if (answer.result === 'version-mismatch') {
                     if (answer.version > this.metadataVersion) {
                         this.metadataVersion = answer.version;
                         this.metadata = normalizeMetadata(decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata)));
+                    }
+                    if (this.automaticRecovery && (this.metadata?.lifecycleState === 'archived' || this.metadata?.lifecycleState === 'archiveRequested')) {
+                        // The user archived after the daemon's preflight read. Do not retry an
+                        // automatic unarchive over the newer intent; explicit Resume still can.
+                        this.recoveryArchiveConflict = true;
+                        this.recoveryMetadata = this.metadata;
+                        this.checkpointRecovery();
+                        stopSessionRecovery(this.sessionId);
+                        this.emit('archived');
+                        return;
                     }
                     throw new Error('Metadata version mismatch');
                 } else if (answer.result === 'error') {
@@ -1008,6 +1075,7 @@ export class ApiSessionClient extends EventEmitter {
                 if (answer.result === 'success') {
                     this.agentState = answer.agentState ? decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.agentState)) : null;
                     this.agentStateVersion = answer.version;
+                    this.checkpointRecovery();
                     logger.debug('Agent state updated', this.agentState);
                 } else if (answer.result === 'version-mismatch') {
                     if (answer.version > this.agentStateVersion) {

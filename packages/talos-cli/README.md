@@ -12,6 +12,8 @@ npm install -g talosapp
 
 The npm package is `talosapp`; the command is `talos`. Open [talosapp.ai](https://talosapp.ai) to connect your browser or phone.
 
+Installation sets up automatic background startup on macOS and Linux. Connect your account once with `talos auth login`; your machine then becomes available in the UI without starting a coding session in a terminal.
+
 For local relay hosting, install `@ahmadposten/talos-server` alongside `talosapp` and run `talos server`.
 
 ## Usage
@@ -48,34 +50,37 @@ The daemon is a background service that stays running on your machine. It lets y
 
 ```bash
 talos daemon start
+talos daemon restart
 talos daemon stop
 talos daemon status
 talos daemon list
 ```
 
-The daemon starts automatically when you run `talos`, so you usually don't need to manage it manually.
+Background startup is enabled by default, and the OS restarts the daemon after crashes:
 
-### Keeping the daemon running across reboots
+| Platform | Service |
+|----------|---------|
+| macOS | A per-user LaunchAgent in the GUI login domain, starting after login. |
+| Linux with systemd | A user service with lingering enabled, starting at boot and continuing after logout. |
+| Linux with OpenRC | A service in the default runlevel, supervised by `supervise-daemon`, running as your ordinary user. |
 
-If you want the daemon to come back automatically after a reboot — without opening a `talos` session first — start it from your shell profile so it inherits your normal user session context (PATH, keychain access, OAuth credentials):
+The service uses an absolute Node executable, your provider executable PATH and provider configuration directories. On macOS it joins your GUI login domain for access to the login keychain; it does not copy OAuth tokens into the service file. Provider account connection is still required for the agent you want to use.
 
-```bash
-# ~/.zshrc or ~/.bashrc
-if [[ -o interactive ]] && [[ -z "$TALOS_DAEMON_CHECKED" ]]; then
-    export TALOS_DAEMON_CHECKED=1
-    () {
-        local state=$HOME/.talos/daemon.state.json
-        local pid=$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$state" 2>/dev/null | grep -oE '[0-9]+')
-        if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
-            talos daemon start >/dev/null 2>&1
-        fi
-    } &!
-fi
-```
+If npm scripts are disabled, or installation runs as root, normal account connection completes service setup automatically for your ordinary user. OpenRC installation and some Linux lingering policies require administrative authorization; `talos auth login` requests it through sudo when a terminal is available. Unavailable service managers or denied authorization are reported explicitly. A temporary detached daemon provides availability during the current boot but does not provide automatic reboot startup.
 
-The first interactive shell after a reboot triggers the start; subsequent shells short-circuit because the daemon is already running.
+`talos daemon stop` pauses the daemon while leaving coding sessions alive. A subsequent start, account login or normal Talos session starts it again. Disable automatic startup persistently with `talos daemon uninstall`; re-enable it with `talos daemon install`. Disabling a Talos systemd service leaves shared user lingering intact for other services.
 
-> **macOS users:** prefer this shell-init approach over a `launchd` LaunchAgent. A LaunchAgent runs in an agent domain that is **detached from your GUI/Aqua login session**, which means the bundled `claude-agent-sdk` cannot reach the macOS keychain and silently fails authentication ("Failed to authenticate. API Error: 401 terminated", `duration_api_ms: 0`). If you must use launchd, your wrapper has to read the OAuth access token from `~/.claude/.credentials.json` and export it as `CLAUDE_CODE_OAUTH_TOKEN` before exec'ing the daemon — and you'll need to handle token rotation yourself.
+Each `TALOS_HOME_DIR` has a separate service identity, so development and production instances do not replace one another. Dependency installs, CI builds and npm links do not automatically register services. Managed daemons allow idle sleep; the machine reconnects after waking.
+
+### Session recovery
+
+Automatic session restoration is enabled by default. After a crash or restart, the daemon reconnects interrupted Claude, Codex and Muse sessions to the same Talos conversation, provider thread and working directory. It preserves the selected model and permission mode. Existing session processes survive daemon upgrades and are adopted without starting duplicates.
+
+Explicitly archived or stopped sessions, including Ctrl-C in a terminal, stay stopped. Restoration uses checkpoints written by this CLI version; older cached sessions remain available for manual resume but are not automatically revived. Providers without a native resume adapter cannot be automatically restored.
+
+The machine page shows restoration progress and failures, with an **Automatically restore sessions** switch. Recovery retries are bounded. If a directory or provider credential is unavailable, fix it and use **Resume Session** in the existing conversation. Disabling automatic restoration does not terminate running sessions.
+
+Restoration reopens the agent and its saved conversation. It does not replay shell commands or automatically continue a turn interrupted during tool execution. New messages sent while the restored process connects are retained and delivered.
 
 ## Authentication
 
@@ -119,6 +124,7 @@ talos connect status
 | `TALOS_SERVER_URL` | Custom server URL (default: `https://api.talosapp.ai`) |
 | `TALOS_WEBAPP_URL` | Custom web app URL (default: `https://talosapp.ai`) |
 | `TALOS_HOME_DIR` | Custom home directory for Talos data (default: `~/.talos`) |
+| `TALOS_AUTOSTART` | Set to `0` to skip automatic service setup for this invocation (use `talos daemon uninstall` for a persistent opt-out) |
 | `TALOS_DISABLE_CAFFEINATE` | Disable macOS sleep prevention |
 | `TALOS_EXPERIMENTAL` | Enable experimental features |
 

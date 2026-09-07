@@ -1,15 +1,8 @@
-import { logger } from '@/ui/logger';
-import { uninstall as uninstallMac } from './mac/uninstall';
+import { uninstallDaemonService } from './service';
+import { stopDaemon } from './controlClient';
 
 export async function uninstall(): Promise<void> {
-    if (process.platform !== 'darwin') {
-        throw new Error('Daemon uninstallation is currently only supported on macOS');
-    }
-    
-    if (process.getuid && process.getuid() !== 0) {
-        throw new Error('Daemon uninstallation requires sudo privileges. Please run with sudo.');
-    }
-    
-    logger.info('Uninstalling Talos CLI daemon for macOS...');
-    await uninstallMac();
+    await uninstallDaemonService();
+    await stopDaemon();
+    console.log('Automatic background startup disabled. Run talos daemon install to enable it again.');
 }

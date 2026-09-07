@@ -1,0 +1,19 @@
+{
+  "capturedAtUtc": "2026-09-07T21:06:59.715Z",
+  "packageSha256": "cbfff7c1709a2c958fdee779d2d0aeb7c681e127245758aba373e4fc99b85a5c",
+  "platform": "macOS launchd",
+  "checks": {
+    "staleStateAndLockRecovered": true,
+    "unrelatedReusedPidNotSignalled": true,
+    "realRelayConnectionCut": true,
+    "shutdownAcknowledgementUnavailable": true,
+    "forcedExitExercised": true,
+    "stopIntentSavedBeforeTimeout": true,
+    "supervisorRemainsPaused": true
+  },
+  "notes": [
+    "A live unrelated process PID was deliberately written into stale daemon state and lock files with a different saved birth identity. This exercises stale ownership using real processes; it does not reboot the kernel."
+  ],
+  "cleanup": "isolated service uninstalled; credentials removed; unrelated test process terminated by harness",
+  "implementationCommit": "39d37b22658e8c3a1ad720c0a7b5605eb7c425c2"
+}

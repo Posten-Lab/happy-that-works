@@ -14,7 +14,7 @@ import { startCaffeinate, stopCaffeinate } from '@/utils/caffeinate';
 import packageJson from '../../package.json';
 import { getEnvironmentInfo } from '@/ui/doctor';
 import { spawnTalosCLI } from '@/utils/spawnTalosCLI';
-import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, readPersistedSessions, persistSession } from '@/persistence';
+import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, readPersistedSessions, persistSession, readCredentials, readSettings } from '@/persistence';
 import type { PersistedSession } from '@/persistence';
 
 import { cleanupDaemonState, isDaemonRunningCurrentlyInstalledTalosVersion, stopDaemon } from './controlClient';
@@ -28,6 +28,15 @@ import { detectCLIAvailability } from '@/utils/detectCLI';
 import { buildResumeLaunch } from '@/resume/handleResumeCommand';
 import { detectResumeSupport } from '@/resume/localTalosAgentAuth';
 import { encodeBase64, decodeBase64, decrypt } from '@/api/encryption';
+import { normalizeMetadata } from '@ahmadposten/talos-wire';
+import { readSessionCheckpoints, readSessionCheckpoint, isCheckpointProcessAlive, stopSessionRecovery, getProcessIdentity, type SessionCheckpoint } from './recovery/checkpoint';
+import { SessionRecoveryCoordinator } from './recovery/coordinator';
+import { isSessionRecoveryEnabled, setSessionRecoveryEnabled } from './recovery/settings';
+import { requestManagedServiceStop, isDaemonServicePaused, pauseDaemonService } from './service';
+import { createDaemonShutdownController } from './shutdown';
+import { fetchRecoverySession } from './recovery/serverSession';
+import { recoveryLedger } from './recovery/ledger';
+import { mergeRecoveryMetadata, trackedProcessIsAlive, RecoveryLaunchGenerations } from './recovery/launchPolicy';
 
 /** Shell-escape a string for safe interpolation into tmux commands. */
 function shellescape(s: string): string {
@@ -52,6 +61,8 @@ export const initialMachineMetadata: MachineMetadata = {
 };
 
 export async function startDaemon(): Promise<void> {
+  const managed = process.env.TALOS_SERVICE_MANAGED === '1';
+  let shuttingDown = false;
   // We don't have cleanup function at the time of server construction
   // Control flow is:
   // 1. Create promise that will resolve when shutdown is requested
@@ -61,24 +72,17 @@ export async function startDaemon(): Promise<void> {
   //
   // In case the setup malfunctions - our signal handlers will not properly
   // shut down. We will force exit the process with code 1.
-  let requestShutdown: (source: 'talos-app' | 'talos-cli' | 'os-signal' | 'exception', errorMessage?: string) => void;
-  let resolvesWhenShutdownRequested = new Promise<({ source: 'talos-app' | 'talos-cli' | 'os-signal' | 'exception', errorMessage?: string })>((resolve) => {
-    requestShutdown = (source, errorMessage) => {
+  const { requestShutdown, resolvesWhenShutdownRequested } = createDaemonShutdownController({
+    managed,
+    pauseService: pauseDaemonService,
+    onRequest: ({ source, errorMessage }) => {
+      shuttingDown = true;
       logger.debug(`[DAEMON RUN] Requesting shutdown (source: ${source}, errorMessage: ${errorMessage})`);
-
-      // Fallback - in case startup malfunctions - we will force exit the process with code 1
-      setTimeout(async () => {
-        logger.debug('[DAEMON RUN] Startup malfunctioned, forcing exit with code 1');
-
-        // Give time for logs to be flushed
-        await new Promise(resolve => setTimeout(resolve, 100))
-
-        process.exit(1);
-      }, 1_000);
-
-      // Start graceful shutdown
-      resolve({ source, errorMessage });
-    };
+    },
+    forceExit: () => {
+      logger.debug('[DAEMON RUN] Shutdown timed out, forcing exit with code 1');
+      process.exit(1);
+    },
   });
 
   // Setup signal handlers
@@ -121,10 +125,8 @@ export async function startDaemon(): Promise<void> {
   // Check if running daemon version matches current CLI version
   const runningDaemonVersionMatches = await isDaemonRunningCurrentlyInstalledTalosVersion();
   if (!runningDaemonVersionMatches) {
-    // TODO: This hand-rolled self-restart path is awkward to reason about and awkward to test.
-    // We should probably migrate this daemon to native system service management
-    // (launchd/systemd, similar to OpenClaw's model), so startup/start-at-login and upgrades
-    // are owned by the OS instead of by the daemon trying to replace itself in-process.
+    // Replace an older daemon before acquiring ownership. Managed daemons are
+    // otherwise restarted by their OS service manager.
     logger.debug('[DAEMON RUN] Daemon version mismatch detected, restarting daemon with current CLI version');
     await stopDaemon();
   } else {
@@ -146,12 +148,20 @@ export async function startDaemon(): Promise<void> {
 
   try {
     // Start caffeinate
-    const caffeinateStarted = startCaffeinate();
+    const caffeinateStarted = !managed && startCaffeinate();
     if (caffeinateStarted) {
       logger.debug('[DAEMON RUN] Sleep prevention enabled');
     }
 
     // Ensure auth and machine registration BEFORE anything else
+    // A service may start before pairing. Never open a browser or terminal prompt in the background.
+    if (managed) {
+      while (isDaemonServicePaused() || !(await readCredentials()) || !(await readSettings()).machineId) {
+        logger.debug('[DAEMON RUN] Waiting for Talos account connection');
+        await Promise.race([new Promise(resolve => setTimeout(resolve, 2000)), resolvesWhenShutdownRequested]);
+        if (shuttingDown) { await releaseDaemonLock(daemonLockHandle); return; }
+      }
+    }
     const { credentials, machineId } = await authAndSetupMachineIfNeeded();
     logger.debug('[DAEMON RUN] Auth and machine setup complete');
 
@@ -162,6 +172,10 @@ export async function startDaemon(): Promise<void> {
     // Pre-populate from disk so sessions survive daemon restarts.
     const sessionIdToFinishedSession = new Map<string, TrackedSession>();
     const persisted = readPersistedSessions();
+    for (const checkpoint of readSessionCheckpoints()) {
+      if (checkpoint.serverUrl !== configuration.serverUrl || checkpoint.metadata.machineId !== machineId) continue;
+      persisted[checkpoint.sessionId] = { ...checkpoint.encryption, metadata: checkpoint.metadata, savedAt: checkpoint.updatedAt };
+    }
     for (const [id, s] of Object.entries(persisted)) {
       sessionIdToFinishedSession.set(id, {
         startedBy: 'persisted',
@@ -186,6 +200,20 @@ export async function startDaemon(): Promise<void> {
 
     // Helper functions
     const getCurrentChildren = () => Array.from(pidToTrackedSession.values());
+    const adoptCheckpoint = (checkpoint: SessionCheckpoint): TrackedSession => {
+      const tracked: TrackedSession = {
+        startedBy: 'recovered', talosSessionId: checkpoint.sessionId, pid: checkpoint.pid,
+        processIdentity: checkpoint.processIdentity,
+        talosSessionMetadataFromLocalWebhook: checkpoint.metadata,
+        encryption: { ...checkpoint.encryption, encryptionKey: decodeBase64(checkpoint.encryption.encryptionKey) },
+      };
+      if (isCheckpointProcessAlive(checkpoint)) pidToTrackedSession.set(checkpoint.pid, tracked);
+      sessionIdToFinishedSession.set(checkpoint.sessionId, tracked);
+      return tracked;
+    };
+    for (const checkpoint of readSessionCheckpoints()) {
+      if (checkpoint.serverUrl === configuration.serverUrl && checkpoint.metadata.machineId === machineId) adoptCheckpoint(checkpoint);
+    }
 
     // Handle webhook from talos session reporting itself
     const onTalosSessionWebhook = (sessionId: string, sessionMetadata: Metadata, encryption?: SessionEncryptionData) => {
@@ -219,6 +247,7 @@ export async function startDaemon(): Promise<void> {
       if (existingSession && existingSession.startedBy === 'daemon') {
         // Update daemon-spawned session with reported data
         existingSession.talosSessionId = sessionId;
+        existingSession.processIdentity ??= getProcessIdentity(pid);
         existingSession.talosSessionMetadataFromLocalWebhook = sessionMetadata;
         existingSession.encryption = encryption;
         logger.debug(`[DAEMON RUN] Updated daemon-spawned session ${sessionId} with metadata`);
@@ -237,7 +266,8 @@ export async function startDaemon(): Promise<void> {
           talosSessionId: sessionId,
           talosSessionMetadataFromLocalWebhook: sessionMetadata,
           encryption,
-          pid
+          pid,
+          processIdentity: getProcessIdentity(pid),
         };
         pidToTrackedSession.set(pid, trackedSession);
         logger.debug(`[DAEMON RUN] Registered externally-started session ${sessionId}`);
@@ -429,6 +459,8 @@ export async function startDaemon(): Promise<void> {
 
           // Add extra environment variables (these should already be filtered)
           Object.assign(tmuxEnv, extraEnv);
+          delete tmuxEnv.TALOS_SERVICE_MANAGED;
+          tmuxEnv.TALOS_DAEMON_CHILD = '1';
 
           const tmuxResult = await tmux.spawnInTmux([fullCommand], {
             sessionName: tmuxSessionName,
@@ -448,6 +480,7 @@ export async function startDaemon(): Promise<void> {
             const trackedSession: TrackedSession = {
               startedBy: 'daemon',
               pid: tmuxResult.pid, // Real PID from tmux -P flag
+              processIdentity: getProcessIdentity(tmuxResult.pid),
               tmuxSessionId: tmuxResult.sessionId,
               directoryCreated,
               message: directoryCreated
@@ -567,18 +600,24 @@ export async function startDaemon(): Promise<void> {
       env,
       directoryCreated = false,
       message,
+      expectedSessionId,
+      cancelled,
     }: {
       args: string[];
       cwd: string;
       env: NodeJS.ProcessEnv;
       directoryCreated?: boolean;
       message?: string;
+      expectedSessionId?: string;
+      cancelled?: () => boolean;
     }): Promise<SpawnSessionResult> => {
+      if (cancelled?.()) return Promise.resolve({ type: 'error', errorMessage: 'Session restoration was cancelled.' });
+      const childEnv = { ...env, TALOS_SERVICE_MANAGED: undefined, TALOS_DAEMON_CHILD: '1' };
       const talosProcess = spawnTalosCLI(args, {
         cwd,
         detached: true,
         stdio: 'ignore',
-        env,
+        env: childEnv,
       });
 
       if (!talosProcess.pid) {
@@ -594,6 +633,8 @@ export async function startDaemon(): Promise<void> {
       const trackedSession: TrackedSession = {
         startedBy: 'daemon',
         pid: talosProcess.pid,
+        processIdentity: getProcessIdentity(talosProcess.pid),
+        talosSessionId: expectedSessionId,
         childProcess: talosProcess,
         directoryCreated,
         message,
@@ -604,6 +645,13 @@ export async function startDaemon(): Promise<void> {
       talosProcess.on('exit', (code, signal) => {
         logger.debug(`[DAEMON RUN] Child PID ${talosProcess.pid} exited with code ${code}, signal ${signal}`);
         if (talosProcess.pid) {
+          // A stop may arrive before this child's first checkpoint. Once it has
+          // exited, no later write can resurrect its fresh runtime identity.
+          const sessionId = expectedSessionId ?? trackedSession.talosSessionId;
+          if (sessionId && (cancelled?.() || trackedSession.stopRequested)) {
+            const checkpoint = readSessionCheckpoint(sessionId);
+            if (checkpoint?.pid === talosProcess.pid) stopSessionRecovery(sessionId);
+          }
           onChildExited(talosProcess.pid);
         }
       });
@@ -621,6 +669,7 @@ export async function startDaemon(): Promise<void> {
         const timeout = setTimeout(() => {
           pidToAwaiter.delete(talosProcess.pid!);
           logger.debug(`[DAEMON RUN] Session webhook timeout for PID ${talosProcess.pid}`);
+          if (trackedProcessIsAlive(trackedSession)) talosProcess.kill(expectedSessionId ? 'SIGKILL' : 'SIGTERM');
           resolve({
             type: 'error',
             errorMessage: `Session webhook timeout for PID ${talosProcess.pid}`
@@ -629,6 +678,12 @@ export async function startDaemon(): Promise<void> {
 
         pidToAwaiter.set(talosProcess.pid!, (completedSession) => {
           clearTimeout(timeout);
+          if (cancelled?.()) {
+            if (completedSession.talosSessionId) stopSessionRecovery(completedSession.talosSessionId);
+            if (trackedProcessIsAlive(trackedSession)) talosProcess.kill('SIGKILL');
+            resolve({ type: 'error', errorMessage: 'Session restoration was cancelled.' });
+            return;
+          }
           logger.debug(`[DAEMON RUN] Session ${completedSession.talosSessionId} fully spawned with webhook`);
           resolve({
             type: 'success',
@@ -645,101 +700,109 @@ export async function startDaemon(): Promise<void> {
       return sessionIdToFinishedSession.get(talosSessionId);
     };
 
-    const fetchServerSessionMetadata = async (sessionId: string, encryptionKey: Uint8Array, encryptionVariant: 'legacy' | 'dataKey'): Promise<Metadata | null> => {
-      try {
-        const response = await axios.get(`${configuration.serverUrl}/v1/sessions`, {
-          headers: { Authorization: `Bearer ${credentials.token}` },
-          timeout: 10_000,
-        });
-        const sessions = (response.data as { sessions: { id: string; metadata: string }[] }).sessions;
-        const matched = sessions.find(s => s.id === sessionId);
-        if (!matched) return null;
-        const decrypted = decrypt(encryptionKey, encryptionVariant, decodeBase64(matched.metadata));
-        return decrypted as Metadata | null;
-      } catch (error) {
-        logger.debug(`[DAEMON RUN] Failed to fetch session metadata from server: ${error instanceof Error ? error.message : error}`);
-        return null;
-      }
-    };
-
-    const resumeSession = async (talosSessionId: string, options?: { model?: string; permissionMode?: string }): Promise<SpawnSessionResult> => {
-      try {
-        const tracked = findTrackedSessionById(talosSessionId);
-        if (!tracked) {
-          return { type: 'error', errorMessage: `Session ${talosSessionId} is not tracked by this daemon. It may have been started before the daemon or on another machine.` };
-        }
-        if (!tracked.talosSessionMetadataFromLocalWebhook) {
-          return { type: 'error', errorMessage: `Session ${talosSessionId} has no metadata. Cannot resume.` };
-        }
-        if (!tracked.encryption) {
-          return { type: 'error', errorMessage: `Session ${talosSessionId} has no stored encryption data. It was likely started before this feature was available. Restart the daemon and start a new session to enable resume.` };
-        }
-
-        // Webhook metadata may be stale (missing claudeSessionId/codexThreadId set after startup).
-        // Fetch fresh metadata from server if needed.
-        let metadata = tracked.talosSessionMetadataFromLocalWebhook;
-        const needsFetch = (!metadata.claudeSessionId && (!metadata.flavor || metadata.flavor === 'claude'))
-          || (!metadata.codexThreadId && metadata.flavor === 'codex')
-          || (!metadata.museSessionId && metadata.flavor === 'muse');
-        if (needsFetch) {
-          logger.debug(`[DAEMON RUN] Session ${talosSessionId} missing agent session ID in webhook metadata, fetching from server`);
-          const serverMetadata = await fetchServerSessionMetadata(talosSessionId, tracked.encryption.encryptionKey, tracked.encryption.encryptionVariant);
-          if (serverMetadata) {
-            metadata = serverMetadata;
-            tracked.talosSessionMetadataFromLocalWebhook = serverMetadata;
+    const resuming = new Map<string, Promise<SpawnSessionResult>>();
+    const launchGenerations = new RecoveryLaunchGenerations();
+    const resumeSession = (talosSessionId: string, options?: { model?: string; permissionMode?: string }, automatic = false): Promise<SpawnSessionResult> => {
+      const pending = resuming.get(talosSessionId);
+      if (pending) return pending;
+      const wasStopped = launchGenerations.capture(talosSessionId);
+      const cancelled = () => shuttingDown || wasStopped() || (automatic && (!isSessionRecoveryEnabled()
+        || readSessionCheckpoint(talosSessionId)?.desiredState !== 'running'));
+      const launch = (async (): Promise<SpawnSessionResult> => {
+        try {
+          const checkpoint = readSessionCheckpoint(talosSessionId);
+          if (checkpoint && (checkpoint.serverUrl !== configuration.serverUrl || checkpoint.metadata.machineId !== machineId)) {
+            return { type: 'error', errorMessage: 'This session belongs to another machine or server.' };
           }
+          if (checkpoint && isCheckpointProcessAlive(checkpoint)) {
+            adoptCheckpoint(checkpoint);
+            return { type: 'success', sessionId: talosSessionId };
+          }
+          const tracked = checkpoint ? adoptCheckpoint(checkpoint) : findTrackedSessionById(talosSessionId);
+          if (!tracked?.talosSessionMetadataFromLocalWebhook || !tracked.encryption) {
+            return { type: 'error', errorMessage: 'Session recovery data is unavailable on this machine.' };
+          }
+          // Old sessions may not have a birth identity. Never launch over a still-tracked live PID.
+          if (!checkpoint && pidToTrackedSession.has(tracked.pid) && trackedProcessIsAlive(tracked)) {
+            return { type: 'success', sessionId: talosSessionId };
+          }
+          const record = await fetchRecoverySession(credentials.token, talosSessionId);
+          if (!record) {
+            stopSessionRecovery(talosSessionId);
+            return { type: 'error', errorMessage: 'This session has been deleted.' };
+          }
+          const metadata = normalizeMetadata(decrypt(tracked.encryption.encryptionKey, tracked.encryption.encryptionVariant, decodeBase64(record.metadata))) as Metadata;
+          if (!metadata?.path) throw new Error('Session metadata is unavailable.');
+          if (cancelled() || automatic && (metadata.lifecycleState === 'archived' || metadata.lifecycleState === 'archiveRequested')) {
+            if (metadata.lifecycleState === 'archived' || metadata.lifecycleState === 'archiveRequested') stopSessionRecovery(talosSessionId);
+            return { type: 'error', errorMessage: 'Session restoration was cancelled.' };
+          }
+          // The backend ID checkpoint may be newer than the last acknowledged server metadata.
+          const resumeMetadata = mergeRecoveryMetadata(tracked.talosSessionMetadataFromLocalWebhook, metadata, Boolean(checkpoint));
+          const launch = buildResumeLaunch(
+            { id: talosSessionId, active: false, metadata: resumeMetadata },
+            { startedBy: 'daemon', claudeStartingMode: 'remote' },
+          );
+          await fs.access(launch.cwd);
+          const model = options?.model ?? checkpoint?.model ?? metadata.currentModelCode;
+          const permissionMode = options?.permissionMode ?? checkpoint?.permissionMode ?? metadata.currentOperatingModeCode;
+          const result = await spawnTrackedTalosProcess({
+            expectedSessionId: talosSessionId,
+            cancelled,
+            args: launch.args,
+            cwd: launch.cwd,
+            env: {
+              ...process.env,
+              TALOS_RECONNECT_SESSION_ID: talosSessionId,
+              TALOS_AUTOMATIC_RESUME: automatic ? '1' : '0',
+              TALOS_RECONNECT_ENCRYPTION_KEY: encodeBase64(tracked.encryption.encryptionKey),
+              TALOS_RECONNECT_ENCRYPTION_VARIANT: tracked.encryption.encryptionVariant,
+              TALOS_RECONNECT_SEQ: String(record.seq),
+              TALOS_RECONNECT_METADATA_VERSION: String(record.metadataVersion),
+              TALOS_RECONNECT_AGENT_STATE_VERSION: String(record.agentStateVersion),
+              TALOS_RECONNECT_METADATA: encodeBase64(Buffer.from(JSON.stringify(resumeMetadata), 'utf8')),
+              ...(model ? { TALOS_RECONNECT_MODEL: model } : {}),
+              ...(permissionMode ? { TALOS_RECONNECT_PERMISSION_MODE: permissionMode } : {}),
+            },
+          });
+          return result;
+        } catch (error) {
+          logger.debug('[DAEMON RUN] Session resume failed', error);
+          return { type: 'error', errorMessage: error instanceof Error ? error.message : 'Session resume failed.' };
         }
-
-        const launch = buildResumeLaunch(
-          { id: talosSessionId, active: true, metadata },
-          { startedBy: 'daemon', claudeStartingMode: 'remote' },
-        );
-
-        if (options?.model) {
-          launch.args.push('--model', options.model);
-        }
-        if (options?.permissionMode) {
-          launch.args.push('--permission-mode', options.permissionMode);
-        }
-
-        await fs.access(launch.cwd);
-
-        return spawnTrackedTalosProcess({
-          args: launch.args,
-          cwd: launch.cwd,
-          env: {
-            ...process.env,
-            TALOS_RECONNECT_SESSION_ID: talosSessionId,
-            TALOS_RECONNECT_ENCRYPTION_KEY: encodeBase64(tracked.encryption.encryptionKey),
-            TALOS_RECONNECT_ENCRYPTION_VARIANT: tracked.encryption.encryptionVariant,
-            TALOS_RECONNECT_SEQ: String(tracked.encryption.seq),
-            TALOS_RECONNECT_METADATA_VERSION: String(tracked.encryption.metadataVersion),
-            TALOS_RECONNECT_AGENT_STATE_VERSION: String(tracked.encryption.agentStateVersion),
-          },
-        });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : (error && typeof error === 'object' ? JSON.stringify(error) : String(error));
-        logger.debug(`[DAEMON RUN] Failed to resume session: ${errorMessage}`, error instanceof Error ? error.stack : undefined);
-        return {
-          type: 'error',
-          errorMessage: `Failed to resume session: ${errorMessage}`,
-        };
-      }
+      })();
+      resuming.set(talosSessionId, launch);
+      void launch.finally(() => resuming.delete(talosSessionId));
+      return launch;
     };
 
     // Stop a session by sessionId or PID fallback
     const stopSession = (sessionId: string): boolean => {
       logger.debug(`[DAEMON RUN] Attempting to stop session ${sessionId}`);
+      launchGenerations.cancel(sessionId);
+      stopSessionRecovery(sessionId);
 
       // Try to find by sessionId first
       for (const [pid, session] of pidToTrackedSession.entries()) {
         if (session.talosSessionId === sessionId ||
           (sessionId.startsWith('PID-') && pid === parseInt(sessionId.replace('PID-', '')))) {
 
+          if (session.talosSessionId) {
+            launchGenerations.cancel(session.talosSessionId);
+            stopSessionRecovery(session.talosSessionId);
+          }
+          session.stopRequested = true;
+          if (!trackedProcessIsAlive(session)) {
+            pidToTrackedSession.delete(pid);
+            return true;
+          }
           if (session.startedBy === 'daemon' && session.childProcess) {
             try {
-              session.childProcess.kill('SIGTERM');
-              logger.debug(`[DAEMON RUN] Sent SIGTERM to daemon-spawned session ${sessionId}`);
+              const currentCheckpoint = session.talosSessionId ? readSessionCheckpoint(session.talosSessionId) : null;
+              const checkpointReady = currentCheckpoint?.pid === pid && currentCheckpoint.processIdentity === session.processIdentity;
+              const signal = !checkpointReady || session.talosSessionId && resuming.has(session.talosSessionId) ? 'SIGKILL' : 'SIGTERM';
+              session.childProcess.kill(signal);
+              logger.debug(`[DAEMON RUN] Sent ${signal} to daemon-spawned session ${sessionId}`);
             } catch (error) {
               logger.debug(`[DAEMON RUN] Failed to kill session ${sessionId}:`, error);
             }
@@ -760,7 +823,7 @@ export async function startDaemon(): Promise<void> {
       }
 
       logger.debug(`[DAEMON RUN] Session ${sessionId} not found`);
-      return false;
+      return resuming.has(sessionId);
     };
 
     // Handle child process exit — preserve session data for resume
@@ -787,6 +850,7 @@ export async function startDaemon(): Promise<void> {
     // Write initial daemon state (no lock needed for state file)
     const fileState: DaemonLocallyPersistedState = {
       pid: process.pid,
+      processIdentity: getProcessIdentity(process.pid),
       httpPort: controlPort,
       startTime: new Date().toLocaleString(),
       startedWithCliVersion: packageJson.version,
@@ -832,17 +896,52 @@ export async function startDaemon(): Promise<void> {
 
     // Create realtime machine session
     const apiMachine = api.machineSyncClient(machine);
+    const recovery = new SessionRecoveryCoordinator({
+      ...recoveryLedger(configuration.talosHomeDir, configuration.serverUrl, machineId),
+      read: readSessionCheckpoints,
+      isAlive: isCheckpointProcessAlive,
+      enabled: isSessionRecoveryEnabled,
+      ready: () => !shuttingDown && apiMachine.isConnected(),
+      serverUrl: configuration.serverUrl, machineId,
+      resume: async checkpoint => {
+        adoptCheckpoint(checkpoint);
+        return resumeSession(checkpoint.sessionId, undefined, true);
+      },
+    });
+    let lastRecoveryState = '';
+    let publishingRecovery = false;
+    const publishRecovery = async () => {
+      if (publishingRecovery || shuttingDown || !apiMachine.isConnected()) return;
+      const state = recovery.getState();
+      const serialized = JSON.stringify(state);
+      if (serialized === lastRecoveryState) return;
+      publishingRecovery = true;
+      try {
+        await apiMachine.updateDaemonState(current => ({ ...current, status: 'running', recovery: state }));
+        lastRecoveryState = serialized;
+      } catch (error) { logger.debug('[RECOVERY] Could not publish recovery state', error); }
+      finally { publishingRecovery = false; }
+    };
 
     // Set RPC handlers
     apiMachine.setRPCHandlers({
       spawnSession,
       resumeSession,
       stopSession,
+      setSessionRecovery: async enabled => {
+        setSessionRecoveryEnabled(enabled);
+        await publishRecovery();
+        return { enabled: isSessionRecoveryEnabled() };
+      },
       requestShutdown: () => requestShutdown('talos-app')
     });
 
     // Connect to server
     apiMachine.connect();
+    const recoveryInterval = setInterval(() => {
+      void recovery.tick().catch(error => logger.debug('[RECOVERY] Reconciliation failed', error));
+      void publishRecovery();
+    }, 1000);
 
     // Every 60 seconds:
     // 1. Prune stale sessions
@@ -864,8 +963,7 @@ export async function startDaemon(): Promise<void> {
       // Prune stale sessions
       for (const [pid, _] of pidToTrackedSession.entries()) {
         try {
-          // Check if process is still alive (signal 0 doesn't kill, just checks)
-          process.kill(pid, 0);
+          if (!trackedProcessIsAlive(pidToTrackedSession.get(pid)!)) throw new Error('Tracked process has exited');
         } catch (error) {
           // Process is dead, remove from tracking
           logger.debug(`[DAEMON RUN] Removing stale session with PID ${pid} (process no longer exists)`);
@@ -886,12 +984,13 @@ export async function startDaemon(): Promise<void> {
         }
       }
       if (bundleReplaced) {
-        // TODO: We probably do not want to keep this in-process self-restart logic long-term.
-        // A native service manager would make startup and upgrades much simpler: the CLI would
-        // ask the OS to start the latest daemon instead of hand-rolling respawn/kill behavior here.
+        // Release ownership before replacement. The service manager restarts a
+        // managed daemon; the detached fallback starts its own replacement below.
         logger.debug('[DAEMON RUN] Daemon bundle replaced on disk, handing off to new daemon');
 
         clearInterval(restartOnStaleVersionAndHeartbeat);
+        clearInterval(recoveryInterval);
+        recovery.stop();
 
         // Release ownership BEFORE spawning the new daemon. Otherwise the spawned
         // `talos daemon start` reads our still-present daemon.state.json, sees
@@ -899,15 +998,18 @@ export async function startDaemon(): Promise<void> {
         // leaving nothing running once we also exit.
         apiMachine.shutdown();
         await stopControlServer();
-        await cleanupDaemonState();
+        await cleanupDaemonState(fileState);
         await releaseDaemonLock(daemonLockHandle);
         await stopCaffeinate();
 
         try {
+          // Service managers own replacement and crash restarts for managed daemons.
+          if (!managed) {
           spawnTalosCLI(['daemon', 'start'], {
             detached: true,
             stdio: 'ignore'
           });
+          }
         } catch (error) {
           logger.debug('[DAEMON RUN] Failed to spawn new daemon, this is quite likely to happen during integration tests as we are cleaning out dist/ directory', error);
         }
@@ -927,6 +1029,7 @@ export async function startDaemon(): Promise<void> {
       try {
         const updatedState: DaemonLocallyPersistedState = {
           pid: process.pid,
+          processIdentity: fileState.processIdentity,
           httpPort: controlPort,
           startTime: fileState.startTime,
           startedWithCliVersion: packageJson.version,
@@ -947,6 +1050,8 @@ export async function startDaemon(): Promise<void> {
     // Setup signal handlers
     const cleanupAndShutdown = async (source: 'talos-app' | 'talos-cli' | 'os-signal' | 'exception', errorMessage?: string) => {
       logger.debug(`[DAEMON RUN] Starting proper cleanup (source: ${source}, errorMessage: ${errorMessage})...`);
+      clearInterval(recoveryInterval);
+      recovery.stop();
 
       // Clear health check interval
       if (restartOnStaleVersionAndHeartbeat) {
@@ -967,9 +1072,10 @@ export async function startDaemon(): Promise<void> {
 
       apiMachine.shutdown();
       await stopControlServer();
-      await cleanupDaemonState();
+      await cleanupDaemonState(fileState);
       await stopCaffeinate();
       await releaseDaemonLock(daemonLockHandle);
+      if (managed && (source === 'talos-app' || source === 'talos-cli')) requestManagedServiceStop();
 
       logger.debug('[DAEMON RUN] Cleanup completed, exiting process');
       process.exit(0);
