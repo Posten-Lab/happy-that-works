@@ -555,6 +555,8 @@ export class ApiSessionClient extends EventEmitter {
     private routeIncomingMessage(message: unknown) {
         const userResult = UserMessageSchema.safeParse(message);
         if (userResult.success) {
+            // Imported native transcript entries are history, never new instructions.
+            if (userResult.data.meta?.sentFrom === 'native-provider') return;
             if (this.pendingMessageCallback) {
                 this.pendingMessageCallback(userResult.data);
             } else {
@@ -676,11 +678,11 @@ export class ApiSessionClient extends EventEmitter {
         }
     }
 
-    private enqueueMessage(content: unknown, invalidate: boolean = true) {
+    private enqueueMessage(content: unknown, invalidate: boolean = true, localId: string = randomUUID()) {
         const encrypted = encodeBase64(encrypt(this.encryptionKey, this.encryptionVariant, content));
         this.pendingOutbox.push({
             content: encrypted,
-            localId: randomUUID()
+            localId
         });
         if (invalidate) {
             this.sendSync.invalidate();
@@ -828,7 +830,7 @@ export class ApiSessionClient extends EventEmitter {
      * @param provider - The agent provider sending the message (e.g., 'gemini', 'codex', 'claude')
      * @param body - The message payload (type: 'message' | 'reasoning' | 'tool-call' | 'tool-result')
      */
-    sendAgentMessage(provider: 'gemini' | 'codex' | 'claude' | 'opencode' | 'openclaw', body: ACPMessageData) {
+    sendAgentMessage(provider: 'gemini' | 'codex' | 'claude' | 'opencode' | 'openclaw' | 'muse', body: ACPMessageData, localId?: string) {
         let content = {
             role: 'agent',
             content: {
@@ -843,7 +845,12 @@ export class ApiSessionClient extends EventEmitter {
 
         logger.debug(`[SOCKET] Sending ACP message from ${provider}:`, { type: body.type, hasMessage: 'message' in body });
 
-        this.enqueueMessage(content);
+        this.enqueueMessage(content, true, localId);
+    }
+
+    /** Import a native terminal prompt using its durable identity for replay deduplication. */
+    sendProviderUserMessage(text: string, localId: string) {
+        this.enqueueMessage({ role: 'user', content: { type: 'text', text }, meta: { sentFrom: 'native-provider' } }, true, localId);
     }
 
     sendSessionEvent(event: {

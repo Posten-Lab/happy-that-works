@@ -42,7 +42,8 @@ export const MetadataSchema = z.preprocess(normalizeMetadata, z.object({
     }).optional(),
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
-    codexThreadId: z.string().optional(), // Codex app-server thread ID
+    codexThreadId: z.string().optional(),
+    museSessionId: z.string().optional(), // Native Muse session ID
     tools: z.array(z.string()).optional(),
     slashCommands: z.array(z.string()).optional(),
     mcpServers: z.array(z.object({ name: z.string(), status: z.string() })).optional(),
@@ -216,6 +217,7 @@ export const MachineMetadataSchema = z.preprocess(normalizeMetadata, z.object({
         codex: z.boolean(),
         gemini: z.boolean(),
         openclaw: z.boolean(),
+    muse: z.boolean().optional(),
         detectedAt: z.number(),
     }).optional(),
     providerUsage: z.object({ rpcAvailable: z.boolean() }).optional(),

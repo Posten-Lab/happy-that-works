@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { codexListModels, claudeListModels, type ProviderModel } from '@/sync/ops';
+import { codexListModels, claudeListModels, museListModels, type ProviderModel } from '@/sync/ops';
 import { useSocketStatus } from '@/sync/storage';
 import { mergeProviderModels } from '@/utils/providerModels';
 
@@ -12,7 +12,7 @@ const EAGER_RETRY_DELAY_MS = 3_000;
  * discovery is unavailable and callers should use their compatibility fallback.
  */
 export function useProviderModels(
-    provider: 'claude' | 'codex',
+    provider: 'claude' | 'codex' | 'muse',
     machineIds: readonly string[],
     enabled = true,
     refreshIntervalMs = DEFAULT_REFRESH_INTERVAL_MS,
@@ -38,7 +38,7 @@ export function useProviderModels(
             // not prevent a responsive provider (for example the Mac advertising
             // a newly released model) from updating every picker.
             ids.forEach((machineId) => {
-                void (provider === 'claude' ? claudeListModels : codexListModels)(machineId).then((result) => {
+                void (provider === 'muse' ? museListModels : provider === 'claude' ? claudeListModels : codexListModels)(machineId).then((result) => {
                     if (cancelled || result.type !== 'success') return;
                     catalogs.set(machineId, result.models);
                     const models = mergeProviderModels([...catalogs.values()]);

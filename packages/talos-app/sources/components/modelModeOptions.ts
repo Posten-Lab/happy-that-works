@@ -130,6 +130,7 @@ export function getOpenClawPermissionModes(translate: Translate): PermissionMode
 }
 
 export function getHardcodedPermissionModes(flavor: AgentFlavor, translate: Translate): PermissionMode[] {
+    if (flavor === 'muse') return [{ key: 'default', name: 'Ask before untrusted actions' }, { key: 'safe-yolo', name: 'Ask when Muse requests approval' }];
     if (flavor === 'codex') {
         return getCodexPermissionModes(translate);
     }
@@ -149,6 +150,7 @@ export function getOpenClawModelModes(): ModelMode[] {
 }
 
 export function getHardcodedModelModes(flavor: AgentFlavor, _translate: Translate): ModelMode[] {
+    if (flavor === 'muse') return [{ key: 'default', name: 'Muse default' }];
     if (flavor === 'codex') {
         return getCodexModelModes();
     }

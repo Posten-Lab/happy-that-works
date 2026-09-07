@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-export const agentKeys = ['claude', 'codex', 'gemini', 'openclaw'] as const;
+export const agentKeys = ['claude', 'codex', 'gemini', 'openclaw', 'muse'] as const;
 export type AgentKey = typeof agentKeys[number];
 
 export const AgentDefaultOverrideSchema = z.object({
@@ -14,6 +14,7 @@ export const AgentDefaultOverridesSchema = z.object({
     codex: AgentDefaultOverrideSchema.optional(),
     gemini: AgentDefaultOverrideSchema.optional(),
     openclaw: AgentDefaultOverrideSchema.optional(),
+    muse: AgentDefaultOverrideSchema.optional(),
 }).passthrough().default({});
 
 export type AgentDefaultOverride = z.infer<typeof AgentDefaultOverrideSchema>;
@@ -34,11 +35,12 @@ const codeAgentDefaults: Record<AgentKey, AgentDefaultConfig> = {
     // concrete model here makes global defaults stale whenever a rollout lands.
     codex: { permissionMode: 'yolo', modelMode: 'default', effortLevel: 'medium' },
     gemini: { permissionMode: 'default', modelMode: 'gemini-2.5-pro', effortLevel: null },
+    muse: { permissionMode: 'default', modelMode: 'default', effortLevel: null },
     openclaw: { permissionMode: 'default', modelMode: 'default', effortLevel: null },
 };
 
 export function normalizeAgentKey(flavor: string | null | undefined): AgentKey {
-    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'openclaw') {
+    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'openclaw' || flavor === 'muse') {
         return flavor;
     }
     return 'claude';

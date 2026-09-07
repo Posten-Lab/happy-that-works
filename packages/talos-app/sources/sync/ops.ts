@@ -145,7 +145,7 @@ export interface SpawnSessionOptions {
     directory: string;
     approvedNewDirectoryCreation?: boolean;
     token?: string;
-    agent?: 'codex' | 'claude' | 'gemini' | 'openclaw';
+    agent?: 'codex' | 'claude' | 'gemini' | 'openclaw' | 'muse';
     /**
      * If set, the daemon spawns the agent with `--resume <id>` so the new
      * Talos session attaches to a pre-existing on-disk Claude conversation
@@ -249,7 +249,7 @@ export async function machineSpawnNewSession(options: SpawnSessionOptions): Prom
             directory: string
             approvedNewDirectoryCreation?: boolean,
             token?: string,
-            agent?: 'codex' | 'claude' | 'gemini' | 'openclaw',
+            agent?: 'codex' | 'claude' | 'gemini' | 'openclaw' | 'muse',
             resumeClaudeSessionId?: string,
             resumeCodexThreadId?: string,
             parentSessionId?: string,
@@ -421,7 +421,7 @@ export async function codexListRewindPoints(
 }
 
 /** Query a machine's provider catalog before a session exists. */
-async function listProviderModels(machineId: string, provider: 'claude' | 'codex'): Promise<ProviderListModelsResult> {
+async function listProviderModels(machineId: string, provider: 'claude' | 'codex' | 'muse'): Promise<ProviderListModelsResult> {
     try {
         const result = await apiSocket.machineRPC<ProviderListModelsResult | { error: string }, Record<string, never>>(
             machineId,
@@ -991,3 +991,7 @@ export type {
     SessionRipgrepResponse,
     SessionKillResponse
 };
+
+export function museListModels(machineId: string): Promise<ProviderListModelsResult> {
+    return listProviderModels(machineId, 'muse');
+}

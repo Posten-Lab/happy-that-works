@@ -45,6 +45,13 @@ describe('buildResumeLaunch', () => {
         });
     });
 
+    it('resumes the existing Muse identity through the daemon remote path', () => {
+        expect(buildResumeLaunch({ id: 'talos-session', active: false, metadata: {
+            path: '/tmp/project', flavor: 'muse', museSessionId: '019ccca5-726b-7c61-b914-16de27dfab6e',
+            host: 'localhost', homeDir: '/tmp', talosHomeDir: '/tmp/.talos', talosLibDir: '/tmp/talos', talosToolsDir: '/tmp/talos/tools',
+        } })).toEqual({ cwd: '/tmp/project', args: ['muse', '--resume', '019ccca5-726b-7c61-b914-16de27dfab6e', '--talos-starting-mode', 'remote'] });
+    });
+
     it('builds a Claude resume command', () => {
         expect(buildResumeLaunch({
             id: 'session-2',

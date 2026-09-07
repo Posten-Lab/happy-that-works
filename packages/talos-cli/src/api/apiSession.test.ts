@@ -1154,6 +1154,22 @@ describe('ApiSessionClient v3 messages API migration', () => {
         expect(mockAxiosGet.mock.calls[0][1].params.after_seq).toBe(0);
     });
 
+    it('does not execute native transcript imports when the server echoes them', async () => {
+        const client = new ApiSessionClient('fake-token', session);
+        const onUserMessage = vi.fn();
+        client.onUserMessage(onUserMessage);
+        emitSocketEvent('update', createNewMessageUpdate(1, encryptContent(session, {
+            role: 'user', content: { type: 'text', text: 'already executed in the native terminal' },
+            meta: { sentFrom: 'native-provider' },
+        })));
+        emitSocketEvent('update', createNewMessageUpdate(2, encryptContent(session, {
+            role: 'user', content: { type: 'text', text: 'new instruction' }, meta: { sentFrom: 'web' },
+        })));
+        await waitForCheck(() => expect(onUserMessage).toHaveBeenCalledTimes(1));
+        expect(onUserMessage.mock.calls[0][0].content.text).toBe('new instruction');
+        await client.close();
+    });
+
     it('stops send and receive sync loops on close', async () => {
         const client = new ApiSessionClient('fake-token', session);
         await client.close();

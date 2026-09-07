@@ -23,6 +23,7 @@ import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useDocumentPicker } from '@/hooks/useDocumentPicker';
 import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
+import { useProviderModels } from '@/hooks/useProviderModels';
 import { useClaudeProviderModels } from '@/hooks/useClaudeProviderModels';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
@@ -458,7 +459,8 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
         machineId ? [machineId] : [],
         !flavor || flavor === 'claude',
     );
-    const liveModels = flavor === 'codex' ? liveCodexModels : liveClaudeModels;
+    const liveMuseModels = useProviderModels('muse', machineId ? [machineId] : [], flavor === 'muse');
+    const liveModels = flavor === 'muse' ? liveMuseModels : flavor === 'codex' ? liveCodexModels : liveClaudeModels;
     const modelMetadata = React.useMemo(() => (
         liveModels && session.metadata
             ? { ...session.metadata, models: liveModels }

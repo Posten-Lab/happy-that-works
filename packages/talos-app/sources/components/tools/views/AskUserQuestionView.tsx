@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { ToolViewProps } from './_all';
 import { ToolSectionView } from '../ToolSectionView';
@@ -13,6 +13,9 @@ interface QuestionOption {
 }
 
 interface Question {
+    id?: string;
+    allowFreeText?: boolean;
+    selection?: { minSelections?: number; maxSelections?: number };
     question: string;
     header: string;
     options: QuestionOption[];
@@ -167,6 +170,7 @@ const styles = StyleSheet.create((theme) => ({
 export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId }) => {
     const { theme } = useUnistyles();
     const [selections, setSelections] = React.useState<Map<number, Set<number>>>(new Map());
+    const [freeText, setFreeText] = React.useState<Record<number, string>>({});
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isSubmitted, setIsSubmitted] = React.useState(false);
 
@@ -182,13 +186,15 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId 
     const canInteract = isRunning && !isSubmitted;
 
     // Check if all questions have at least one selection
-    const allQuestionsAnswered = questions.every((_, qIndex) => {
+    const allQuestionsAnswered = questions.every((q, qIndex) => {
+        if (q.allowFreeText && freeText[qIndex]?.trim()) return true;
         const selected = selections.get(qIndex);
-        return selected && selected.size > 0;
+        return selected && selected.size >= (q.selection?.minSelections ?? 1) && selected.size <= (q.selection?.maxSelections ?? Infinity);
     });
 
     const handleOptionToggle = React.useCallback((questionIndex: number, optionIndex: number, multiSelect: boolean) => {
         if (!canInteract) return;
+        setFreeText(previous => ({ ...previous, [questionIndex]: '' }));
 
         setSelections(prev => {
             const newMap = new Map(prev);
@@ -233,20 +239,29 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId 
                     .join(', ');
                 answers[q.question] = selectedLabels;
             }
+            if (q.allowFreeText && freeText[qIndex]?.trim()) {
+                answers[q.question] = freeText[qIndex].trim();
+            }
         });
 
         try {
             // AskUserQuestion expects answers to be returned as part of the tool input,
             // not as a follow-up plain text message.
             if (tool.permission?.id) {
-                await sessionAllow(sessionId, tool.permission.id, undefined, undefined, 'approved', { answers });
+                const selectedLabels = questions.some(q => q.id)
+                    ? Object.fromEntries(questions.map((q, i) => [q.question, freeText[i]?.trim()
+                        ? null : Array.from(selections.get(i) ?? []).map(index => q.options[index].label)]))
+                    : undefined;
+                await sessionAllow(sessionId, tool.permission.id, undefined, undefined, 'approved', {
+                    answers, ...(selectedLabels ? { selectedLabels } : {}),
+                });
             }
         } catch (error) {
             console.error('Failed to submit answer:', error);
         } finally {
             setIsSubmitting(false);
         }
-    }, [sessionId, questions, selections, allQuestionsAnswered, isSubmitting, tool.permission?.id]);
+    }, [sessionId, questions, selections, freeText, allQuestionsAnswered, isSubmitting, tool.permission?.id]);
 
     // Show submitted state
     if (isSubmitted || tool.state === 'completed') {
@@ -255,12 +270,12 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId 
                 <View style={styles.submittedContainer}>
                     {questions.map((q, qIndex) => {
                         const selected = selections.get(qIndex);
-                        const selectedLabels = selected
+                        const selectedLabels = freeText[qIndex]?.trim() || (selected
                             ? Array.from(selected)
                                 .map(optIndex => q.options[optIndex]?.label)
                                 .filter(Boolean)
                                 .join(', ')
-                            : '-';
+                            : '-');
                         return (
                             <View key={qIndex} style={styles.submittedItem}>
                                 <Text style={styles.submittedHeader}>{q.header}:</Text>
@@ -285,6 +300,16 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId 
                                 <Text style={styles.headerText}>{question.header}</Text>
                             </View>
                             <Text style={styles.questionText}>{question.question}</Text>
+                            {question.allowFreeText && <TextInput
+                                accessibilityLabel={`Answer: ${question.question}`}
+                                placeholder="Type an answer"
+                                placeholderTextColor={theme.colors.textSecondary}
+                                value={freeText[qIndex] ?? ''}
+                                maxLength={500}
+                                editable={canInteract}
+                                onChangeText={value => setFreeText(previous => ({ ...previous, [qIndex]: value }))}
+                                style={{ color: theme.colors.text, padding: 12, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: 8 }}
+                            />}
                             <View style={styles.optionsContainer}>
                                 {question.options.map((option, oIndex) => {
                                     const isSelected = selectedOptions.has(oIndex);

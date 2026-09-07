@@ -8,6 +8,7 @@ export interface CLIAvailability {
   codex: boolean;
   gemini: boolean;
   openclaw: boolean;
+  muse?: boolean;
   detectedAt: number;
 }
 
@@ -44,7 +45,7 @@ function detectPosix(): CLIAvailability {
   const openclawEnv = !!process.env.OPENCLAW_GATEWAY_URL;
   const openclaw = openclawCommand || openclawConfig || openclawEnv;
 
-  return { claude, codex, gemini, openclaw, detectedAt: Date.now() };
+  return { claude, codex, gemini, openclaw, muse: commandExists('muse') || existsSync(join(os.homedir(), '.local', 'bin', 'muse')), detectedAt: Date.now() };
 }
 
 function detectWindows(): CLIAvailability {
@@ -67,5 +68,5 @@ function detectWindows(): CLIAvailability {
   const openclawEnv = !!process.env.OPENCLAW_GATEWAY_URL;
   const openclaw = openclawCommand || openclawConfig || openclawEnv;
 
-  return { claude, codex, gemini, openclaw, detectedAt: Date.now() };
+  return { claude, codex, gemini, openclaw, muse: checkCommand('muse'), detectedAt: Date.now() };
 }

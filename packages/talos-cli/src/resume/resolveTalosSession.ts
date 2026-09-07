@@ -19,6 +19,7 @@ const ResumableMetadataSchema = z.object({
     flavor: z.string().optional(),
     claudeSessionId: z.string().optional(),
     codexThreadId: z.string().optional(),
+    museSessionId: z.string().optional(),
 }).passthrough();
 
 type RawSession = {

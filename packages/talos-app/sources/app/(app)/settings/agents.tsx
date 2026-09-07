@@ -22,6 +22,7 @@ import {
 } from '@/sync/agentDefaults';
 import { t } from '@/text';
 import { useCodexProviderModels } from '@/hooks/useCodexProviderModels';
+import { useProviderModels } from '@/hooks/useProviderModels';
 import { useClaudeProviderModels } from '@/hooks/useClaudeProviderModels';
 import { isMachineOnline } from '@/utils/machineUtils';
 
@@ -43,6 +44,7 @@ const agentLabels: Record<AgentKey, string> = {
     codex: 'Codex',
     gemini: 'Gemini',
     openclaw: 'OpenClaw',
+    muse: 'Muse Code',
 };
 
 function optionName(options: ModeOption[], key: string | null | undefined): string {
@@ -62,6 +64,7 @@ export default function AgentDefaultsSettingsScreen() {
     );
     const liveCodexModels = useCodexProviderModels(onlineMachineIds);
     const liveClaudeModels = useClaudeProviderModels(onlineMachineIds);
+    const liveMuseModels = useProviderModels('muse', onlineMachineIds);
     const claudeModelMetadata = React.useMemo(() => (
         liveClaudeModels?.length ? { models: liveClaudeModels } : undefined
     ), [liveClaudeModels]);
@@ -161,7 +164,7 @@ export default function AgentDefaultsSettingsScreen() {
                 const codeDefaults = getCodeAgentDefaults(agent);
                 const effectiveDefaults = resolveAgentDefaultConfig(agentDefaultOverrides, agent);
                 const permissionOptions = getHardcodedPermissionModes(agent, t);
-                const providerMetadata = agent === 'claude' ? claudeModelMetadata : agent === 'codex' ? codexModelMetadata : undefined;
+                const providerMetadata = agent === 'muse' ? (liveMuseModels?.length ? { models: liveMuseModels } : undefined) : agent === 'claude' ? claudeModelMetadata : agent === 'codex' ? codexModelMetadata : undefined;
                 const modelOptions = getAgentDefaultModelOptions(agent, providerMetadata, t);
                 const effortOptions = getAgentDefaultEffortOptions(
                     agent,

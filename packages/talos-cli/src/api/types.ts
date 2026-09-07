@@ -139,6 +139,7 @@ export const MachineMetadataSchema = z.object({
     codex: z.boolean(),
     gemini: z.boolean(),
     openclaw: z.boolean(),
+    muse: z.boolean().optional(),
     detectedAt: z.number(),
   }).optional(),
   providerUsage: z.object({ rpcAvailable: z.boolean() }).optional(),
@@ -355,6 +356,8 @@ export type Metadata = {
   },
   machineId?: string,
   claudeSessionId?: string, // Claude Code session ID
+  museSessionId?: string,
+  museViewCursor?: string,
   codexThreadId?: string, // Codex app-server thread ID
   tools?: string[],
   slashCommands?: string[],
