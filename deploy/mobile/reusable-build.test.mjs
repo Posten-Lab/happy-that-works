@@ -8,6 +8,7 @@ import { reusableBuild } from './reusable-build.mjs';
 const runtime = 'a'.repeat(40);
 test('real Git retry selects only finished artifacts with unchanged application and native inputs', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'talos-reuse-'));
+  const externalControl = fs.mkdtempSync(path.join(os.tmpdir(), 'talos-control-'));
   const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   const commit = (file, contents) => {
     fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
@@ -23,6 +24,14 @@ test('real Git retry selects only finished artifacts with unchanged application 
       artifacts: { buildUrl: 'https://example.invalid/build.ipa' } };
     assert.equal(reusableBuild([build], base, runtime, git), build);
     const toolsHead = commit('deploy/mobile/verify-ios-ipa.py', 'fixed verifier');
+    assert.equal(reusableBuild([build], toolsHead, runtime, git), build);
+    // Jenkins puts durable-task files beside the FilePath used to launch sh.
+    // A nested app workspace pollutes Git; a repository-level workspace does not.
+    const nestedControl = path.join(dir, 'packages/talos-app@tmp');
+    fs.mkdirSync(path.join(nestedControl, 'durable-test'), { recursive: true });
+    fs.writeFileSync(path.join(nestedControl, 'durable-test/script.sh'), 'delivery task');
+    assert.throws(() => reusableBuild([build], toolsHead, runtime, git), /clean reviewed/);
+    fs.renameSync(nestedControl, path.join(externalControl, 'durable-task'));
     assert.equal(reusableBuild([build], toolsHead, runtime, git), build);
     const untracked = path.join(dir, 'packages/talos-app/sources/new.ts');
     fs.writeFileSync(untracked, 'unreviewed source');
@@ -44,5 +53,5 @@ test('real Git retry selects only finished artifacts with unchanged application 
       const head = commit(file, 'changed application input');
       assert.equal(reusableBuild([build], head, runtime, git), null, file);
     }
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(externalControl, { recursive: true, force: true }); }
 });

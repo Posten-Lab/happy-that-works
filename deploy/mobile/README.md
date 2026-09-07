@@ -64,3 +64,9 @@ full IPA identity/signature/runtime checks before exact-ID submission.
 Fingerprint-policy IPAs use Expo's `file:fingerprint` sentinel. The verifier reads
 `EXUpdates.bundle/fingerprint`, validates the exact hash and compares it to the
 reviewed runtime; it does not compare the sentinel literally or skip the check.
+
+Launch delivery `sh` steps from the repository-level Jenkins workspace and use
+`cd "$APP_DIR"` inside the shell. A `dir(APP_DIR)` wrapper makes Jenkins create
+`packages/talos-app@tmp/durable-*` inside the checkout while the task is running,
+which correctly fails the clean-source guard. Keep the guard strict; do not add
+source exclusions to hide Jenkins control files.
