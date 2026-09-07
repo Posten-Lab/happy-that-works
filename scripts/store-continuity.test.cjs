@@ -24,7 +24,7 @@ test('production updates the installed app while every visible identity uses Tal
     assert.equal(app.android.package, 'com.ahposten.happyimproved');
     assert.equal(app.ios.appleTeamId, 'H2XR8XWZXW');
     assert.deepEqual(app.scheme, ['talos', 'happy']);
-    assert.equal(app.runtimeVersion, 'talos-1');
+    assert.deepEqual(app.runtimeVersion, { policy: 'fingerprint' });
     assert.notEqual(app.runtimeVersion, '21');
     assert.equal(app.extra.eas.projectId, '4445e993-5eaa-4a1a-8754-7068e8565e64');
     assert.equal(app.updates.url, 'https://u.expo.dev/4445e993-5eaa-4a1a-8754-7068e8565e64');

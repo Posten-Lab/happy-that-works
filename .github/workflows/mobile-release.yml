@@ -3,18 +3,25 @@ on:
   pull_request:
     paths:
       - 'deploy/mobile/**'
+      - 'packages/talos-app/app.config.js'
+      - 'scripts/store-continuity.test.cjs'
       - '.github/workflows/mobile-release.yml'
   push:
     branches: [main]
     paths:
       - 'deploy/mobile/**'
+      - 'packages/talos-app/app.config.js'
+      - 'scripts/store-continuity.test.cjs'
       - '.github/workflows/mobile-release.yml'
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test deploy/mobile/release-plan.test.mjs
+          cache: pnpm
+      - run: SKIP_TALOS_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter talos-app... --config.node-linker=isolated --config.shamefully-hoist=false
+      - run: node --test deploy/mobile/*.test.cjs deploy/mobile/*.test.mjs scripts/store-continuity.test.cjs

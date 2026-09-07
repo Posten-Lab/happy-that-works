@@ -96,7 +96,8 @@ pipeline {
 
     stage('Release selector tests') {
       steps {
-        sh 'node --test deploy/mobile/release-plan.test.mjs deploy/mobile/download-ios-artifact.test.cjs'
+        sh 'node deploy/mobile/verify-fingerprint.cjs'
+        sh 'node --test deploy/mobile/*.test.cjs deploy/mobile/*.test.mjs scripts/store-continuity.test.cjs'
         script {
           env.SIGNATURE_TOOLS_ROOT = sh(script: 'mktemp -d /tmp/talos-signature-tools.XXXXXX', returnStdout: true).trim()
         }
@@ -151,14 +152,25 @@ pipeline {
       }
     }
 
-    stage('Check OTA runtime compatibility') {
-      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'ota' } }
+    stage('Resolve native runtime') {
+      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND in ['ota', 'native'] } }
       steps {
         dir("${APP_DIR}") {
           sh '''
             eas fingerprint:generate --build-profile production --platform ios --json --non-interactive > fingerprint-result.json
             pnpm exec expo config --type public --json > runtime-config.json
-            RUNTIME=$(node -e 'const c=require("./runtime-config.json"); if (typeof c.runtimeVersion !== "string" || !c.runtimeVersion) process.exit(1); console.log(c.runtimeVersion)')
+            node ../../deploy/mobile/runtime-version.cjs > runtime-version.txt
+          '''
+        }
+      }
+    }
+
+    stage('Check OTA runtime compatibility') {
+      when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'ota' } }
+      steps {
+        dir("${APP_DIR}") {
+          sh '''
+            RUNTIME=$(cat runtime-version.txt)
             eas build:list --platform ios --build-profile production --channel production \
               --distribution store --status finished --runtime-version "$RUNTIME" \
               --limit 50 --json --non-interactive > compatible-builds.json
@@ -170,7 +182,8 @@ pipeline {
                 error('No finished production binary matches both the OTA runtime and native fingerprint; use auto or native')
               }
               env.MOBILE_RELEASE_KIND = 'native'
-              echo 'No compatible production binary: building native instead'
+              sh 'cat runtime-compatibility.json'
+              echo 'No verified binary for this native runtime: building native instead'
             }
           }
         }
@@ -205,11 +218,10 @@ pipeline {
               trap 'rm -f "$EXPO_ASC_API_KEY_PATH"; if [ -n "$IPA_DIR" ]; then rm -rf "$IPA_DIR"; fi' EXIT HUP INT TERM
               printf '%s' "$ASC_KEY_P8_B64" | base64 -d > "$EXPO_ASC_API_KEY_PATH"
               unset ASC_KEY_P8_B64
-              # Submit reads its key from eas.json, not EXPO_ASC_API_KEY_PATH.
-              node ../../deploy/mobile/prepare-submit.cjs
               pnpm exec expo config --type public --json > ipa-expected-config.json
               IPA_VERSION=$(node -e 'const c=require("./ipa-expected-config.json"); if (typeof c.version !== "string" || !c.version) process.exit(1); console.log(c.version)')
-              IPA_RUNTIME=$(node -e 'const c=require("./ipa-expected-config.json"); if (typeof c.runtimeVersion !== "string" || !c.runtimeVersion) process.exit(1); console.log(c.runtimeVersion)')
+              IPA_RUNTIME=$(cat runtime-version.txt)
+              export TALOS_EXPECTED_RUNTIME_VERSION="$IPA_RUNTIME"
               eas build -p ios --profile production --non-interactive --wait --json > build-result.json
               node ../../deploy/mobile/build-id.cjs build-result.json > build-id.txt
               IPA_DIR=$(mktemp -d /tmp/talos-ios-artifact.XXXXXX)
@@ -217,7 +229,7 @@ pipeline {
               python3 ../../deploy/mobile/verify-ios-ipa.py "$IPA_DIR/verified.ipa" \
                 --expected-version "$IPA_VERSION" --expected-runtime "$IPA_RUNTIME" \
                 --signature-tools "$SIGNATURE_TOOLS_ROOT/tools" --output ipa-verification.json
-              eas submit -p ios --profile production --id "$(cat build-id.txt)" --non-interactive --wait
+              sh ../../deploy/mobile/submit-ios.sh "$(cat build-id.txt)"
             '''
           }
         }
@@ -237,7 +249,7 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'packages/talos-app/build-id.txt,packages/talos-app/artifact-download.json,packages/talos-app/ipa-verification.json', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'packages/talos-app/build-id.txt,packages/talos-app/artifact-download.json,packages/talos-app/ipa-verification.json,packages/talos-app/fingerprint-result.json,packages/talos-app/runtime-version.txt,packages/talos-app/runtime-compatibility.json', allowEmptyArchive: true
       sh '''
         case "${SIGNATURE_TOOLS_ROOT:-}" in
           /tmp/talos-signature-tools.*) rm -rf -- "$SIGNATURE_TOOLS_ROOT" ;;

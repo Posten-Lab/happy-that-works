@@ -1,0 +1,15 @@
+{
+  "source": "Actual EAS fingerprints for production builds 18 and 19",
+  "sourceCounts": [
+    107,
+    107
+  ],
+  "differences": [
+    {
+      "type": "file",
+      "filePath": "eas.json",
+      "beforeHash": "e60f97f3bc4e903580696d0222995f568668e84e",
+      "afterHash": "52687285673433d12fa15d98288d858fd7355f2f"
+    }
+  ]
+}
