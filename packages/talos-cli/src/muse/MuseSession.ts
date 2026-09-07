@@ -6,7 +6,7 @@ import type { SpawnedMspConnection } from '@muse-code/sdk';
 import type { PermissionResult } from '@/utils/BasePermissionHandler';
 import { connectMuse, museExecutable } from './museClient';
 import { approvalChoice, museToolName, MuseMessageMapper, musePermissionModes, object, text, type JsonObject, type MuseMessage } from './museProtocol';
-import { ensureMuseSessionPlugin, registerMuseSessionBridge } from './museSessionBridge';
+import { ensureMuseSessionPlugin, registerMuseSessionBridge, museSessionInstructions } from './museSessionBridge';
 
 export interface MuseSessionCallbacks {
     message(message: MuseMessage): void;
@@ -32,6 +32,7 @@ export class MuseSession {
     private disposed = false;
     private disposal: Promise<void> | undefined;
     private unregisterBridge?: () => Promise<void>;
+    private needsSessionInstructions = false;
     private controls: MuseControlState = { permissionMode: 'default', effort: 'high', hostArgs: [] };
     private get permissionMode() { return this.controls.permissionMode; }
     private set permissionMode(mode: string) { this.controls.permissionMode = mode; }
@@ -87,6 +88,7 @@ export class MuseSession {
         if (this.sessionToolsUrl) {
             await ensureMuseSessionPlugin();
             this.unregisterBridge = await registerMuseSessionBridge(this.sessionToolsUrl);
+            this.needsSessionInstructions = !resumeId && mode === 'remote';
         }
         this.sessionId = resumeId ?? '';
         this.nativeHandoff = Boolean(resumeId);
@@ -450,7 +452,11 @@ export class MuseSession {
         void done.catch(() => {});
         try {
             const ack = await host.connection.command('turn/start', { sessionId: this.sessionId,
-                input: [{ type: 'text', text: prompt }], reasoningEffort: museWireEffort(effort) }, { commandId });
+                input: [{ type: 'text', text: this.needsSessionInstructions
+                    ? `Talos session instructions:\n${museSessionInstructions()}\n\nUser message:\n${prompt}` : prompt }],
+                ...(this.needsSessionInstructions ? { displayText: prompt } : {}),
+                reasoningEffort: museWireEffort(effort) }, { commandId });
+            this.needsSessionInstructions = false;
             this.setTurnId(text(ack.turnId) || commandId);
         } catch (error) { this.finishTurn(error instanceof Error ? error : new Error(String(error))); }
         let recovering = false;
