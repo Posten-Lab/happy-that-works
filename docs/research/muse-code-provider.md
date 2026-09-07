@@ -182,27 +182,35 @@ Talos uses the installed CLI's credentials; it does not introduce a second Muse 
 ```sh
 talos muse
 talos muse --resume <native-muse-session-uuid>
-talos muse -- --model muse-spark-1.3
+talos muse -- --trust-workspace
 talos muse --talos-starting-mode remote
 talos resume <talos-session-id>
 ```
 
 Native flags after `--` apply when the native terminal launches. Persistence and
-workspace-changing flags are rejected: launch Talos from the desired workspace.
+workspace-changing and model/provider/profile flags are rejected: launch Talos from the desired workspace.
 For a session started with plain `muse`, exit that CLI before adopting it through
 `talos muse --resume`. An active native turn is interrupted when remote control
 closes its terminal; control transfer preserves the session, not uninterrupted execution.
 Remote → terminal switching requires the original Talos process to have a TTY and
 no active remote turn. Daemon-started sessions cannot grow a terminal remotely.
 
-Muse appears in the existing provider picker, agent defaults, live model picker,
+Muse appears in the existing provider picker, agent defaults, fixed model selection,
 permission modes and resume actions. It maps only advertised approval choices,
 including changed approval stages, and exposes Muse user questions through Talos's
 existing question tool. A small local journal contains only submitted command IDs
 so restarting the same Talos session does not duplicate its prompts in imported
 Muse history. Native session content remains owned by Muse.
 
-Current limits requiring follow-up before declaring full support:
+Muse currently supports only `muse-spark-1.3-contributor` with provider `meta`.
+Model changes are temporarily disabled to preserve resume and terminal handoff.
+Talos checks native routing before sending prompts and checks durable model-change
+history before resuming, including changes made outside Talos. A session that
+changed to another model and back is rejected; its history is preserved. Do not
+change models in the native terminal if you intend to return to Talos. Talos cannot
+prevent changes in an independently controlled native CLI.
+
+Current limits:
 
 - Text messages are emitted from authoritative completed items; live token deltas
   are not rendered. Tool starts/results and activity events are forwarded.
@@ -210,6 +218,7 @@ Current limits requiring follow-up before declaring full support:
   Native workspace file access remains Muse's own behavior.
 - Talos-specific MCP tools are not injected. Existing native Muse configuration is
   inherited; dynamic MCP/tool registration needs separate verification.
-- Full model-backed acceptance, question/approval UI exercise, populated-history
-  handoff and restart recovery remain incomplete; native Muse history replay after
-  a model change is the current blocker.
+- Fixed-model multi-turn inference, resume, external model-change rejection,
+  permission denial, cancellation, and populated-history terminal handoff passed
+  real tests. Question/approval browser validation is recorded separately in the
+  evidence log; see that log for the latest results.

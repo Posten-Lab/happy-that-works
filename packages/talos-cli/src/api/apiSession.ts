@@ -214,6 +214,8 @@ export class ApiSessionClient extends EventEmitter {
     private encryptionKey: Uint8Array;
     private encryptionVariant: 'legacy' | 'dataKey';
     private reconnectInterval: NodeJS.Timeout | null = null;
+    private reconnectTimeout: NodeJS.Timeout | null = null;
+    private closed = false;
     private ignoreArchiveSignal = false;
     private skipInitialMessages = false;
     private claudeSessionProtocolState: ClaudeSessionProtocolState = {
@@ -277,6 +279,7 @@ export class ApiSessionClient extends EventEmitter {
         //
 
         this.socket.on('connect', () => {
+            if (this.closed) { this.socket.close(); return; }
             logger.debug('Socket connected successfully');
             if (this.reconnectInterval) {
                 clearInterval(this.reconnectInterval);
@@ -1042,6 +1045,9 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     async close() {
+        if (this.closed) return;
+        this.closed = true;
+        if (this.reconnectTimeout) { clearTimeout(this.reconnectTimeout); this.reconnectTimeout = null; }
         logger.debug('[API] socket.close() called');
         this.sendSync.stop();
         this.receiveSync.stop();
@@ -1053,7 +1059,7 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     private startSmartReconnect() {
-        if (this.reconnectInterval) return;
+        if (this.closed || this.reconnectInterval) return;
 
         this.reconnectInterval = setInterval(() => {
             if (this.socket.connected) {
@@ -1071,7 +1077,10 @@ export class ApiSessionClient extends EventEmitter {
 
         if (shouldReconnect()) {
             logger.debug('[API] Network up + lid open — reconnecting in 1s');
-            setTimeout(() => { if (!this.socket.connected) this.socket.connect() }, 1000);
+            this.reconnectTimeout = setTimeout(() => {
+                this.reconnectTimeout = null;
+                if (!this.closed && !this.socket.connected) this.socket.connect();
+            }, 1000);
         }
     }
 }

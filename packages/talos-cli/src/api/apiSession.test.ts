@@ -1170,6 +1170,20 @@ describe('ApiSessionClient v3 messages API migration', () => {
         await client.close();
     });
 
+    it('never reconnects a closed session, including a disconnect emitted by close', async () => {
+        vi.useFakeTimers();
+        const client = new ApiSessionClient('fake-token', session);
+        mockSocket.connect.mockClear();
+        mockSocket.connected = false;
+        emitSocketEvent('disconnect', 'transport close');
+        mockSocket.close.mockImplementation(() => emitSocketEvent('disconnect', 'io client disconnect'));
+        await client.close();
+        emitSocketEvent('connect_error', new Error('late connection error'));
+        await vi.advanceTimersByTimeAsync(10000);
+        expect(mockSocket.connect).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
     it('stops send and receive sync loops on close', async () => {
         const client = new ApiSessionClient('fake-token', session);
         await client.close();

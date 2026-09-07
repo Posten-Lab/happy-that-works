@@ -1,9 +1,10 @@
+import { museSupportedModel, museSupportedProvider } from './museModelPolicy';
 import { spawnMspConnection, type SpawnedMspConnection } from '@muse-code/sdk';
 import { accessSync, constants } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
 import { logger } from '@/ui/logger';
-import { object, text, type JsonObject } from './museProtocol';
+import { object, type JsonObject } from './museProtocol';
 
 export function museExecutable(): string {
     const override = process.env.MUSE_CLI;
@@ -39,8 +40,8 @@ export async function discoverMuseModels(cwd: string) {
     const host = await connectMuse(cwd);
     try {
         const response = await host.connection.request('model/list', {});
-        return (Array.isArray(response.models) ? response.models : []).map(object).filter(m => text(m.modelId)).map(m => ({
-            code: text(m.modelId), value: text(m.displayLabel) || text(m.modelId), description: text(m.description), isDefault: m.isDefault === true,
+        return (Array.isArray(response.models) ? response.models : []).map(object).filter(m => m.modelId === museSupportedModel && m.providerId === museSupportedProvider).map(m => ({
+            code: 'default', value: 'Muse Spark 1.3 Contributor (fixed)', description: 'Model changes are temporarily disabled to preserve resume and handoff.', isDefault: true,
         }));
     } finally { await host.close(); }
 }

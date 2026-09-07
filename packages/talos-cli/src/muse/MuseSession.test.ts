@@ -5,8 +5,8 @@ import { MuseSession } from './MuseSession';
 
 function fixture() {
     let notify: (method: string, params: any) => void = () => {};
-    const command = vi.fn(async (method: string) => method.startsWith('session/') ? { session: { sessionId: 'native-id' }, history: { mode: 'inline', items: [] } } : { turnId: 'turn-1' });
-    const request = vi.fn(async (_method: string) => ({ models: [] } as any));
+    const command = vi.fn(async (method: string) => method.startsWith('session/') ? { session: { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' }, history: { mode: 'inline', items: [] } } : { turnId: 'turn-1' });
+    const request = vi.fn(async (_method: string) => ({ models: [], session: { modelId: 'muse-spark-1.3-contributor', providerId: 'meta' } } as any));
     const close = vi.fn(async () => {});
     const host = { connection: { command, request, mintCommandId: () => 'turn-1' }, close, exited: new Promise(() => {}) };
     mock.connect.mockImplementation(async (_: string, callback: typeof notify) => { notify = callback; return host; });
@@ -31,7 +31,7 @@ describe('MuseSession lifecycle', () => {
     it('restores snapshot items from state and suppresses repeated history', async () => {
         const f = fixture();
         const item = { itemId: 'a', kind: 'agentMessage', status: 'completed', text: 'previous answer' };
-        f.command.mockResolvedValue({ session: { sessionId: 'native-id' }, history: { mode: 'snapshot', snapshot: { state: { items: [item, item] } } } } as any);
+        f.command.mockResolvedValue({ session: { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' }, history: { mode: 'snapshot', snapshot: { state: { items: [item, item] } } } } as any);
         await f.session.start('native-id');
         expect(f.callbacks.message).toHaveBeenCalledTimes(1);
         expect(f.callbacks.message.mock.calls[0][0].data.message).toBe('previous answer');
@@ -66,6 +66,10 @@ describe('MuseSession lifecycle', () => {
             sessionId: 'native-id', userInputId: 'question-1', answers: [{ questionId: 'q1', selectedLabels: ['red, green', 'blue'] }],
         }));
         expect(f.callbacks.message).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ name: 'AskUserQuestion' }) }));
+        await vi.waitFor(() => expect(f.callbacks.message).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+            type: 'tool-result', output: { answers: { Choose: 'red, green, blue' } },
+        }) })));
+
         await f.session.dispose();
     });
 
@@ -82,44 +86,52 @@ describe('MuseSession lifecycle', () => {
             requirementId: { approvalId: 'approval', sourceIndex: 2 }, choiceId: 'deny',
         })));
         expect(f.command.mock.calls.filter(([method]) => method === 'approval/decide')).toHaveLength(1);
+        f.notify('approval/resolved', { sessionId: 'native-id', approvalId: 'approval', decision: 'denied' });
+        expect(f.callbacks.message).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+            type: 'tool-result', callId: 'approval:2', output: 'Approval denied',
+        }) }));
         await f.session.dispose();
     });
 
-    it('preserves the advertised provider and profile when selecting a model', async () => {
+    it('rejects model changes without submitting a turn or changing native state', async () => {
+        const f = fixture(); await f.session.start();
+        await expect(f.session.prompt('hello', { model: 'muse-spark-1.3' })).rejects.toThrow('temporarily disabled');
+        expect(f.command.mock.calls.some(([method]) => method === 'turn/start' || method === 'session/setModel')).toBe(false);
+        await f.session.dispose();
+    });
+
+    it('rejects a non-default stored route before native resume can overwrite it', async () => {
         const f = fixture();
-        f.request.mockResolvedValue({ models: [{ modelId: 'muse-model', providerId: 'meta', profileId: 'profile-a' }] } as any);
-        await f.session.start();
-        f.command.mockImplementation(async (method) => {
-            if (method === 'turn/start') f.notify('turn/completed', { turnId: 'turn-1', terminal: 'completed' });
-            return {} as any;
-        });
-        await f.session.prompt('hello', { model: 'muse-model' });
-        expect(f.command).toHaveBeenCalledWith('session/setModel', { sessionId: 'native-id', model: {
-            modelId: 'muse-model', providerId: 'meta', profileId: 'profile-a',
-        } });
+        f.request.mockResolvedValue({ session: { modelId: 'muse-spark-1.3', providerId: 'meta' } });
+        await expect(f.session.start('native-id')).rejects.toThrow('temporarily disabled');
+        expect(f.command).not.toHaveBeenCalled();
         await f.session.dispose();
     });
 
-    it('restores the saved route if the host substitutes its default on resume', async () => {
+    it('rejects model-switch history even when the current route is back to default', async () => {
         const f = fixture();
-        f.request.mockImplementation(async method => method === 'session/read'
-            ? { session: { modelId: 'selected-model', providerId: 'meta' } }
-            : { models: [{ modelId: 'selected-model', providerId: 'meta', profileId: 'saved-profile' }] });
-        f.command.mockResolvedValue({ session: { sessionId: 'native-id', modelId: 'startup-default', providerId: 'meta' },
-            history: { mode: 'inline', items: [] } } as any);
-        await f.session.start('native-id');
-        expect(f.command).toHaveBeenCalledWith('session/setModel', { sessionId: 'native-id', model: {
-            modelId: 'selected-model', providerId: 'meta', profileId: 'saved-profile',
-        } });
+        f.request.mockImplementation(async method => method === 'view/page'
+            ? { events: [{ method: 'session/modelChanged', params: { modelId: 'muse-spark-1.3', providerId: 'meta' } }] }
+            : { session: { modelId: 'muse-spark-1.3-contributor', providerId: 'meta' } });
+        await expect(f.session.start('native-id')).rejects.toThrow('temporarily disabled');
+        expect(f.command).not.toHaveBeenCalled();
         await f.session.dispose();
     });
 
-    it('refuses a substituted default when the saved model is no longer available', async () => {
-        const f = fixture();
-        f.request.mockImplementation(async method => method === 'session/read'
-            ? { session: { modelId: 'missing-model', providerId: 'meta' } } : { models: [] });
-        await expect(f.session.start('native-id')).rejects.toThrow('refusing to use a different model');
+    it('keeps a native model change blocked even after it changes back', async () => {
+        const f = fixture(); await f.session.start();
+        f.notify('session/modelChanged', { sessionId: 'native-id', modelId: 'muse-spark-1.3', providerId: 'meta' });
+        f.notify('session/modelChanged', { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' });
+        await expect(f.session.prompt('hello')).rejects.toThrow('temporarily disabled');
+        expect(f.command.mock.calls.some(([method]) => method === 'turn/start')).toBe(false);
         await f.session.dispose();
     });
 
+    it('checks live native routing before sending a prompt', async () => {
+        const f = fixture(); await f.session.start();
+        f.request.mockResolvedValue({ session: { modelId: 'muse-spark-1.3', providerId: 'meta' } });
+        await expect(f.session.prompt('hello')).rejects.toThrow('temporarily disabled');
+        expect(f.command.mock.calls.some(([method]) => method === 'turn/start')).toBe(false);
+        await f.session.dispose();
+    });
 });

@@ -1,9 +1,10 @@
+import { assertMuseNativeArgs, assertMuseRoute, museModelRestriction, museSupportedModel } from './museModelPolicy';
 import { realpathSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import type { SpawnedMspConnection } from '@muse-code/sdk';
 import type { PermissionResult } from '@/utils/BasePermissionHandler';
 import { connectMuse, museExecutable } from './museClient';
-import { approvalChoice, MuseMessageMapper, musePermissionModes, object, text, type JsonObject, type MuseMessage } from './museProtocol';
+import { approvalChoice, museToolName, MuseMessageMapper, musePermissionModes, object, text, type JsonObject, type MuseMessage } from './museProtocol';
 
 export interface MuseSessionCallbacks {
     message(message: MuseMessage): void;
@@ -33,13 +34,14 @@ export class MuseSession {
     private turn: { id?: string; resolve(): void; reject(error: Error): void } | null = null;
     private approvals = new Map<string, string>();
     private approvalRequests = new Map<string, JsonObject>();
-    private models: JsonObject[] = [];
+    private modelFailure: Error | undefined;
     sessionId = '';
     mode: 'local' | 'remote' = 'remote';
 
     constructor(private readonly cwd: string, private readonly callbacks: MuseSessionCallbacks,
         private readonly nativeArgs: string[] = [],
         private readonly submissions?: { load(): string[]; record(commandId: string): void }) {
+        assertMuseNativeArgs(nativeArgs);
         for (const id of submissions?.load() ?? []) this.mapper.submitted(id);
     }
 
@@ -75,6 +77,7 @@ export class MuseSession {
             ? await this.resumeHost(host, resumeId)
             : await host.connection.command('session/start', { workspaceRoot: this.cwd });
         const session = object(result.session);
+        this.checkRoute(session);
         this.sessionId = text(session.sessionId);
         if (!this.sessionId) throw new Error('Muse returned no session identity');
         if (text(session.workspaceRoot) && realpathSync(text(session.workspaceRoot)) !== realpathSync(this.cwd)) {
@@ -89,22 +92,31 @@ export class MuseSession {
     }
 
     private async resumeHost(host: SpawnedMspConnection, sessionId: string) {
-        // Muse 1.0.3 may stamp its startup model into the resume record. Read the
-        // durable selection first so resuming cannot silently change the route.
         const stored = object((await host.connection.request('session/read', { sessionId, excludeItems: true })).session);
+        this.checkRoute(stored);
+        await this.checkModelHistory(host, sessionId);
         const result = await host.connection.command('session/resume', { sessionId, history: 'inline' });
-        const resumed = object(result.session);
-        const modelId = text(stored.modelId);
-        if (modelId && (modelId !== resumed.modelId || stored.providerId !== resumed.providerId)) {
-            const catalog = await host.connection.request('model/list', { sessionId });
-            const selected = (Array.isArray(catalog.models) ? catalog.models : []).map(object)
-                .find(m => m.modelId === modelId && (!stored.providerId || m.providerId === stored.providerId));
-            if (!selected) throw new Error(`Muse cannot restore the previous model ${modelId}; refusing to use a different model`);
-            await host.connection.command('session/setModel', { sessionId, model: {
-                modelId, providerId: selected.providerId, profileId: selected.profileId ?? null,
-            } });
-        }
+        this.checkRoute(object(result.session));
         return result;
+    }
+
+    private checkRoute(route: JsonObject) {
+        if (this.modelFailure) throw this.modelFailure;
+        try { assertMuseRoute(route); }
+        catch (error) { this.modelFailure = error as Error; throw error; }
+    }
+
+    private async checkModelHistory(host: SpawnedMspConnection, sessionId: string) {
+        let cursor: string | undefined;
+        do {
+            const page = await host.connection.request('view/page', { sessionId, limit: 1000, ...(cursor ? { cursor } : {}) });
+            for (const event of (Array.isArray(page.events) ? page.events : []).map(object)) {
+                if (event.method === 'session/modelChanged') this.checkRoute(object(event.params));
+            }
+            const next = text(page.nextCursor);
+            if (next && next === cursor) throw new Error('Muse history cursor did not advance');
+            cursor = next || undefined;
+        } while (cursor);
     }
 
     private async history(response: JsonObject) {
@@ -156,7 +168,12 @@ export class MuseSession {
             const key = this.approvals.get(id);
             this.approvals.delete(id);
             this.approvalRequests.delete(id);
-            if (key) this.callbacks.cancelPermission?.(key);
+            if (key) {
+                this.callbacks.cancelPermission?.(key);
+                this.callbacks.message({ id: `muse:${key}:approval-result`, data: {
+                    type: 'tool-result', callId: key, id: key, output: `Approval ${text(params.decision) || 'resolved'}`,
+                } });
+            }
         }
         if (method === 'userInput/requested') void this.answerQuestions(params);
         if (method === 'userInput/settled') {
@@ -164,7 +181,11 @@ export class MuseSession {
             this.questions.delete(id);
             this.callbacks.cancelPermission?.(id);
         }
-        if (method === 'session/modelChanged') void this.refreshModels().catch(error => this.callbacks.notice(String(error)));
+        if (method === 'session/modelChanged') {
+            try { this.checkRoute(params); }
+            catch (error) { this.callbacks.notice(String(error)); return; }
+            void this.refreshModels().catch(error => this.callbacks.notice(String(error)));
+        }
     }
 
     private async approve(params: JsonObject) {
@@ -175,11 +196,16 @@ export class MuseSession {
         if (!approvalId || this.approvals.get(approvalId) === key) return;
         const previous = this.approvals.get(approvalId);
         this.approvals.set(approvalId, key);
-        if (previous) this.callbacks.cancelPermission?.(previous);
+        if (previous) {
+            this.callbacks.cancelPermission?.(previous);
+            this.callbacks.message({ id: `muse:${previous}:approval-result`, data: {
+                type: 'tool-result', callId: previous, id: previous, output: 'Approval stage finished',
+            } });
+        }
         try {
-            const decision = await this.callbacks.permission(key, text(params.toolName) || 'Muse action', {
-                ...object(params.subject), arguments: params.rawArgs,
-            });
+            let input: unknown = params.rawArgs ?? params.subject;
+            try { input = JSON.parse(text(params.rawArgs)); } catch { /* Keep provider input when it is not JSON. */ }
+            const decision = await this.callbacks.permission(key, museToolName(params.toolName), input);
             if (this.approvals.get(approvalId) !== key || this.mode !== 'remote') return;
             const choiceId = approvalChoice(params, decision.decision);
             if (!choiceId) throw new Error('Muse does not offer that approval choice');
@@ -198,6 +224,7 @@ export class MuseSession {
         try {
             const response = await this.callbacks.permission(id, 'AskUserQuestion', input);
             if (!this.questions.has(id) || this.mode !== 'remote' || !this.host) return;
+            let output: unknown = 'Question canceled';
             if (response.decision !== 'approved') {
                 await this.host.connection.command('userInput/cancel', { sessionId: this.sessionId, userInputId: id });
             } else {
@@ -215,8 +242,9 @@ export class MuseSession {
                     return { questionId: q.id, ...(labels.includes(value) ? { selectedLabel: value } : { freeText: value }) };
                 });
                 await this.host.connection.command('userInput/answer', { sessionId: this.sessionId, userInputId: id, answers });
+                output = { answers: values };
             }
-            this.callbacks.message({ id: `muse:${id}:answer`, data: { type: 'tool-result', callId: id, id, output: 'Question answered' } });
+            this.callbacks.message({ id: `muse:${id}:answer`, data: { type: 'tool-result', callId: id, id, output } });
         } catch (error) {
             this.callbacks.notice(`Muse answer was not applied: ${String(error)}`);
             this.questions.delete(id);
@@ -229,9 +257,10 @@ export class MuseSession {
         if (!this.host) return;
         const result = await this.host.connection.request('model/list', this.mode === 'remote' ? { sessionId: this.sessionId } : {});
         const models = (Array.isArray(result.models) ? result.models : []).map(object);
-        this.models = models;
-        this.callbacks.metadata({ models: models.map(m => ({ code: text(m.modelId), value: text(m.displayLabel) || text(m.modelId) })),
-            currentModelCode: text(models.find(m => m.isActive)?.modelId),
+        const active = models.find(m => m.isActive);
+        if (active) this.checkRoute(active);
+        this.callbacks.metadata({ models: [{ code: 'default', value: 'Muse Spark 1.3 Contributor (fixed)' }],
+            currentModelCode: 'default',
             operatingModes: musePermissionModes.map(m => ({ code: m.id, value: m.name })), currentOperatingModeCode: this.permissionMode });
     }
 
@@ -288,6 +317,7 @@ export class MuseSession {
         this.reading = true;
         try {
             const result = await this.host.connection.request('session/read', { sessionId: this.sessionId, excludeItems: false });
+            this.checkRoute(object(result.session));
             await this.history(result);
 
         } catch (error) { this.callbacks.notice(`Muse terminal history unavailable: ${String(error)}`); }
@@ -308,14 +338,12 @@ export class MuseSession {
         const host = this.host;
         if (!host) throw new Error('Muse is not connected');
         if (this.turn) throw new Error('Muse already has an active turn');
-        if (options.model && options.model !== 'default') {
-            if (!this.models.some(m => m.modelId === options.model)) await this.refreshModels();
-            const selected = this.models.find(m => m.modelId === options.model);
-            if (!selected) throw new Error(`Muse does not advertise model ${options.model}`);
-            await host.connection.command('session/setModel', { sessionId: this.sessionId, model: {
-                modelId: options.model, providerId: selected.providerId, profileId: selected.profileId ?? null,
-            } });
+        if (this.modelFailure) throw this.modelFailure;
+        if (options.model && options.model !== 'default' && options.model !== museSupportedModel) {
+            throw new Error(museModelRestriction);
         }
+        // Check native state before every turn; never silently change its model.
+        this.checkRoute(object((await host.connection.request('session/read', { sessionId: this.sessionId, excludeItems: true })).session));
         if (options.permissionMode) {
             const mode = musePermissionModes.find(m => m.id === options.permissionMode);
             if (!mode) throw new Error(`Unsupported Muse permission mode: ${options.permissionMode}`);

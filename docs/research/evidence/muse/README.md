@@ -156,3 +156,57 @@ changes in the adapter as well as disable the picker, and account for changes
 made outside Talos in the native CLI. Existing sessions with model-switch history
 are not repaired by locking their model now. Non-default initial selection needs
 further routing verification before it can be included in the supported path.
+
+
+## Fixed-model supported path — 2026-09-07
+
+The temporary restriction is now implemented. Talos exposes only Muse Spark 1.3
+Contributor, rejects model/provider/profile CLI overrides and other requested
+models, verifies native routing before each prompt, and checks durable model
+change events before resume. A real test changed models through the native SDK
+and changed back; Talos rejected that history before acquiring the resume lease.
+No model is automatically substituted and no history is rewritten.
+
+Live verification after the restriction:
+
+- All three real provider acceptance cases passed (70.70 seconds): multi-turn
+  inference, rejected model selection, durable resume, approval denial, and
+  interruption/release. The extended external-change rejection case also passed
+  (66.09 seconds).
+- The populated PTY terminal handoff passed again with the restricted adapter:
+  native session `01a07c48-e924-7ec0-9a7b-e1b2d9c06e56` retained context after two
+  restart cycles and Talos → native terminal → Talos.
+- Real browser: created a Muse session in isolated environment `tidy-beacon`,
+  received `silver-badger`, answered a native choice question, approved its shell
+  request, and verified `muse-approved.txt` contained exactly `silver-badger`.
+- Stopped that provider process, enabled the existing Resume Session feature in
+  the test account, and clicked Resume Session. The same Talos session
+  `cmtrccoqr0001ripw92yb1cue` resumed native session
+  `01a07c4a-3250-79f2-8849-d31fa5f8c124`; the next response remembered the code word.
+  Enabling the test setting required invoking the checkbox change handler because
+  browser automation clicks did not toggle it. The resume button itself was
+  exercised with a real click.
+- Browser verification found generic tool labels and an approval timer that stayed
+  running after resolution. Tool mapping now reads the native `tool` field and
+  emits completion for the approval stage separately from the actual shell result.
+  The corresponding 17 adapter/protocol unit tests pass.
+- Full CLI unit suite: 861 tests / 97 files passed before the display fix; the
+  changed adapter/protocol tests passed afterward. App typecheck and 13 model
+  option tests passed. Branding verification passed.
+
+Screenshots: [restricted selection](model-restricted.png),
+[native question](native-question.png), [shell approval](shell-approval.png),
+[approved edit](approved-edit.png), [resumed context](resumed-context.png).
+These capture the real app with the real local server and authenticated provider.
+The question/edit captures preceding the display fix preserve that test's original
+UI evidence. The question-answer reload issue found in this run is fixed for newly answered
+questions by persisting their answer map in the tool result.
+
+The expanded approval acceptance test passed (179.10 seconds), including a denied
+write, a successfully approved write with exact content, and interruption. Browser
+recovery subsequently exposed a shared API lifecycle bug: `close()` emitted a
+socket disconnect that scheduled a reconnect, leaving the old provider competing
+for permission RPCs. `ApiSessionClient.close()` now latches closed state, cancels
+both reconnect timers, and refuses late reconnects. A regression test includes
+both a pending reconnect and disconnect/error events during shutdown. The final
+CLI unit suite passes 862 tests across 97 files.

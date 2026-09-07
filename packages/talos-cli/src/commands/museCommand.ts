@@ -1,3 +1,4 @@
+import { assertMuseNativeArgs } from '@/muse/museModelPolicy';
 import { authAndSetupMachineIfNeeded } from '@/ui/auth';
 import { ensureDaemonRunning } from '@/daemon/ensureDaemonRunning';
 import { runMuse } from '@/muse/runMuse';
@@ -26,13 +27,14 @@ export function parseMuseArgs(args: string[]) {
     if (nativeArgs.some(arg => ['--no-session-log', '--workspace', '--worktree', '-w', '--worktree-existing'].some(flag => arg === flag || arg.startsWith(`${flag}=`)))) {
         throw new Error('Session persistence and workspace are managed by Talos; choose the workspace before launching');
     }
+    assertMuseNativeArgs(nativeArgs);
     if (startedBy === 'daemon' && startingMode === 'local') throw new Error('Daemon sessions need remote control');
     return { resumeId, startedBy, startingMode, nativeArgs };
 }
 
 export async function handleMuseCommand(args: string[]) {
     if (args.includes('--help') || args.includes('-h')) {
-        console.log('talos muse [--resume <muse-session-uuid>] [--talos-starting-mode local|remote] [-- <native options>]\n\nLaunch the native Muse terminal, then continue the same session in Talos.\nInstall Muse from https://dev.meta.ai and authenticate with: muse login');
+        console.log('talos muse [--resume <muse-session-uuid>] [--talos-starting-mode local|remote] [-- <native options>]\n\nLaunch the native Muse terminal, then continue the same session in Talos. Model changes are temporarily disabled; use Muse Spark 1.3 Contributor.\nInstall Muse from https://dev.meta.ai and authenticate with: muse login');
         return;
     }
     const options = parseMuseArgs(args);

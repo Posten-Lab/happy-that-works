@@ -6,11 +6,14 @@ import { parseMuseArgs } from './museCommand';
 
 describe('Muse command arguments', () => {
     it('preserves native flags after the separator', () => {
-        expect(parseMuseArgs(['--resume', '01a07b19-6dd0-7740-a31e-621cd1829789', '--', '--model', 'muse-spark-1.3'])).toMatchObject({
-            resumeId: '01a07b19-6dd0-7740-a31e-621cd1829789', nativeArgs: ['--model', 'muse-spark-1.3'],
+        expect(parseMuseArgs(['--resume', '01a07b19-6dd0-7740-a31e-621cd1829789', '--', '--trust-workspace'])).toMatchObject({
+            resumeId: '01a07b19-6dd0-7740-a31e-621cd1829789', nativeArgs: ['--trust-workspace'],
         });
     });
     it('rejects options that would break same-session handoff', () => {
+        for (const arg of ['--model', '--model=x', '-mx', '--provider', '--profile=x']) {
+            expect(() => parseMuseArgs(['--', arg])).toThrow('temporarily disabled');
+        }
         expect(() => parseMuseArgs(['--', '--no-session-log'])).toThrow('persistence');
         expect(() => parseMuseArgs(['--', '--workspace=/other'])).toThrow('workspace');
         expect(() => parseMuseArgs(['--resume'])).toThrow('UUID');

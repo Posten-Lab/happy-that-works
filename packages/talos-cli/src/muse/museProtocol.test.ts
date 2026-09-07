@@ -18,9 +18,9 @@ describe('Muse transcript mapping', () => {
     });
     it('pairs a tool result even when its start was missed and preserves errors', () => {
         const mapper = new MuseMessageMapper();
-        const events = mapper.map({ itemId: 'tool1', kind: 'toolCall', status: 'failed', toolName: 'shell', args: '{"command":"false"}', visibleOutput: 'exit 1' });
+        const events = mapper.map({ itemId: 'tool1', kind: 'toolCall', status: 'failed', tool: 'bash', args: '{"command":"false"}', visibleOutput: 'exit 1' });
         expect(events.map(e => e.data?.type)).toEqual(['tool-call', 'tool-result']);
-        expect(events[0].data).toMatchObject({ callId: 'tool1', input: { command: 'false' } });
+        expect(events[0].data).toMatchObject({ callId: 'tool1', name: 'Bash', input: { command: 'false' } });
         expect(events[1].data).toMatchObject({ callId: 'tool1', isError: true, output: 'exit 1' });
     });
     it('does not expose raw reasoning text', () => {

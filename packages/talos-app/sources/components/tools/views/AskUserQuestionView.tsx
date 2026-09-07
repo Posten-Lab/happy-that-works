@@ -270,7 +270,8 @@ export const AskUserQuestionView = React.memo<ToolViewProps>(({ tool, sessionId 
                 <View style={styles.submittedContainer}>
                     {questions.map((q, qIndex) => {
                         const selected = selections.get(qIndex);
-                        const selectedLabels = freeText[qIndex]?.trim() || (selected
+                        const savedAnswer = (tool.result as { answers?: Record<string, unknown> } | null)?.answers?.[q.question];
+                        const selectedLabels = (typeof savedAnswer === 'string' ? savedAnswer : '') || freeText[qIndex]?.trim() || (selected
                             ? Array.from(selected)
                                 .map(optIndex => q.options[optIndex]?.label)
                                 .filter(Boolean)

@@ -7,6 +7,10 @@ export function object(value: unknown): JsonObject {
 }
 export function text(value: unknown): string { return typeof value === 'string' ? value : ''; }
 
+export function museToolName(name: unknown): string {
+    return name === 'bash' ? 'Bash' : text(name) || 'Muse tool';
+}
+
 export type MuseMessage = { id: string; user?: string; data?: ACPMessageData };
 
 /** Full item revisions are authoritative; never append a snapshot to streamed deltas. */
@@ -31,7 +35,7 @@ export class MuseMessageMapper {
         if (item.kind === 'toolCall') {
             let input: unknown = item.args;
             try { input = JSON.parse(text(item.args)); } catch { /* Preserve malformed provider input. */ }
-            emit('start', { data: { type: 'tool-call', callId: id, id, name: text(item.toolName) || 'Muse tool', input } });
+            emit('start', { data: { type: 'tool-call', callId: id, id, name: museToolName(item.tool ?? item.toolName), input } });
             if (completed) emit('result', { data: { type: 'tool-result', callId: id, id,
                 output: item.visibleOutput ?? item.failureReason ?? item.result ?? '', isError: item.status !== 'completed' } });
         } else if (completed && item.kind === 'userMessage') {
