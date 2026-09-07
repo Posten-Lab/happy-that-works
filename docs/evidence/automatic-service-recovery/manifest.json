@@ -1,0 +1,116 @@
+{
+  "task": "Automatic background service and session recovery",
+  "preparedAtUtc": "2026-09-07T20:45:17.516963+00:00",
+  "codeRevision": {
+    "baseCommit": "9268b6049f4adc55375bed924a8883ac1b863767",
+    "implementationCommit": "39d37b22658e8c3a1ad720c0a7b5605eb7c425c2",
+    "workingTree": "feat/automatic-service-recovery"
+  },
+  "environment": {
+    "kind": "isolated local environment",
+    "name": "vivid-pearl",
+    "browser": "Chromium through agent-browser 0.36.0",
+    "frontend": "Expo web from task worktree",
+    "backend": "actual local Talos standalone server with PGlite",
+    "daemon": "actual macOS launchd-managed Talos CLI",
+    "providers": [
+      "authenticated Codex CLI",
+      "authenticated Claude CLI"
+    ]
+  },
+  "validation": {
+    "appTypecheck": "passed",
+    "appSuite": {
+      "files": 74,
+      "tests": 776,
+      "status": "passed"
+    },
+    "serverTypecheck": "passed",
+    "serverSuite": {
+      "files": 17,
+      "tests": 104,
+      "status": "passed"
+    },
+    "cliSuite": {
+      "files": 110,
+      "tests": 980,
+      "status": "passed"
+    },
+    "cliBuildAndTypecheck": "passed",
+    "verifiedPackageSha256": "cbfff7c1709a2c958fdee779d2d0aeb7c681e127245758aba373e4fc99b85a5c"
+  },
+  "notes": [
+    "Screenshots are original real browser captures; services and provider responses were exercised without mocks.",
+    "Code was uncommitted during capture. Earlier setting/failure captures show components unchanged by subsequent session retry fixes.",
+    "Local test paths, hostnames, and conversation/thread identifiers are visible. No auth URLs, account tokens, encryption keys, or provider credentials are visible.",
+    "The separate phone viewport check at 390x844 passed; this selection contains desktop captures only.",
+    "Actual machine reboot/logout was not performed on the Mac; Service validation separately records service/process crash and Linux restart evidence."
+  ],
+  "screenshots": [
+    {
+      "file": "automatic-restore-setting.png",
+      "sourceScreenshot": "03-automatic-restore-on.png",
+      "scenario": "Enabled automatic session recovery on the real launchd-managed Mac after switching it off and back on; verified enabled=true persisted.",
+      "capturedAtUtc": "2026-09-07T20:26:23.848891+00:00",
+      "viewport": {
+        "width": 1280,
+        "height": 633
+      },
+      "sha256": "7bf726133ac51e1df9d2c1604df4a97bbdd14fbc693142a53af3f890dce623a4",
+      "visuallyInspected": true,
+      "authenticatedUrlsVisible": false
+    },
+    {
+      "file": "codex-context-after-recovery.png",
+      "sourceScreenshot": "07-codex-context-after-recovery.png",
+      "scenario": "Created Codex from UI, interrupted its process and daemon, then confirmed automatic restoration retained the previous provider context.",
+      "capturedAtUtc": "2026-09-07T20:33:36.984180+00:00",
+      "viewport": {
+        "width": 1280,
+        "height": 633
+      },
+      "sha256": "c2b4be08a47bc7c7ea792a4e1c571889286d6e1db4992e51822db1e0f4f035d6",
+      "visuallyInspected": true,
+      "authenticatedUrlsVisible": false
+    },
+    {
+      "file": "machine-recovery-failed.png",
+      "sourceScreenshot": "10-machine-recovery-failed.png",
+      "scenario": "Temporarily unavailable isolated project directory exhausted automatic recovery attempts; machine page reports the actual failure.",
+      "capturedAtUtc": "2026-09-07T20:38:38.511083+00:00",
+      "viewport": {
+        "width": 1280,
+        "height": 633
+      },
+      "sha256": "aca04f12d8d16bbd0b8781170071b3bb655e732ec673555e509a5242241dcadb",
+      "visuallyInspected": true,
+      "authenticatedUrlsVisible": false
+    },
+    {
+      "file": "session-recovery-retry.png",
+      "sourceScreenshot": "11-session-recovery-failed-resume.png",
+      "scenario": "The failed session shows its recovery error and Resume action with default settings despite stale online presence.",
+      "capturedAtUtc": "2026-09-07T20:42:19.552028+00:00",
+      "viewport": {
+        "width": 1280,
+        "height": 633
+      },
+      "sha256": "aa5197fdc3fa698d464893ffc1225fef2cec605e56305658d6dc3fc1af519bbf",
+      "visuallyInspected": true,
+      "authenticatedUrlsVisible": false
+    },
+    {
+      "file": "claude-context-after-manual-recovery.png",
+      "sourceScreenshot": "12-claude-context-manual-recovery.png",
+      "scenario": "After project directory restoration, clicked Resume in UI and verified Claude remembered its previous response marker.",
+      "capturedAtUtc": "2026-09-07T20:43:18.799454+00:00",
+      "viewport": {
+        "width": 1280,
+        "height": 633
+      },
+      "sha256": "e8c83c5fdd4ccbfda26f452c62c2fe5f93c169b3b62e69756e26f272f27977fe",
+      "visuallyInspected": true,
+      "authenticatedUrlsVisible": false
+    }
+  ]
+}
