@@ -63,3 +63,10 @@ see [the sanitized report](build21-ipa-verification.json). Its SHA256 is
 The regression suite covers missing/wrong/malformed resources and retains literal
 runtime support. Retry selection uses actual Git ancestry/diffs and exact EAS
 metadata, preserving all submission checks without rebuilding unchanged app code.
+
+The concurrent API rollout in Jenkins 71 rolled back at its eight-minute limit.
+Kubernetes events showed a 6m17s cold image pull for the first replica, followed
+by a 52s pull for the second; the second process was starting when the deadline
+expired. Both original replicas recovered and remained healthy. API rollouts now
+have a bounded 15-minute window for sequential cold pulls/startups, retaining all
+readiness, exact-revision, concurrency and rollback checks. Web retains eight minutes.

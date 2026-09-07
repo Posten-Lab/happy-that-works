@@ -109,7 +109,10 @@ async function release({ component, image, revision, directory, recover = false 
             { op: 'test', path: '/spec/template', value: current.spec.template },
             { op: 'replace', path: '/spec/template', value: template },
         ]), '-o', 'json']));
-    const rollout = () => run(['-n', namespace, 'rollout', 'status', `deployment/${config.deployment}`, '--timeout=480s'], 500_000);
+    // API replicas roll sequentially; observed cold image pulls exceed six minutes
+    // on one node. Allow both pulls/startups before declaring a healthy rollout failed.
+    const rolloutSeconds = component === 'api' ? 900 : 480;
+    const rollout = () => run(['-n', namespace, 'rollout', 'status', `deployment/${config.deployment}`, `--timeout=${rolloutSeconds}s`], (rolloutSeconds + 20) * 1000);
     const check = async wantedRevision => {
         let last;
         for (let attempt = 0; attempt < 12; attempt++) {
