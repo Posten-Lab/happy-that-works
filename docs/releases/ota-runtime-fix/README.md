@@ -70,3 +70,21 @@ by a 52s pull for the second; the second process was starting when the deadline
 expired. Both original replicas recovered and remained healthy. API rollouts now
 have a bounded 15-minute window for sequential cold pulls/startups, retaining all
 readiness, exact-revision, concurrency and rollback checks. Web retains eight minutes.
+
+## Jenkins delivery workspace
+
+Jenkins 34 passed 41 release tests, 15 IPA tests, app tests/typecheck and export,
+then stopped at the strict clean-checkout guard. Jenkins launches durable tasks
+under a temporary directory beside the current FilePath: wrapping the delivery
+shell in `dir(packages/talos-app)` creates `packages/talos-app@tmp` inside Git.
+The guard runs while these control files exist. Local execution has no such
+Jenkins directory; a separate Linux checkout also remained clean after install,
+release checks and export.
+
+Both native submission and OTA publication shells now launch from the repository
+workspace, then `cd "$APP_DIR"` internally. The Git/source guard is unchanged.
+A real-Git regression reproduces rejection with nested durable-task files and
+acceptance after moving only those files outside the repository, while retaining
+rejection of untracked app sources. Jenkins implementation references:
+[FileMonitoringTask.setupControlDir](https://github.com/jenkinsci/durable-task-plugin/blob/master/src/main/java/org/jenkinsci/plugins/durabletask/FileMonitoringTask.java)
+and [WorkspaceList.tempDir](https://github.com/jenkinsci/jenkins/blob/master/core/src/main/java/hudson/slaves/WorkspaceList.java).

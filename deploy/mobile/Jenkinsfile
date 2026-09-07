@@ -193,23 +193,25 @@ pipeline {
     stage('Publish production OTA') {
       when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'ota' } }
       steps {
-        dir("${APP_DIR}") {
-          sh '''
+        // A Jenkins dir(app) shell creates app@tmp inside Git. Keep control files
+        // beside the root workspace, outside the reviewed checkout.
+        sh '''
+            cd "$APP_DIR"
             node ../../scripts/verify-release-config.cjs ios
             eas update --channel production --environment production --platform ios \
               --message "git-$GIT_COMMIT" --non-interactive
-          '''
-        }
+        '''
       }
     }
 
     stage('Build and submit production iOS') {
       when { expression { return !params.VALIDATE_ONLY && env.MOBILE_RELEASE_KIND == 'native' } }
       steps {
-        dir("${APP_DIR}") {
-          withCredentials([string(credentialsId: 'asc-key-p8', variable: 'ASC_KEY_P8_B64')]) {
+        // The reuse guard must not see Jenkins' own app@tmp control directory.
+        withCredentials([string(credentialsId: 'asc-key-p8', variable: 'ASC_KEY_P8_B64')]) {
             sh '''
               set +x
+              cd "$APP_DIR"
               umask 077
               node ../../scripts/verify-release-config.cjs ios
               EXPO_ASC_API_KEY_PATH=$(mktemp /tmp/talos-asc-key.XXXXXX)
@@ -244,7 +246,6 @@ pipeline {
                 --signature-tools "$SIGNATURE_TOOLS_ROOT/tools" --output ipa-verification.json
               sh ../../deploy/mobile/submit-ios.sh "$(cat build-id.txt)"
             '''
-          }
         }
       }
     }
