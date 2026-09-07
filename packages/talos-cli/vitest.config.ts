@@ -9,7 +9,7 @@ export default defineConfig({
         projects: [
             {
                 extends: true,
-                test: { name: 'integration-muse', include: ['src/muse/muse.integration.test.ts'],
+                test: { name: 'integration-muse', include: ['src/muse/*.integration.test.ts'],
                     fileParallelism: false, hookTimeout: 30000, testTimeout: 360000, sequence: { groupOrder: 2 } },
             },
             {

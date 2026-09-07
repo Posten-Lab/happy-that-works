@@ -35,7 +35,7 @@ const codeAgentDefaults: Record<AgentKey, AgentDefaultConfig> = {
     // concrete model here makes global defaults stale whenever a rollout lands.
     codex: { permissionMode: 'yolo', modelMode: 'default', effortLevel: 'medium' },
     gemini: { permissionMode: 'default', modelMode: 'gemini-2.5-pro', effortLevel: null },
-    muse: { permissionMode: 'default', modelMode: 'default', effortLevel: null },
+    muse: { permissionMode: 'default', modelMode: 'default', effortLevel: 'high' },
     openclaw: { permissionMode: 'default', modelMode: 'default', effortLevel: null },
 };
 

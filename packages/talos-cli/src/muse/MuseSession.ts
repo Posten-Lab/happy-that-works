@@ -1,3 +1,4 @@
+import { parseMuseControls, museEffort, museWireEffort, museHostArgs, museTerminalArgs, musePermissionFromNative, museEffortLevels, type MuseControlState, type MuseControlStore } from './museControls';
 import { assertMuseNativeArgs, assertMuseRoute, museModelRestriction, museSupportedModel } from './museModelPolicy';
 import { realpathSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -20,6 +21,8 @@ export interface MuseSessionCallbacks {
 /** Owns only the native process/protocol boundary. Talos owns transport and UI. */
 export class MuseSession {
     private host: SpawnedMspConnection | null = null;
+    private hostArguments: string[] = [];
+    private nativeHandoff = false;
     private native: ChildProcess | null = null;
     private nativeExit: Promise<void> | null = null;
     private mapper = new MuseMessageMapper();
@@ -27,7 +30,10 @@ export class MuseSession {
     private reading = false;
     private disposed = false;
     private disposal: Promise<void> | undefined;
-    private permissionMode = 'default';
+    private controls: MuseControlState = { permissionMode: 'default', effort: 'high', hostArgs: [] };
+    private get permissionMode() { return this.controls.permissionMode; }
+    private set permissionMode(mode: string) { this.controls.permissionMode = mode; }
+    private readonly parsedControls: ReturnType<typeof parseMuseControls>;
     private questions = new Set<string>();
     private transitioning = false;
     private operations: Promise<unknown> = Promise.resolve();
@@ -40,8 +46,11 @@ export class MuseSession {
 
     constructor(private readonly cwd: string, private readonly callbacks: MuseSessionCallbacks,
         private readonly nativeArgs: string[] = [],
-        private readonly submissions?: { load(): string[]; record(commandId: string): void }) {
+        private readonly submissions?: { load(): string[]; record(commandId: string): void },
+        private readonly controlStore?: MuseControlStore) {
         assertMuseNativeArgs(nativeArgs);
+        this.parsedControls = parseMuseControls(nativeArgs);
+        this.controls = { ...this.controls, ...this.parsedControls.overrides };
         for (const id of submissions?.load() ?? []) this.mapper.submitted(id);
     }
 
@@ -52,8 +61,9 @@ export class MuseSession {
     }
 
     private async connect() {
-        const host = await connectMuse(this.cwd, (method, params) => this.notification(method, params));
+        const host = await connectMuse(this.cwd, (method, params) => this.notification(method, params), museHostArgs(this.controls));
         this.host = host;
+        this.hostArguments = museHostArgs(this.controls);
         void host.exited.then(exit => {
             if (this.host !== host || this.disposed) return;
             this.host = null;
@@ -72,10 +82,22 @@ export class MuseSession {
 
     async start(resumeId?: string, mode: 'local' | 'remote' = 'remote') {
         this.sessionId = resumeId ?? '';
+        this.nativeHandoff = Boolean(resumeId);
+        if (resumeId) {
+            const saved = this.controlStore?.load(resumeId);
+            if (saved) {
+                museEffort(saved.effort);
+                if (!Array.isArray(saved.hostArgs) || saved.hostArgs.some(arg => typeof arg !== 'string')) throw new Error('Invalid saved Muse host options');
+                const parsedHost = parseMuseControls(saved.hostArgs);
+                if (parsedHost.remaining.length || parsedHost.overrides.effort || parsedHost.overrides.permissionMode) throw new Error('Invalid saved Muse host options');
+                if (!musePermissionModes.some(m => m.id === saved.permissionMode)) throw new Error('Invalid saved Muse permission mode');
+                this.controls = { ...saved, ...this.parsedControls.overrides };
+            }
+        }
         const host = await this.connect();
         const result = resumeId
             ? await this.resumeHost(host, resumeId)
-            : await host.connection.command('session/start', { workspaceRoot: this.cwd });
+            : await host.connection.command('session/start', { workspaceRoot: this.cwd, approvalMode: musePermissionModes.find(m => m.id === this.permissionMode)!.native });
         const session = object(result.session);
         this.checkRoute(session);
         this.sessionId = text(session.sessionId);
@@ -83,12 +105,26 @@ export class MuseSession {
         if (text(session.workspaceRoot) && realpathSync(text(session.workspaceRoot)) !== realpathSync(this.cwd)) {
             throw new Error(`Muse session belongs to ${text(session.workspaceRoot)}. Run Talos from that workspace.`);
         }
-        this.permissionMode = musePermissionModes.find(m => m.native === object(session.approvalMode).mode)?.id ?? 'default';
+        this.permissionMode = musePermissionFromNative(text(object(session.approvalMode).mode), this.permissionMode);
+        if (this.parsedControls.overrides.permissionMode) {
+            this.permissionMode = this.parsedControls.overrides.permissionMode;
+            await this.applyApprovalMode(host);
+        }
+        this.persistControls();
         this.callbacks.metadata({ museSessionId: this.sessionId });
         await this.history(result);
         await this.refreshModels();
         if (mode === 'local') await this.switchMode('local');
         else this.callbacks.mode('remote');
+    }
+
+    private persistControls() {
+        if (this.sessionId) this.controlStore?.save(this.sessionId, this.controls);
+    }
+
+    private async applyApprovalMode(host: SpawnedMspConnection) {
+        const mode = musePermissionModes.find(m => m.id === this.permissionMode)!;
+        await host.connection.command('session/setApprovalMode', { sessionId: this.sessionId, mode: mode.native });
     }
 
     private async resumeHost(host: SpawnedMspConnection, sessionId: string) {
@@ -181,6 +217,11 @@ export class MuseSession {
             this.questions.delete(id);
             this.callbacks.cancelPermission?.(id);
         }
+        if (method === 'session/approvalModeChanged') {
+            this.permissionMode = musePermissionFromNative(text(params.mode), this.permissionMode);
+            this.persistControls();
+            this.callbacks.metadata({ currentOperatingModeCode: this.permissionMode });
+        }
         if (method === 'session/modelChanged') {
             try { this.checkRoute(params); }
             catch (error) { this.callbacks.notice(String(error)); return; }
@@ -205,7 +246,12 @@ export class MuseSession {
         try {
             let input: unknown = params.rawArgs ?? params.subject;
             try { input = JSON.parse(text(params.rawArgs)); } catch { /* Keep provider input when it is not JSON. */ }
-            const decision = await this.callbacks.permission(key, museToolName(params.toolName), input);
+            // Muse 1.0.3 can still deliver MSP approval requests in allowAll/denyUnmatched.
+            // Enforce the user's selected non-interactive mode using native offered choices.
+            const decision: PermissionResult = ['yolo', 'bypassPermissions'].includes(this.permissionMode)
+                ? { decision: 'approved' }
+                : this.permissionMode === 'never' ? { decision: 'denied' }
+                : await this.callbacks.permission(key, museToolName(params.toolName), input);
             if (this.approvals.get(approvalId) !== key || this.mode !== 'remote') return;
             const choiceId = approvalChoice(params, decision.decision);
             if (!choiceId) throw new Error('Muse does not offer that approval choice');
@@ -259,7 +305,9 @@ export class MuseSession {
         const models = (Array.isArray(result.models) ? result.models : []).map(object);
         const active = models.find(m => m.isActive);
         if (active) this.checkRoute(active);
-        this.callbacks.metadata({ models: [{ code: 'default', value: 'Muse Spark 1.3 Contributor (fixed)' }],
+        this.callbacks.metadata({ models: [{ code: 'default', value: 'Muse Spark 1.3 Contributor (fixed)', isDefault: true,
+                supportedReasoningEfforts: museEffortLevels.map(code => ({ code, value: code })), defaultReasoningEffort: 'high' }],
+            currentReasoningEffort: this.controls.effort,
             currentModelCode: 'default',
             operatingModes: musePermissionModes.map(m => ({ code: m.id, value: m.name })), currentOperatingModeCode: this.permissionMode });
     }
@@ -276,7 +324,7 @@ export class MuseSession {
                     if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error('Local control needs a terminal. Run talos muse --resume with this Muse session ID on the same machine.');
                     if (this.turn) throw new Error('Stop the active turn before switching to the Muse terminal');
                     await this.closeHost(); // Release the lease before the native CLI resumes it.
-                    const child = spawn(museExecutable(), ['resume', this.sessionId, '--workspace', this.cwd, ...this.nativeArgs], { cwd: this.cwd, stdio: 'inherit' });
+                    const child = spawn(museExecutable(), ['resume', this.sessionId, '--workspace', this.cwd, ...museTerminalArgs(this.controls, this.parsedControls.remaining)], { cwd: this.cwd, stdio: 'inherit' });
                     this.native = child;
                     this.nativeExit = new Promise<void>((resolve, reject) => {
                         child.once('error', reject);
@@ -289,6 +337,7 @@ export class MuseSession {
                         if (!this.transitioning && !this.disposed) this.callbacks.exited();
                     }, error => this.callbacks.exited(error));
                     this.mode = 'local';
+                    this.nativeHandoff = true;
                     await this.connect(); // Observer only: session/read never acquires a writer lease.
                     if (child.exitCode !== null || child.signalCode !== null) {
                         throw new Error(`Muse terminal exited during startup (${child.exitCode ?? child.signalCode})`);
@@ -318,6 +367,8 @@ export class MuseSession {
         try {
             const result = await this.host.connection.request('session/read', { sessionId: this.sessionId, excludeItems: false });
             this.checkRoute(object(result.session));
+            this.permissionMode = musePermissionFromNative(text(object(object(result.session).approvalMode).mode), this.permissionMode);
+            this.persistControls();
             await this.history(result);
 
         } catch (error) { this.callbacks.notice(`Muse terminal history unavailable: ${String(error)}`); }
@@ -335,7 +386,7 @@ export class MuseSession {
 
     async prompt(prompt: string, options: { model?: string | null; permissionMode?: string; effort?: string } = {}) {
         await this.switchMode('remote');
-        const host = this.host;
+        let host = this.host;
         if (!host) throw new Error('Muse is not connected');
         if (this.turn) throw new Error('Muse already has an active turn');
         if (this.modelFailure) throw this.modelFailure;
@@ -343,14 +394,35 @@ export class MuseSession {
             throw new Error(museModelRestriction);
         }
         // Check native state before every turn; never silently change its model.
-        this.checkRoute(object((await host.connection.request('session/read', { sessionId: this.sessionId, excludeItems: true })).session));
+        const before = await host.connection.request('session/read', { sessionId: this.sessionId, excludeItems: true });
+        this.checkRoute(object(before.session));
+        const effort = options.effort ? museEffort(options.effort) : this.controls.effort;
         if (options.permissionMode) {
             const mode = musePermissionModes.find(m => m.id === options.permissionMode);
             if (!mode) throw new Error(`Unsupported Muse permission mode: ${options.permissionMode}`);
-            await host.connection.command('session/setApprovalMode', { sessionId: this.sessionId, mode: mode.native });
-            this.permissionMode = mode.id;
-            this.callbacks.metadata({ currentOperatingModeCode: mode.id });
+            const previous = this.controls;
+            const next = { ...previous, permissionMode: mode.id };
+            if (JSON.stringify(this.hostArguments) !== JSON.stringify(museHostArgs(next))) {
+                await this.closeHost();
+                this.controls = next;
+                try {
+                    host = await this.connect();
+                    await this.resumeHost(host, this.sessionId);
+                } catch (error) {
+                    await this.closeHost();
+                    this.controls = previous;
+                    try { await this.resumeHost(await this.connect(), this.sessionId); }
+                    catch { await this.closeHost(); }
+                    throw error;
+                }
+            }
+            // Resume notifications can replay the previous approval projection.
+            this.controls = { ...next, permissionMode: mode.id };
+            await this.applyApprovalMode(host);
         }
+        this.controls.effort = effort;
+        this.persistControls();
+        this.callbacks.metadata({ currentOperatingModeCode: this.permissionMode, currentReasoningEffort: effort });
         const commandId = host.connection.mintCommandId();
         this.submissions?.record(commandId);
         this.mapper.submitted(commandId);
@@ -359,10 +431,43 @@ export class MuseSession {
         void done.catch(() => {});
         try {
             const ack = await host.connection.command('turn/start', { sessionId: this.sessionId,
-                input: [{ type: 'text', text: prompt }], ...(options.effort ? { reasoningEffort: options.effort } : {}) }, { commandId });
+                input: [{ type: 'text', text: prompt }], reasoningEffort: museWireEffort(effort) }, { commandId });
             this.setTurnId(text(ack.turnId) || commandId);
         } catch (error) { this.finishTurn(error instanceof Error ? error : new Error(String(error))); }
-        await done;
+        let recovering = false;
+        const recover = async () => {
+            if (recovering || !this.turn || this.host !== host) return;
+            recovering = true;
+            let observer: SpawnedMspConnection | undefined;
+            try {
+                // A native-terminal resume can stop Muse 1.0.3's live deliveries.
+                // Read through a separate observer so paging cannot disturb the writer.
+                observer = await connectMuse(this.cwd);
+                let cursor = text(before.viewCursor);
+                const events: JsonObject[] = [];
+                do {
+                    const page = await observer.connection.request('view/page', { sessionId: this.sessionId, limit: 1000, ...(cursor ? { cursor } : {}) });
+                    events.push(...(Array.isArray(page.events) ? page.events.map(object) : []));
+                    const next = text(page.nextCursor);
+                    if (next && next === cursor) throw new Error('Muse recovery cursor did not advance');
+                    cursor = next;
+                } while (cursor && this.turn);
+                const terminal = events.find(e => e.method === 'turn/completed' && object(e.params).turnId === this.turn?.id
+                    // Read-only folds synthesize "incomplete" while a live writer is running.
+                    && !(object(e.params).terminal === 'failed' && (object(e.params).reason === 'incomplete' || object(object(e.params).error).message === 'incomplete')));
+                if (terminal) {
+                    for (const event of events) if (text(event.method).startsWith('item/')) this.item(object(event.params).item);
+                    this.notification('turn/completed', object(terminal.params));
+                } else if (this.turn) {
+                    const pending = await host.connection.request('approval/listPending', { sessionId: this.sessionId });
+                    for (const request of Array.isArray(pending.approvals) ? pending.approvals : []) this.notification('approval/requested', object(request));
+                    for (const request of Array.isArray(pending.userInputs) ? pending.userInputs : []) this.notification('userInput/requested', object(request));
+                }
+            } catch (error) { this.callbacks.notice(`Muse event recovery failed: ${String(error)}`); }
+            finally { await observer?.close(); recovering = false; }
+        };
+        const recovery = this.nativeHandoff ? setInterval(() => void recover(), 2000) : undefined;
+        try { await done; } finally { clearInterval(recovery); }
     }
 
     private setTurnId(id: string) { if (this.turn) this.turn.id = id; }

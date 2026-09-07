@@ -480,10 +480,11 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     const permissionMode = React.useMemo<PermissionMode | null>(() => (
         resolveCurrentOption(availableModes, [
             session.permissionMode,
+            ...(flavor === 'muse' ? [session.metadata?.currentOperatingModeCode] : []),
             effectiveAgentDefaults.permissionMode,
             session.metadata?.currentOperatingModeCode,
         ])
-    ), [availableModes, session.permissionMode, effectiveAgentDefaults.permissionMode, session.metadata?.currentOperatingModeCode]);
+    ), [availableModes, flavor, session.permissionMode, effectiveAgentDefaults.permissionMode, session.metadata?.currentOperatingModeCode]);
 
     const modelMode = React.useMemo<ModelMode | null>(() => (
         resolveCurrentOption(availableModels, [
@@ -501,9 +502,10 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     const effortLevel = React.useMemo<EffortLevel | null>(() => (
         resolveCurrentOption(availableEffortLevels, [
             session.effortLevel,
+            session.metadata?.currentReasoningEffort,
             effectiveAgentDefaults.effortLevel,
         ])
-    ), [availableEffortLevels, session.effortLevel, effectiveAgentDefaults.effortLevel]);
+    ), [availableEffortLevels, session.effortLevel, session.metadata?.currentReasoningEffort, effectiveAgentDefaults.effortLevel]);
 
     const sessionStatus = useSessionStatus(session);
     const sessionUsage = useSessionUsage(sessionId);

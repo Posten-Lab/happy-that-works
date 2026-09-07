@@ -1,3 +1,12 @@
+# Muse Code controls
+
+Choose how Muse works from your phone, browser, or terminal.
+
+- Select every native effort level, from none through ultra.
+- Choose untrusted actions, on-request approvals, never-prompt, bypass approvals, or YOLO.
+- Keep your selected controls when resuming or moving between Talos and the native terminal.
+- Model changes remain disabled to preserve conversation history. Muse controls ultra availability.
+
 # Welcome to Talos
 
 Your agents. Your command.

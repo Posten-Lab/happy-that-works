@@ -89,6 +89,9 @@ export function approvalChoice(request: JsonObject, decision: PermissionResult['
 }
 
 export const musePermissionModes = [
-    { id: 'default', name: 'Ask before untrusted actions', native: 'promptUnmatched' },
-    { id: 'safe-yolo', name: 'Ask when Muse requests approval', native: 'onRequest' },
+    { id: 'default', name: 'Untrusted actions', native: 'promptUnmatched' },
+    { id: 'safe-yolo', name: 'On request', native: 'onRequest' },
+    { id: 'never', name: 'Never prompt (deny unmatched)', native: 'denyUnmatched' },
+    { id: 'bypassPermissions', name: 'Bypass approvals', native: 'allowAll' },
+    { id: 'yolo', name: 'YOLO (no approvals or sandbox)', native: 'allowAll' },
 ] as const;

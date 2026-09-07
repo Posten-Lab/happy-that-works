@@ -202,6 +202,30 @@ existing question tool. A small local journal contains only submitted command ID
 so restarting the same Talos session does not duplicate its prompts in imported
 Muse history. Native session content remains owned by Muse.
 
+Muse controls use the same permission/effort selectors as the other providers,
+including Agent Defaults, new sessions, and active sessions. Effort supports
+`none`, `minimal`, `low`, `medium`, `high` (default), `xhigh`, `max`, and `ultra`.
+Native Muse treats `max` as an alias for `xhigh`; Talos preserves that behavior.
+`ultra` is selectable, but Muse controls its availability: the tested native terminal
+reported its ultra gate closed and fell back to `xhigh`. MSP accepts ultra requests.
+Approval choices are Untrusted actions, On request, Never prompt (deny unmatched),
+Bypass approvals, and YOLO (no approvals or sandbox). Bypass approvals leaves
+sandbox settings unchanged. Entering or leaving YOLO restarts the native host
+and resumes the same durable session because sandbox posture is fixed at startup.
+Muse 1.0.3 can still emit MSP approval requests in non-interactive modes; Talos
+answers using the native offered approve/deny choices and the selected mode.
+
+CLI equivalents are `talos muse -- --reasoning-effort ultra --yolo`,
+`--approval-mode untrusted|on-request|never`, and `--disable-approval`.
+Native host options (`--disable-sandbox`, `--sandbox-network`, `--disable-shell`,
+`--disable-write`, `--trust-workspace`) are also preserved across handoff.
+After native handoff, Talos reconciles missing live events from a separate MSP
+observer and uses pending-request reads to recover approvals. It waits for a real
+terminal event and ignores synthetic incomplete folds while the writer is running.
+Talos stores control settings locally by native session ID; explicit CLI controls
+override saved settings. Arbitrary effort changes inside an independently running
+native terminal are not exposed by MSP and cannot be imported automatically.
+
 Muse currently supports only `muse-spark-1.3-contributor` with provider `meta`.
 Model changes are temporarily disabled to preserve resume and terminal handoff.
 Talos checks native routing before sending prompts and checks durable model-change
