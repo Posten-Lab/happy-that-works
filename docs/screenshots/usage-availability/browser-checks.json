@@ -1,0 +1,7 @@
+{
+  "providers": 2,
+  "quotaMeters": 5,
+  "updateGuidance": true,
+  "loading": false,
+  "noHorizontalOverflow": true
+}

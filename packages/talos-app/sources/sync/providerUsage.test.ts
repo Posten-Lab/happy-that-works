@@ -28,8 +28,8 @@ describe('provider account usage transport', () => {
     it('rejects malformed numeric data and gives old daemons actionable feedback', async () => {
         machineRPC.mockResolvedValueOnce({ ...snapshot(), checkedAt: 'yesterday' });
         await expect(readProviderUsage('mac', 'codex')).rejects.toThrow('could not provide usage data');
-        machineRPC.mockRejectedValueOnce(new Error('RPC method not registered'));
-        await expect(readProviderUsage('mac', 'codex')).rejects.toThrow('Update the Talos CLI');
+        machineRPC.mockRejectedValueOnce(new Error('RPC method not available'));
+        await expect(readProviderUsage('mac', 'codex')).rejects.toThrow('Update Talos');
     });
 });
 
@@ -42,6 +42,17 @@ describe('account scope', () => {
         expect(result[0].snapshot?.windows[0].remainingPercent).toBe(73);
         expect(result[0].snapshot?.checkedAt).toBe(150);
         expect(result[0].machineIds).toEqual(['mac', 'linux']);
+    });
+    it('groups failed lookups by provider without inventing a shared account', () => {
+        const result = mergeProviderUsageEntries([
+            entry('mac', { snapshot: null, error: 'Update Talos' }),
+            entry('dell', { snapshot: null, error: 'Reconnect' }),
+            entry('claude', { provider: 'claude', snapshot: null }),
+        ]);
+        expect(result).toHaveLength(2);
+        expect(result[0].snapshot).toBeNull();
+        expect(result[0].sources?.map(source => source.message)).toEqual(['Update Talos', 'Reconnect']);
+        expect(result[0].machineIds).toEqual(['mac', 'dell']);
     });
     it('keeps distinct or unidentified accounts and different providers separate', () => {
         const result = mergeProviderUsageEntries([

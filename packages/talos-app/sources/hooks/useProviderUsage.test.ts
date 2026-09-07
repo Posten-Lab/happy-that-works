@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ProviderUsageSnapshot } from '@ahmadposten/talos-wire';
 
 const context = vi.hoisted(() => ({
-    machines: [{ id: 'mac', active: true, metadata: { host: 'Mac' } }],
+    machines: [{ id: 'mac', active: true, metadata: { host: 'Mac', talosCliVersion: '1.0.1', providerUsage: { rpcAvailable: true } } }],
     socket: 'connected', token: 'test-account-a', focused: true,
     read: vi.fn(), appState: 'active', listener: null as null | (() => void),
 }));
@@ -39,7 +39,7 @@ async function mount() { await act(async () => { renderer = TestRenderer.create(
 async function rerender() { await act(async () => renderer!.update(React.createElement(Probe))); }
 beforeEach(() => {
     vi.useFakeTimers();
-    context.machines = [{ id: 'mac', active: true, metadata: { host: 'Mac' } }];
+    context.machines = [{ id: 'mac', active: true, metadata: { host: 'Mac', talosCliVersion: '1.0.1', providerUsage: { rpcAvailable: true } } }];
     context.socket = 'connected'; context.token = 'test-account-a'; context.focused = true; context.appState = 'active';
     context.read.mockReset().mockImplementation(async (_: string, provider: 'claude' | 'codex') => snapshot(provider));
 });
@@ -111,4 +111,20 @@ it('defers a manual refresh until retryAt and retains the current reading in the
     expect(context.read).toHaveBeenCalledTimes(4);
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
     expect(context.read).toHaveBeenCalledTimes(4);
+});
+
+it('immediately explains old daemons without a network wait or automatic retry', async () => {
+    context.machines[0].metadata.talosCliVersion = '1.1.11';
+    context.machines[0].metadata.providerUsage.rpcAvailable = false;
+    await mount();
+    expect(context.read).not.toHaveBeenCalled();
+    expect(result.refreshing).toBe(false);
+    expect(result.entries.every(entry => entry.error?.includes('version 1.0.1'))).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(context.read).not.toHaveBeenCalled();
+    context.machines[0].metadata.talosCliVersion = '1.0.1';
+    context.machines[0].metadata.providerUsage.rpcAvailable = true;
+    await rerender();
+    expect(context.read).toHaveBeenCalledTimes(2);
+    expect(result.entries.every(entry => !entry.error)).toBe(true);
 });

@@ -119,7 +119,7 @@ function parseCodexCliVersion(version: string): { major: number; minor: number; 
 
 function readCodexCliVersion(): { major: number; minor: number; patch: number } | null {
     try {
-        const version = execSync('codex --version', { encoding: 'utf8', windowsHide: true }).trim();
+        const version = execSync('codex --version', { encoding: 'utf8', windowsHide: true, timeout: 5_000, killSignal: 'SIGKILL' }).trim();
         return parseCodexCliVersion(version);
     } catch {
         return null;
