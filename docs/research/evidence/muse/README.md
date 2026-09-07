@@ -229,3 +229,19 @@ question tools now map to the existing AskUserQuestion component, and native
 persisted answer results are normalized to the same answer map as live replies.
 The updated 18 adapter/protocol tests pass. A second real provider process (13623)
 also exited normally after SIGTERM with the shared shutdown fix.
+
+Final question UI verification passed in fresh Talos session
+`cmtrdcab1002bripwq7et1kyp`: the native question rendered as a Blue/Amber choice
+form, Blue was submitted through the real permission RPC, Muse replied Blue,
+and a full browser reload preserved both the answer label and the model reply.
+Screenshots: [corrected form](question-form-fixed.png) and
+[persisted answer after reload](question-answer-reloaded.png).
+The latest app checks pass 20 tests across model options and message metadata,
+and app typecheck passes.
+
+Final browser approval verification also passed on the corrected build: approved
+`printf 'Blue' > muse-final.txt && cat muse-final.txt`, checked the file bytes were
+exactly `Blue`, observed the completed approval without a running timer, and
+received Muse's confirmation. [Final approved edit](approved-edit-final.png).
+All required fixed-model acceptance and the affected browser flows are now
+verified. No production installation or deployment was performed.
