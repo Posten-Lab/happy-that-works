@@ -225,8 +225,10 @@ function AccountEmptyState({ entry, loading }: { entry: ProviderUsageEntry; load
     const { theme } = useUnistyles();
     const providerName = entry.provider === 'codex' ? 'Codex' : 'Claude';
     const status = entry.snapshot?.status;
+    const needsUpdate = !!entry.error && /Update Talos|Update the Talos CLI/.test(entry.error);
     const title = !entry.online ? 'Machine is offline'
         : loading ? 'Checking your allowance'
+            : needsUpdate ? 'Update Talos on your computers'
             : status === 'unauthenticated' ? `Sign in to ${providerName}`
                 : status === 'unsupported' ? 'Plan limits unavailable'
                     : 'Usage is unavailable';
@@ -241,7 +243,13 @@ function AccountEmptyState({ entry, loading }: { entry: ProviderUsageEntry; load
                     : <Ionicons name={!entry.online ? 'cloud-offline-outline' : status === 'unauthenticated' ? 'key-outline' : 'hourglass-outline'} size={25} color={theme.colors.accent} />}
             </View>
             <Text style={styles.emptyTitle}>{title}</Text>
-            <Text style={styles.emptyDescription}>{description}</Text>
+            {entry.sources && entry.sources.length > 1 ? <View style={{ alignSelf: 'stretch', gap: 12 }}>
+                {entry.sources.map(source => <View key={source.machineId} style={{ gap: 3 }}>
+                    <Text style={styles.account}>{source.label}</Text>
+                    <Text style={styles.small}>{!source.online ? 'Offline · reconnect to check usage'
+                        : source.refreshing ? 'Checking account limits…' : source.message ?? description}</Text>
+                </View>)}
+            </View> : <Text style={styles.emptyDescription}>{description}</Text>}
         </View>
     );
 }
@@ -260,18 +268,9 @@ function AccountCard({ entry, now, width }: { entry: ProviderUsageEntry; now: nu
     return (
         <View style={[styles.card, { width }]} testID={`provider-usage-${entry.provider}`}>
             <View style={styles.cardHeader}>
-                <View style={styles.providerRow}>
-                    <View style={styles.providerIcon}>
-                        <Ionicons name={entry.provider === 'codex' ? 'terminal-outline' : 'sparkles-outline'} size={22} color={theme.colors.accent} />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.provider}>{provider}</Text>
-                        <Text style={styles.providerDescription}>{entry.provider === 'codex' ? 'OpenAI' : 'Anthropic'}</Text>
-                    </View>
-                    {!!badge && <View style={styles.badge}><Text style={styles.badgeText}>{badge}</Text></View>}
-                </View>
+                {!!badge && <View style={[styles.badge, { alignSelf: 'flex-start' }]}><Text style={styles.badgeText}>{badge}</Text></View>}
                 <View style={styles.identity}>
-                    <Text style={styles.account} selectable testID="usage-account-label">{snapshot?.account?.label ?? `${provider} account on this machine`}</Text>
+                    <Text style={styles.account} selectable testID="usage-account-label">{snapshot?.account?.label ?? (entry.refreshing ? 'Finding your account' : 'Account not identified')}</Text>
                     <View style={styles.identityRow}>
                         <Ionicons name="desktop-outline" size={12} color={theme.colors.textSecondary} />
                         <Text style={[styles.small, { flex: 1 }]} testID="usage-machine-label">{entry.machineLabel}</Text>
@@ -363,6 +362,7 @@ export const AccountUsageDashboard = React.memo(function AccountUsageDashboard({
     }, []);
     const orderedEntries = React.useMemo(() => [...entries].sort((a, b) => a.provider === b.provider ? 0 : a.provider === 'codex' ? -1 : 1), [entries]);
     const cardWidth = contentWidth >= 800 ? (contentWidth - 18) / 2 : '100%';
+    const providers = ['codex', 'claude'] as const;
     return (
         <View style={styles.dashboard}>
             <View style={styles.heading}>
@@ -389,7 +389,22 @@ export const AccountUsageDashboard = React.memo(function AccountUsageDashboard({
             </View>
             <LimitsToWatch entries={orderedEntries} now={now} />
             <View style={styles.grid} onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}>
-                {orderedEntries.map((entry) => <AccountCard key={entry.key} entry={entry} now={now} width={cardWidth} />)}
+                {providers.map(provider => {
+                    const accounts = orderedEntries.filter(entry => entry.provider === provider);
+                    if (!accounts.length) return null;
+                    return <View key={provider} style={{ width: cardWidth, gap: 12 }} testID={`usage-provider-group-${provider}`}>
+                        <View style={[styles.providerRow, { paddingHorizontal: 4 }]}>
+                            <View style={styles.providerIcon}>
+                                <Ionicons name={provider === 'codex' ? 'terminal-outline' : 'sparkles-outline'} size={22} color={theme.colors.accent} />
+                            </View>
+                            <View>
+                                <Text style={styles.provider} accessibilityRole="header">{provider === 'codex' ? 'Codex' : 'Claude'}</Text>
+                                <Text style={styles.providerDescription}>{provider === 'codex' ? 'OpenAI' : 'Anthropic'}</Text>
+                            </View>
+                        </View>
+                        {accounts.map(entry => <AccountCard key={entry.key} entry={entry} now={now} width="100%" />)}
+                    </View>;
+                })}
                 {orderedEntries.length === 0 && (
                     <View style={styles.card}>
                         <View style={styles.empty}>

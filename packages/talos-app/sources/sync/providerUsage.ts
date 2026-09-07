@@ -13,7 +13,15 @@ export type ProviderUsageEntry = {
     refreshing: boolean;
     snapshot: ProviderUsageSnapshot | null;
     error?: string;
+    sources?: Array<{ machineId: string; label: string; online: boolean; refreshing: boolean; message?: string }>;
 };
+
+export const USAGE_CLI_UPDATE_MESSAGE = 'Update Talos on this machine to version 1.0.2 or later, then restart its daemon to view account limits.';
+
+/** Capabilities survive renamed products whose version numbers are not comparable. */
+export function requiresUsageCliUpdate(metadata: { providerUsage?: { rpcAvailable: boolean } } | null | undefined): boolean {
+    return !!metadata && metadata.providerUsage?.rpcAvailable !== true;
+}
 
 /** Read account quotas over the same encrypted channel as provider discovery. */
 export async function readProviderUsage(
@@ -29,8 +37,8 @@ export async function readProviderUsage(
     } catch (error) {
         // Older daemons cannot serve this method. Avoid displaying RPC envelopes
         // or implementation errors in the account dashboard.
-        if (error instanceof Error && /not (registered|found)|unknown method|method.*unavailable/i.test(error.message)) {
-            throw new Error('Update the Talos CLI on this machine to view account limits.');
+        if (error instanceof Error && /not (registered|found)|unknown method|method.*(?:unavailable|not available)/i.test(error.message)) {
+            throw new Error(USAGE_CLI_UPDATE_MESSAGE);
         }
         throw new Error('Could not reach this machine. Check its connection and try again.');
     }
@@ -48,7 +56,10 @@ export function mergeProviderUsageEntries(entries: readonly ProviderUsageEntry[]
     const groups = new Map<string, ProviderUsageEntry[]>();
     for (const entry of entries) {
         const accountId = entry.snapshot?.account?.id;
-        const key = accountId ? `${entry.provider}:account:${accountId}` : entry.key;
+        const hasReading = !!entry.snapshot && (entry.snapshot.windows.length > 0 || entry.snapshot.balances.length > 0);
+        // Group only unresolved lookups, never infer that unidentified quota readings share an account.
+        const key = accountId ? `${entry.provider}:account:${accountId}`
+            : !hasReading && !entry.snapshot?.account ? `${entry.provider}:unresolved` : entry.key;
         const group = groups.get(key) ?? [];
         group.push(entry);
         groups.set(key, group);
@@ -67,6 +78,8 @@ export function mergeProviderUsageEntries(entries: readonly ProviderUsageEntry[]
             snapshot: latest.snapshot && (latest.snapshot.windows.length > 0 || latest.snapshot.balances.length > 0) && !isHealthy(latest)
                 ? { ...latest.snapshot, freshness: 'stale' as const } : latest.snapshot,
             error: isHealthy(latest) ? undefined : latest.error ?? group.find(entry => entry.error)?.error,
+            sources: group.flatMap(e => e.sources ?? [{ machineId: e.machineId, label: e.machineLabel,
+                online: e.online, refreshing: e.refreshing, message: e.error ?? e.snapshot?.message }]),
             machineIds: [...new Set(group.flatMap(e => e.machineIds))],
             machineLabel: [...new Set(group.map(e => e.machineLabel))].join(' · '),
             online: group.some(e => e.online),

@@ -1,0 +1,47 @@
+{
+  "mac": {
+    "version": "1.0.2",
+    "online": true,
+    "quotaCapability": true,
+    "results": [
+      {
+        "provider": "codex",
+        "status": "ok",
+        "elapsedMs": 1527,
+        "windows": 3,
+        "balances": 4
+      },
+      {
+        "provider": "claude",
+        "status": "ok",
+        "elapsedMs": 1465,
+        "windows": 2,
+        "balances": 1
+      }
+    ]
+  },
+  "dell": {
+    "version": "1.0.2",
+    "online": true,
+    "quotaCapability": true,
+    "results": [
+      {
+        "provider": "codex",
+        "status": "ok",
+        "elapsedMs": 3188,
+        "windows": 3,
+        "balances": 4
+      },
+      {
+        "provider": "claude",
+        "status": "ok",
+        "elapsedMs": 3243,
+        "windows": 2,
+        "balances": 1
+      }
+    ]
+  },
+  "installedBundleFilesMatchingTestedRelease": 24,
+  "credentialsPreserved": true,
+  "originalDaemonsAndSessionsPreserved": true
+}

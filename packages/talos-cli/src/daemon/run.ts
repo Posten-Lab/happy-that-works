@@ -48,6 +48,7 @@ export const initialMachineMetadata: MachineMetadata = {
   talosLibDir: projectPath(),
   cliAvailability: detectCLIAvailability(),
   resumeSupport: { ...detectResumeSupport(), rpcAvailable: true },
+  providerUsage: { rpcAvailable: true },
 };
 
 export async function startDaemon(): Promise<void> {

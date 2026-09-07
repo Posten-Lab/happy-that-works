@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useAllMachines, useSocketStatus } from '@/sync/storage';
 import { isMachineOnline } from '@/utils/machineUtils';
 import {
-    mergeProviderUsageEntries, readProviderUsage,
+    mergeProviderUsageEntries, readProviderUsage, requiresUsageCliUpdate, USAGE_CLI_UPDATE_MESSAGE,
     type ProviderUsageEntry, type UsageProvider,
 } from '@/sync/providerUsage';
 
@@ -41,6 +41,7 @@ export function useProviderUsage() {
         id: machine.id,
         label: machine.metadata?.displayName || machine.metadata?.host || 'Computer',
         online: isMachineOnline(machine),
+        needsUpdate: requiresUsageCliUpdate(machine.metadata),
     })).sort((a, b) => a.id.localeCompare(b.id)));
 
     React.useEffect(() => {
@@ -58,7 +59,7 @@ export function useProviderUsage() {
     }, []);
 
     React.useEffect(() => {
-        const descriptors = JSON.parse(machineKey) as Array<{ id: string; label: string; online: boolean }>;
+        const descriptors = JSON.parse(machineKey) as Array<{ id: string; label: string; online: boolean; needsUpdate: boolean }>;
         let cancelled = false;
         const canRead = !!scope && focused && foreground && socketStatus === 'connected';
         const requestPool = inflight.current;
@@ -72,7 +73,8 @@ export function useProviderUsage() {
                     entries[key] = {
                         ...prior, key, provider, machineId: machine.id, machineIds: [machine.id],
                         machineLabel: machine.label, online: machine.online && socketStatus === 'connected',
-                        refreshing: canRead && machine.online, snapshot: prior?.snapshot ?? null,
+                        refreshing: canRead && machine.online && !machine.needsUpdate, snapshot: prior?.snapshot ?? null,
+                        error: machine.needsUpdate ? USAGE_CLI_UPDATE_MESSAGE : prior?.error,
                     };
                 }
             }
@@ -82,7 +84,7 @@ export function useProviderUsage() {
 
         const succeeded = new Set<string>();
         const refresh = (force: boolean, onlyFailed = false, onlyKey?: string) => {
-            for (const machine of descriptors.filter(m => m.online)) {
+            for (const machine of descriptors.filter(m => m.online && !m.needsUpdate)) {
                 for (const provider of PROVIDERS) {
                     const key = `${machine.id}:${provider}`;
                     if (onlyKey && key !== onlyKey) continue;

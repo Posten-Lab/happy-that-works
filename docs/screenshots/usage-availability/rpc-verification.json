@@ -1,0 +1,154 @@
+{
+  "verifiedAt": "2026-09-07T05:17:30.762Z",
+  "transport": "actual local relay + built daemon + encrypted socket.io machine RPC",
+  "results": [
+    {
+      "provider": "codex",
+      "elapsedMs": 1272,
+      "response": {
+        "provider": "codex",
+        "status": "ok",
+        "account": {
+          "label": "[redacted account]",
+          "plan": "pro"
+        },
+        "checkedAt": 1788758250760,
+        "dataAsOf": 1788758250760,
+        "freshness": "live",
+        "windows": [
+          {
+            "id": "codex:primary",
+            "label": "Weekly limit",
+            "scope": "Codex",
+            "usedPercent": 46,
+            "remainingPercent": 54,
+            "resetsAt": 1789311885000,
+            "durationSeconds": 604800
+          },
+          {
+            "id": "codex_bengalfox:primary",
+            "label": "5-hour limit",
+            "scope": "GPT-5.3-Codex-Spark",
+            "usedPercent": 0,
+            "remainingPercent": 100,
+            "resetsAt": 1788776250000,
+            "durationSeconds": 18000
+          },
+          {
+            "id": "codex_bengalfox:secondary",
+            "label": "Weekly limit",
+            "scope": "GPT-5.3-Codex-Spark",
+            "usedPercent": 0,
+            "remainingPercent": 100,
+            "resetsAt": 1789363050000,
+            "durationSeconds": 604800
+          }
+        ],
+        "balances": [
+          {
+            "id": "codex:credits",
+            "label": "Codex credits",
+            "kind": "credits",
+            "unit": "credits",
+            "used": null,
+            "limit": null,
+            "remaining": 128.883025,
+            "usedPercent": null,
+            "unlimited": false,
+            "resetsAt": null,
+            "expiresAt": null
+          },
+          {
+            "id": "codex:resets",
+            "label": "Usage resets available",
+            "kind": "resets",
+            "unit": "count",
+            "used": null,
+            "limit": null,
+            "remaining": 2,
+            "usedPercent": null,
+            "resetsAt": null,
+            "expiresAt": null
+          },
+          {
+            "id": "codex:reset:b963d1d57562a46c5c51ab8a6020bddb645b5c8264a24e1d5b691a01c0fbfee9",
+            "label": "Full reset",
+            "kind": "resets",
+            "unit": "count",
+            "used": null,
+            "limit": null,
+            "remaining": 1,
+            "usedPercent": null,
+            "resetsAt": null,
+            "expiresAt": 1791092255000
+          },
+          {
+            "id": "codex:reset:b21a393bd2745b64cae5acb5769177c599a7e550eebf97d5a6b2f63215ea807e",
+            "label": "Full reset",
+            "kind": "resets",
+            "unit": "count",
+            "used": null,
+            "limit": null,
+            "remaining": 1,
+            "usedPercent": null,
+            "resetsAt": null,
+            "expiresAt": 1791174014000
+          }
+        ],
+        "retryAt": 1788758279579
+      }
+    },
+    {
+      "provider": "claude",
+      "elapsedMs": 978,
+      "response": {
+        "provider": "claude",
+        "status": "ok",
+        "account": {
+          "label": "[redacted account]",
+          "plan": "pro"
+        },
+        "checkedAt": 1788758250467,
+        "dataAsOf": null,
+        "freshness": "provider_cache_possible",
+        "windows": [
+          {
+            "id": "five_hour",
+            "label": "5-hour limit",
+            "usedPercent": 0,
+            "remainingPercent": 100,
+            "resetsAt": null,
+            "durationSeconds": 18000
+          },
+          {
+            "id": "seven_day",
+            "label": "Weekly limit",
+            "usedPercent": 9,
+            "remainingPercent": 91,
+            "resetsAt": 1788775199543,
+            "durationSeconds": 604800
+          }
+        ],
+        "balances": [
+          {
+            "id": "claude:extra_usage",
+            "label": "Extra usage monthly spend",
+            "kind": "spend_limit",
+            "unit": "currency",
+            "currency": "GBP",
+            "used": 0,
+            "limit": 100,
+            "remaining": 100,
+            "usedPercent": 0,
+            "unlimited": false,
+            "enabled": false,
+            "disabledReason": "out_of_credits",
+            "resetsAt": null,
+            "expiresAt": null
+          }
+        ],
+        "retryAt": 1788758279823
+      }
+    }
+  ]
+}

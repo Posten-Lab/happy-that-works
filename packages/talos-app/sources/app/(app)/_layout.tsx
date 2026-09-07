@@ -100,6 +100,10 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="settings/usage"
+                options={{ headerTitle: 'Usage & limits' }}
+            />
+            <Stack.Screen
                 name="settings/account"
                 options={{
                     headerTitle: t('settings.account'),

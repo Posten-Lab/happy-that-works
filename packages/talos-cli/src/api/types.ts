@@ -141,6 +141,7 @@ export const MachineMetadataSchema = z.object({
     openclaw: z.boolean(),
     detectedAt: z.number(),
   }).optional(),
+  providerUsage: z.object({ rpcAvailable: z.boolean() }).optional(),
   resumeSupport: z.object({
     rpcAvailable: z.boolean(),
     requiresSameMachine: z.boolean(),
