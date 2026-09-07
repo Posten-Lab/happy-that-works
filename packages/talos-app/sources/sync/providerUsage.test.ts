@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ProviderUsageSnapshot } from '@ahmadposten/talos-wire';
 const { machineRPC } = vi.hoisted(() => ({ machineRPC: vi.fn() }));
 vi.mock('./apiSocket', () => ({ apiSocket: { machineRPC } }));
-import { mergeProviderUsageEntries, readProviderUsage, type ProviderUsageEntry } from './providerUsage';
+import { partitionProviderUsageEntries, mergeProviderUsageEntries, readProviderUsage, type ProviderUsageEntry } from './providerUsage';
 
 function snapshot(overrides: Partial<ProviderUsageSnapshot> = {}): ProviderUsageSnapshot {
     return {
@@ -77,5 +77,30 @@ describe('account scope', () => {
         expect(result[0].online).toBe(true);
         expect(result[0].snapshot?.freshness).toBe('stale');
         expect(result[0].error).toBe('Refresh failed');
+    });
+});
+
+describe('accounts versus connections', () => {
+    it('shows one account per verified identity and no phantom accounts for old/offline/unsigned machines', () => {
+        const merged = mergeProviderUsageEntries([
+            entry('mac'), entry('dell'),
+            entry('mac', { provider: 'claude', snapshot: snapshot({ provider: 'claude', account: { id: 'claude-a', label: 'Claude' } }) }),
+            entry('dell', { provider: 'claude', snapshot: snapshot({ provider: 'claude', account: { id: 'claude-a', label: 'Claude' } }) }),
+            entry('old', { snapshot: null, error: 'Update Talos' }),
+            entry('offline', { snapshot: null, online: false }),
+            entry('unsigned', { snapshot: snapshot({ account: null, status: 'unauthenticated', windows: [] }) }),
+            entry('unverified', { snapshot: snapshot({ account: { label: 'Pro' } }) }),
+        ]);
+        const result = partitionProviderUsageEntries(merged);
+        expect(result.accounts.map(e => e.provider)).toEqual(['codex', 'claude']);
+        expect(result.accounts.every(e => e.machineIds.length === 2)).toBe(true);
+        expect(result.connections.flatMap(e => e.machineIds).sort()).toEqual(['offline', 'old', 'unsigned', 'unverified']);
+        expect(result.connections.find(e => e.machineId === 'unverified')?.snapshot?.windows).toHaveLength(1);
+    });
+    it('preserves truly different accounts, including identical display names', () => {
+        const result = partitionProviderUsageEntries(mergeProviderUsageEntries([
+            entry('mac'), entry('dell', { snapshot: snapshot({ account: { id: 'other', label: 'Pro' } }) }),
+        ]));
+        expect(result.accounts).toHaveLength(2);
     });
 });

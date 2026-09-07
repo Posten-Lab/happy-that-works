@@ -1,3 +1,4 @@
+import { partitionProviderUsageEntries } from '@/sync/providerUsage';
 import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -259,7 +260,6 @@ function AccountCard({ entry, now, width }: { entry: ProviderUsageEntry; now: nu
     const snapshot = entry.snapshot;
     const hasData = !!snapshot && (snapshot.windows.length > 0 || snapshot.balances.length > 0);
     const stale = !entry.online || snapshot?.freshness === 'stale';
-    const provider = entry.provider === 'codex' ? 'Codex' : 'Claude';
     const badge = !entry.online ? 'Offline' : entry.refreshing ? 'Checking' : stale ? 'Saved reading' : snapshot?.account?.plan;
     const freshness = !entry.online ? 'Last saved reading'
         : snapshot?.freshness === 'stale' ? 'Saved reading · may be out of date'
@@ -352,6 +352,44 @@ function LimitsToWatch({ entries, now }: { entries: ProviderUsageEntry[]; now: n
     );
 }
 
+/** Sources without a verified identity never become account cards. Their
+ * diagnostics and any unidentified readings remain available on demand. */
+function UsageConnections({ entries, now }: { entries: ProviderUsageEntry[]; now: number }) {
+    const { theme } = useUnistyles();
+    const [expanded, setExpanded] = React.useState(false);
+    if (!entries.length) return null;
+    const machines = new Set(entries.flatMap(entry => entry.machineIds));
+    const checking = entries.some(entry => entry.refreshing);
+    return <View style={[styles.card, { width: '100%' }]} testID="usage-connections">
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
+            accessibilityLabel="Connection details" onPress={() => setExpanded(value => !value)}
+            style={[styles.cardHeader, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
+            <Ionicons name="desktop-outline" size={20} color={theme.colors.textSecondary} />
+            <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.account}>Connection details</Text>
+                <Text style={styles.small}>{checking ? 'Checking connected computers…' : `${machines.size} ${machines.size === 1 ? 'computer has' : 'computers have'} unverified connections`}</Text>
+            </View>
+            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.colors.textSecondary} />
+        </Pressable>
+        {expanded && <View style={{ padding: 20, gap: 20 }}>
+            <Text style={styles.small}>These connections have not identified an account. They are not additional subscriptions.</Text>
+            {entries.map(entry => <View key={entry.key} style={{ gap: 8 }}>
+                <Text style={styles.account}>{entry.provider === 'codex' ? 'Codex' : 'Claude'}</Text>
+                {(entry.sources ?? [{ machineId: entry.machineId, label: entry.machineLabel, online: entry.online, refreshing: entry.refreshing, message: entry.error ?? entry.snapshot?.message }]).map(source =>
+                    <View key={source.machineId} style={{ gap: 3 }}>
+                        <Text style={styles.account}>{source.label}</Text>
+                        <Text style={styles.small}>{!source.online ? 'Offline' : source.refreshing ? 'Checking…' : source.message ?? 'Account identity could not be verified. Update Talos on this computer and refresh.'}</Text>
+                    </View>)}
+                {!!entry.snapshot?.windows.length && <>
+                    <Text style={styles.notice}>Usage reported by this computer · account unverified</Text>
+                    {sortUsageWindows(entry.snapshot.windows).map(window => <LimitWindow key={window.id} window={window} primary={false} now={now} />)}
+                </>}
+                {!!entry.snapshot?.balances.length && entry.snapshot.balances.map((balance, index) => <Balance key={balance.id} balance={balance} first={index === 0} now={now} />)}
+            </View>)}
+        </View>}
+    </View>;
+}
+
 export const AccountUsageDashboard = React.memo(function AccountUsageDashboard({ entries, loading, refreshing, refresh, machineCount }: AccountUsageDashboardProps) {
     const { theme } = useUnistyles();
     const [now, setNow] = React.useState(Date.now);
@@ -360,7 +398,7 @@ export const AccountUsageDashboard = React.memo(function AccountUsageDashboard({
         const interval = setInterval(() => setNow(Date.now()), 15_000);
         return () => clearInterval(interval);
     }, []);
-    const orderedEntries = React.useMemo(() => [...entries].sort((a, b) => a.provider === b.provider ? 0 : a.provider === 'codex' ? -1 : 1), [entries]);
+    const { accounts: orderedEntries, connections } = React.useMemo(() => partitionProviderUsageEntries(entries), [entries]);
     const cardWidth = contentWidth >= 800 ? (contentWidth - 18) / 2 : '100%';
     const providers = ['codex', 'claude'] as const;
     return (
@@ -409,12 +447,13 @@ export const AccountUsageDashboard = React.memo(function AccountUsageDashboard({
                     <View style={styles.card}>
                         <View style={styles.empty}>
                             <View style={styles.emptyIcon}>{loading ? <ActivityIndicator color={theme.colors.accent} /> : <Ionicons name="desktop-outline" size={28} color={theme.colors.accent} />}</View>
-                            <Text style={styles.emptyTitle}>{loading ? 'Finding your accounts' : machineCount === 0 ? 'Your limits start here' : 'No supported providers found'}</Text>
+                            <Text style={styles.emptyTitle}>{loading ? 'Finding your accounts' : machineCount === 0 ? 'Your limits start here' : 'No accounts identified yet'}</Text>
                             <Text style={styles.emptyDescription}>{loading ? 'Checking your connected machines.' : machineCount === 0 ? 'Connect a machine running Talos, then sign in to Codex or Claude there. Your account limits will appear here.' : 'Install and sign in to Codex or Claude on a connected machine to see its account limits.'}</Text>
                         </View>
                     </View>
                 )}
             </View>
+            <UsageConnections entries={connections} now={now} />
             <View style={styles.footnote}>
                 <Ionicons name="information-circle-outline" size={15} color={theme.colors.textSecondary} style={{ marginTop: 1 }} />
                 <Text style={[styles.small, { flex: 1 }]}>These are your provider’s account allowances, including usage outside Talos. Separate accounts and model limits are shown individually.</Text>
