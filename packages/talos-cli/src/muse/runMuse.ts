@@ -10,7 +10,7 @@ export function runMuse(opts: { credentials: Credentials; startedBy?: 'daemon' |
     startingMode?: 'local' | 'remote'; resumeId?: string; nativeArgs?: string[] }) {
     return runManagedProvider({ ...opts, flavor: 'muse',
         startingMode: opts.startingMode ?? (opts.startedBy === 'daemon' ? 'remote' : 'local'),
-        create: (callbacks, talosSessionId) => {
+        create: (callbacks, talosSessionId, sessionToolsUrl) => {
             const directory = join(configuration.talosHomeDir, 'muse');
             const journal = join(directory, `${createHash('sha256').update(talosSessionId).digest('hex')}.commands`);
             return new MuseSession(process.cwd(), callbacks, opts.nativeArgs, {
@@ -35,7 +35,7 @@ export function runMuse(opts: { credentials: Credentials; startedBy?: 'daemon' |
                     writeFileSync(`${target}.tmp`, JSON.stringify(state), { mode: 0o600 });
                     renameSync(`${target}.tmp`, target);
                 },
-            });
+            }, sessionToolsUrl);
         },
     });
 }

@@ -1,20 +1,66 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mock = vi.hoisted(() => ({ connect: vi.fn() }));
 vi.mock('./museClient', () => ({ connectMuse: mock.connect, museExecutable: () => 'muse' }));
+vi.mock('./museSessionBridge', () => ({ ensureMuseSessionPlugin: vi.fn(), registerMuseSessionBridge: vi.fn(async () => vi.fn()), museSessionInstructions: () => 'Use the Talos session tools.' }));
 import { MuseSession } from './MuseSession';
 
-function fixture() {
+function fixture(sessionToolsUrl?: string) {
     let notify: (method: string, params: any) => void = () => {};
-    const command = vi.fn(async (method: string) => method.startsWith('session/') ? { session: { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' }, history: { mode: 'inline', items: [] } } : { turnId: 'turn-1' });
+    const command = vi.fn(async (method: string, _params?: unknown, _options?: unknown) => method.startsWith('session/') ? { session: { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' }, history: { mode: 'inline', items: [] } } : { turnId: 'turn-1' });
     const request = vi.fn(async (_method: string) => ({ models: [], session: { modelId: 'muse-spark-1.3-contributor', providerId: 'meta' } } as any));
     const close = vi.fn(async () => {});
     const host = { connection: { command, request, mintCommandId: () => 'turn-1' }, close, exited: new Promise(() => {}) };
     mock.connect.mockImplementation(async (_: string, callback: typeof notify) => { notify = callback; return host; });
     const callbacks = { message: vi.fn(), metadata: vi.fn(), mode: vi.fn(), activity: vi.fn(), notice: vi.fn(), permission: vi.fn(async () => ({ decision: 'denied' as const })), exited: vi.fn() };
-    return { session: new MuseSession('/tmp', callbacks), callbacks, command, request, close, notify: (method: string, params: any) => notify(method, params) };
+    return { session: new MuseSession('/tmp', callbacks, [], undefined, undefined, sessionToolsUrl), callbacks, command, request, close, notify: (method: string, params: any) => notify(method, params) };
 }
 beforeEach(() => vi.clearAllMocks());
 describe('MuseSession lifecycle', () => {
+    it('introduces session tools once while preserving the displayed user prompt', async () => {
+        const f = fixture('http://127.0.0.1:1234'); await f.session.start();
+        f.command.mockImplementation(async method => {
+            if (method === 'turn/start') f.notify('turn/completed', { turnId: 'turn-1' });
+            return { turnId: 'turn-1' } as any;
+        });
+        await f.session.prompt('Review the file');
+        expect(f.command).toHaveBeenCalledWith('turn/start', expect.objectContaining({
+            displayText: 'Review the file', input: [{ type: 'text', text: expect.stringContaining('Use the Talos session tools.') }],
+        }), expect.anything());
+        await f.session.prompt('Continue');
+        expect(f.command).toHaveBeenLastCalledWith('turn/start', expect.objectContaining({ input: [{ type: 'text', text: 'Continue' }] }), expect.anything());
+        expect(f.command.mock.calls.at(-1)?.[1]).not.toHaveProperty('displayText');
+        await f.session.dispose();
+    });
+    it('forwards live todo updates and ignores other sessions', async () => {
+        const f = fixture(); await f.session.start();
+        const params = { sessionId: 'native-id', viewCursor: 'todo-1', items: [{ text: 'Verify', status: 'inProgress' }] };
+        f.notify('session/todoListChanged', { ...params, sessionId: 'another-session' });
+        expect(f.callbacks.message).not.toHaveBeenCalled();
+        f.notify('session/todoListChanged', params);
+        f.notify('session/todoListChanged', params);
+        expect(f.callbacks.message).toHaveBeenCalledTimes(2);
+        expect(f.callbacks.message.mock.calls[1][0].data.output.newTodos).toEqual([{ content: 'Verify', status: 'in_progress' }]);
+        await f.session.dispose();
+    });
+    it('restores todos from a snapshot without replaying older plans', async () => {
+        const f = fixture();
+        f.command.mockResolvedValue({ session: { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' }, history: {
+            mode: 'snapshot', snapshot: { viewCursor: 'snapshot-1', state: { items: [], todoList: { items: [{ text: 'Verify', status: 'completed' }] } } },
+        } } as any);
+        await f.session.start();
+        expect(f.callbacks.message.mock.calls[1][0].data.output.newTodos).toEqual([{ content: 'Verify', status: 'completed' }]);
+        expect(f.request).not.toHaveBeenCalledWith('view/page', expect.anything());
+        await f.session.dispose();
+    });
+    it('restores todo events even when resume includes inline transcript items', async () => {
+        const f = fixture();
+        f.request.mockImplementation(async method => method === 'view/page' ? {
+            events: [{ method: 'session/todoListChanged', params: { viewCursor: 'todo-1', items: [] } }], nextCursor: null,
+        } : { models: [] });
+        await f.session.start();
+        expect(f.callbacks.message.mock.calls[1][0].data.output.newTodos).toEqual([]);
+        await f.session.dispose();
+    });
     it('completes a turn whose terminal arrives before its command ack', async () => {
         const f = fixture(); await f.session.start();
         f.command.mockImplementation(async (method) => {

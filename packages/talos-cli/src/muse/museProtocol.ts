@@ -1,5 +1,6 @@
 import type { ACPMessageData } from '@/api/apiSession';
 import type { PermissionResult } from '@/utils/BasePermissionHandler';
+import { createHash } from 'node:crypto';
 
 export type JsonObject = Record<string, unknown>;
 export function object(value: unknown): JsonObject {
@@ -20,6 +21,24 @@ export class MuseMessageMapper {
 
     submitted(commandId: string) { this.submittedCommands.add(commandId); }
 
+    /** Native todo snapshots replace the full shared task list, including clears. */
+    todos(raw: unknown, cursor: string): MuseMessage[] {
+        const state = object(raw);
+        if (!Array.isArray(state.items)) return [];
+        const todos = state.items.map(object).filter(item => item.status !== 'cancelled').map(item => ({
+            content: text(item.text),
+            status: item.status === 'inProgress' || item.status === 'in_progress' ? 'in_progress'
+                : item.status === 'completed' ? 'completed' : 'pending',
+        }));
+        const id = `muse:todos:${createHash('sha256').update(JSON.stringify([cursor, todos])).digest('hex')}`;
+        if (this.emitted.has(id)) return [];
+        this.emitted.add(id);
+        return [
+            { id: `${id}:start`, data: { type: 'tool-call', callId: id, id, name: 'TodoWrite', input: { todos } } },
+            { id: `${id}:result`, data: { type: 'tool-result', callId: id, id, output: { newTodos: todos } } },
+        ];
+    }
+
     map(raw: unknown): MuseMessage[] {
         const item = object(raw);
         const id = text(item.itemId);
@@ -36,6 +55,8 @@ export class MuseMessageMapper {
             let input: unknown = item.args;
             try { input = JSON.parse(text(item.args)); } catch { /* Preserve malformed provider input. */ }
             const name = museToolName(item.tool ?? item.toolName);
+            // The authoritative todo event drives Talos's task panel; omit its raw tool row.
+            if (name === 'write_todos') return [];
             if (name === 'AskUserQuestion') input = { ...object(input), questions: (Array.isArray(object(input).questions) ? object(input).questions as unknown[] : []).map(raw => {
                 const q = object(raw);
                 return { ...q, allowFreeText: true, multiSelect: object(q.selection).mode === 'multiple' };

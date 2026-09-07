@@ -477,7 +477,7 @@ export class ApiSessionClient extends EventEmitter {
 
     async uploadLocalImageAttachmentEnvelope(
         attachment: LocalImageAttachment,
-        opts: Pick<CreateEnvelopeOptions, 'id' | 'time' | 'claudeUuid' | 'codexItemId'> = {},
+        opts: Pick<CreateEnvelopeOptions, 'id' | 'time' | 'turn' | 'claudeUuid' | 'codexItemId'> = {},
         role: SessionRole = 'user',
     ): Promise<SessionEnvelope> {
         const blobKey = await this.getBlobKey();

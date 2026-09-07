@@ -1,3 +1,9 @@
+# Muse session tools
+
+- Muse tool calls use compact progress rows. Tap a row to inspect its details.
+- Muse task plans appear in the shared task panel and survive resume and terminal handoff.
+- Muse can name and rename chats and share local images through Talos session tools.
+
 # Muse Code controls
 
 Choose how Muse works from your phone, browser, or terminal.

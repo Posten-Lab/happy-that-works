@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ManagedProviderCallbacks } from './runManagedProvider';
 
-const { createApi, setupOffline, stopSessionRecovery } = vi.hoisted(() => ({
-    createApi: vi.fn(), setupOffline: vi.fn(), stopSessionRecovery: vi.fn(),
+const { createApi, setupOffline, stopSessionRecovery, stopTools } = vi.hoisted(() => ({
+    createApi: vi.fn(), setupOffline: vi.fn(), stopSessionRecovery: vi.fn(), stopTools: vi.fn(),
 }));
+vi.mock('@/claude/utils/startTalosServer', () => ({ startTalosServer: async () => ({ url: 'http://127.0.0.1:1234', stop: stopTools }) }));
 vi.mock('@/api/api', () => ({ ApiClient: { create: createApi } }));
 vi.mock('@/persistence', () => ({ readSettings: async () => ({ machineId: 'machine-1' }) }));
 vi.mock('@/daemon/run', () => ({ initialMachineMetadata: {} }));
@@ -40,7 +41,9 @@ describe('managed provider recovery lifecycle', () => {
         const promise = runManagedProvider({
             credentials: {} as any,
             flavor: 'muse', startingMode: 'remote',
-            create(next) {
+            create(next, sessionId, sessionToolsUrl) {
+                expect(sessionId).toBe(session.sessionId);
+                expect(sessionToolsUrl).toBe('http://127.0.0.1:1234');
                 callbacks = next;
                 return {
                     async start() {
@@ -64,5 +67,6 @@ describe('managed provider recovery lifecycle', () => {
         expect(metadata.lifecycleState === 'archived').toBe(expectedStop);
         expect(session.sendSessionDeath).toHaveBeenCalledOnce();
         expect(session.close).toHaveBeenCalledOnce();
+        expect(stopTools).toHaveBeenCalledOnce();
     });
 });

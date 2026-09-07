@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 
 describe('publishLocalImage', () => {
-    it('uploads image bytes as an agent attachment and sends its envelope', async () => {
+    it('uploads a renderable agent attachment with a protocol turn', async () => {
         const dir = await mkdtemp(join(tmpdir(), 'talos-present-image-'));
         tempDirs.push(dir);
         const path = join(dir, 'chart.png');
@@ -30,7 +30,7 @@ describe('publishLocalImage', () => {
             size: png.length,
             mimeType: 'image/png',
         });
-        const upload = vi.fn().mockResolvedValue(envelope);
+        const upload = vi.fn(async (_attachment, opts) => createEnvelope('agent', envelope.ev, opts));
         const send = vi.fn();
         const client = {
             uploadLocalImageAttachmentEnvelope: upload,
@@ -43,8 +43,8 @@ describe('publishLocalImage', () => {
             data: png,
             mimeType: 'image/png',
             name: 'Portfolio chart',
-        }, {}, 'agent');
-        expect(send).toHaveBeenCalledWith(envelope);
+        }, { turn: expect.any(String) }, 'agent');
+        expect(send).toHaveBeenCalledWith(expect.objectContaining({ role: 'agent', turn: expect.any(String), ev: envelope.ev }));
     });
 
     it('rejects files that are not supported images', async () => {
