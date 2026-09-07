@@ -28,6 +28,33 @@ describe('MuseSession lifecycle', () => {
         await Promise.all([f.session.dispose(), f.session.dispose()]);
         expect(f.close).toHaveBeenCalledTimes(1);
     });
+    it('recovers a resumed turn without treating an incomplete live fold as failure', async () => {
+        const f = fixture(); await f.session.start('native-id');
+        let pages = 0;
+        f.request.mockImplementation(async method => {
+            if (method === 'view/page') return { events: ++pages === 1
+                ? [{ method: 'turn/completed', params: { turnId: 'turn-1', terminal: 'failed', reason: 'incomplete' } }]
+                : [{ method: 'item/completed', params: { item: { itemId: 'recovered', kind: 'agentMessage', status: 'completed', text: 'recovered reply' } } },
+                   { method: 'turn/completed', params: { turnId: 'turn-1', terminal: 'completed' } }], nextCursor: null };
+            return { session: { modelId: 'muse-spark-1.3-contributor', providerId: 'meta' }, viewCursor: 'observed-cursor' };
+        });
+        await f.session.prompt('hello');
+        expect(pages).toBe(2);
+        expect(f.request).toHaveBeenCalledWith('view/page', expect.objectContaining({ cursor: 'observed-cursor' }));
+        expect(f.callbacks.message).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ message: 'recovered reply' }) }));
+        await f.session.dispose();
+    }, 10000);
+    it.each([['yolo', 'approved'], ['bypassPermissions', 'approved'], ['never', 'denied']])('handles native approval requests without prompting in %s mode', async (mode, decision) => {
+        const f = fixture();
+        const session = new MuseSession('/tmp', f.callbacks, mode === 'yolo' ? ['--yolo'] : mode === 'never' ? ['--approval-mode', 'never'] : ['--disable-approval']);
+        await session.start();
+        f.notify('approval/requested', { sessionId: 'native-id', approvalId: 'approval', toolName: 'bash', rawArgs: '{"command":"true"}',
+            currentRequirementId: { approvalId: 'approval', sourceIndex: 0 },
+            availableChoices: [{ choiceId: 'allow-once', decision: 'approved', scope: 'once' }, { choiceId: 'deny', decision: 'denied', scope: 'once' }] });
+        await vi.waitFor(() => expect(f.command).toHaveBeenCalledWith('approval/decide', expect.objectContaining({ choiceId: decision === 'approved' ? 'allow-once' : 'deny' })));
+        expect(f.callbacks.permission).not.toHaveBeenCalled();
+        await session.dispose();
+    });
     it('restores snapshot items from state and suppresses repeated history', async () => {
         const f = fixture();
         const item = { itemId: 'a', kind: 'agentMessage', status: 'completed', text: 'previous answer' };
@@ -134,4 +161,43 @@ describe('MuseSession lifecycle', () => {
         expect(f.command.mock.calls.some(([method]) => method === 'turn/start')).toBe(false);
         await f.session.dispose();
     });
+    it('applies every approval policy and restarts the host only when sandbox posture changes', async () => {
+        const f = fixture(); await f.session.start();
+        f.command.mockImplementation(async (method) => {
+            if (method === 'turn/start') f.notify('turn/completed', { turnId: 'turn-1' });
+            return { session: { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' } } as any;
+        });
+        for (const [permissionMode, native] of [['default', 'promptUnmatched'], ['safe-yolo', 'onRequest'], ['never', 'denyUnmatched'], ['bypassPermissions', 'allowAll'], ['yolo', 'allowAll']]) {
+            await f.session.prompt('hello', { permissionMode, effort: 'max' });
+            expect(f.command).toHaveBeenCalledWith('session/setApprovalMode', { sessionId: 'native-id', mode: native });
+        }
+        expect(mock.connect).toHaveBeenCalledTimes(2);
+        expect(mock.connect).toHaveBeenLastCalledWith('/tmp', expect.any(Function), ['--disable-sandbox', '--trust-workspace']);
+        expect(f.command).toHaveBeenCalledWith('turn/start', expect.objectContaining({ reasoningEffort: 'xhigh' }), expect.anything());
+        await f.session.prompt('hello', { permissionMode: 'default', effort: 'none' });
+        expect(mock.connect).toHaveBeenCalledTimes(3);
+        expect(mock.connect).toHaveBeenLastCalledWith('/tmp', expect.any(Function), []);
+        expect(f.session.sessionId).toBe('native-id');
+        await f.session.dispose();
+    });
+
+    it('restores persisted controls before connecting a resumed host', async () => {
+        const f = fixture();
+        const store = { load: vi.fn(() => ({ permissionMode: 'yolo', effort: 'ultra' as const, hostArgs: [] })), save: vi.fn() };
+        const session = new MuseSession('/tmp', f.callbacks, [], undefined, store);
+        await session.start('native-id');
+        expect(mock.connect).toHaveBeenCalledWith('/tmp', expect.any(Function), ['--disable-sandbox', '--trust-workspace']);
+        expect(f.callbacks.metadata).toHaveBeenLastCalledWith(expect.objectContaining({ currentOperatingModeCode: 'yolo', currentReasoningEffort: 'ultra' }));
+        expect(store.save).toHaveBeenCalledWith('native-id', { permissionMode: 'yolo', effort: 'ultra', hostArgs: [] });
+        await session.dispose();
+    });
+
+    it('rejects invalid effort before submitting or changing approval settings', async () => {
+        const f = fixture(); await f.session.start();
+        await expect(f.session.prompt('hello', { effort: 'invented', permissionMode: 'yolo' })).rejects.toThrow('Unsupported Muse reasoning effort');
+        expect(mock.connect).toHaveBeenCalledTimes(1);
+        expect(f.command.mock.calls.some(([method]) => method === 'turn/start' || method === 'session/setApprovalMode')).toBe(false);
+        await f.session.dispose();
+    });
+
 });

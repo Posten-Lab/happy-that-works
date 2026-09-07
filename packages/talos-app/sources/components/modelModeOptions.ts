@@ -130,7 +130,13 @@ export function getOpenClawPermissionModes(translate: Translate): PermissionMode
 }
 
 export function getHardcodedPermissionModes(flavor: AgentFlavor, translate: Translate): PermissionMode[] {
-    if (flavor === 'muse') return [{ key: 'default', name: 'Ask before untrusted actions' }, { key: 'safe-yolo', name: 'Ask when Muse requests approval' }];
+    if (flavor === 'muse') return [
+        { key: 'default', name: 'Untrusted actions', description: 'Ask before untrusted actions.' },
+        { key: 'safe-yolo', name: 'On request', description: 'Ask when Muse requests approval.' },
+        { key: 'never', name: 'Never prompt (deny unmatched)', description: 'Deny actions that require approval.' },
+        { key: 'bypassPermissions', name: 'Bypass approvals', description: 'Skip approvals without changing sandbox settings.' },
+        { key: 'yolo', name: 'YOLO (no approvals or sandbox)', description: 'Disable approvals and sandboxing, and trust the workspace.' },
+    ];
     if (flavor === 'codex') {
         return getCodexPermissionModes(translate);
     }
@@ -226,6 +232,12 @@ export function getDefaultPermissionModeKey(flavor: AgentFlavor): string {
 
 // Effort levels per agent type
 
+export function getMuseEffortLevels(): EffortLevel[] {
+    return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map(key => ({
+        key, name: key, ...(key === 'max' ? { description: 'Native Muse alias for xhigh.' } : key === 'ultra' ? { description: 'Availability is controlled by Muse; the native CLI may fall back to xhigh.' } : {}),
+    }));
+}
+
 export function getClaudeEffortLevels(): EffortLevel[] {
     return [
         { key: 'low', name: 'low' },
@@ -252,6 +264,7 @@ export function getCodexEffortLevels(): EffortLevel[] {
 }
 
 export function getHardcodedEffortLevels(flavor: AgentFlavor): EffortLevel[] {
+    if (flavor === 'muse') return getMuseEffortLevels();
     if (flavor === 'claude') return getClaudeEffortLevels();
     if (flavor === 'codex') return getCodexEffortLevels();
     return [];
@@ -267,6 +280,7 @@ export function getEffortLevelsForModel(
     modelKey: string,
     metadata?: ModelMetadata | null,
 ): EffortLevel[] {
+    if (flavor === 'muse') return getMuseEffortLevels();
     if (flavor === 'claude' || flavor === 'codex') {
         const metadataModels = mapMetadataOptions(metadata?.models);
         const selectedModel = modelKey === 'default'

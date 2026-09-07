@@ -34,7 +34,7 @@ export function parseMuseArgs(args: string[]) {
 
 export async function handleMuseCommand(args: string[]) {
     if (args.includes('--help') || args.includes('-h')) {
-        console.log('talos muse [--resume <muse-session-uuid>] [--talos-starting-mode local|remote] [-- <native options>]\n\nLaunch the native Muse terminal, then continue the same session in Talos. Model changes are temporarily disabled; use Muse Spark 1.3 Contributor.\nInstall Muse from https://dev.meta.ai and authenticate with: muse login');
+        console.log('talos muse [--resume <muse-session-uuid>] [--talos-starting-mode local|remote] [-- <native options>]\n\nLaunch the native Muse terminal, then continue the same session in Talos. Model changes are temporarily disabled; use Muse Spark 1.3 Contributor.\n\nNative controls after --:\n  --reasoning-effort none|minimal|low|medium|high|xhigh|max|ultra\n  --approval-mode untrusted|on-request|never\n  --disable-approval (keep sandbox settings)\n  --yolo (skip approvals and disable sandbox)\nEffort and approval choices persist across Talos resume and terminal handoff.\nInstall Muse from https://dev.meta.ai and authenticate with: muse login');
         return;
     }
     const options = parseMuseArgs(args);

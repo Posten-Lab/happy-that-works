@@ -1,3 +1,4 @@
+import { museEffortLevels } from './museControls';
 import { museSupportedModel, museSupportedProvider } from './museModelPolicy';
 import { spawnMspConnection, type SpawnedMspConnection } from '@muse-code/sdk';
 import { accessSync, constants } from 'node:fs';
@@ -17,8 +18,8 @@ export function museExecutable(): string {
     try { accessSync(installed, constants.X_OK); return installed; } catch { return 'muse'; }
 }
 
-export async function connectMuse(cwd: string, onNotification: (method: string, params: JsonObject) => void = () => {}): Promise<SpawnedMspConnection> {
-    const handshake = spawnMspConnection({ command: museExecutable(), args: ['serve'], cwd,
+export async function connectMuse(cwd: string, onNotification: (method: string, params: JsonObject) => void = () => {}, hostArgs: string[] = []): Promise<SpawnedMspConnection> {
+    const handshake = spawnMspConnection({ command: museExecutable(), args: ['serve', ...hostArgs], cwd,
         shutdownTimeoutMs: 10_000, onStderr: chunk => logger.debug(`[Muse] ${chunk}`) });
     handshake.onNotification(n => onNotification(n.method, object(n.params)));
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -42,6 +43,7 @@ export async function discoverMuseModels(cwd: string) {
         const response = await host.connection.request('model/list', {});
         return (Array.isArray(response.models) ? response.models : []).map(object).filter(m => m.modelId === museSupportedModel && m.providerId === museSupportedProvider).map(m => ({
             code: 'default', value: 'Muse Spark 1.3 Contributor (fixed)', description: 'Model changes are temporarily disabled to preserve resume and handoff.', isDefault: true,
+            supportedReasoningEfforts: museEffortLevels.map(code => ({ code, value: code })), defaultReasoningEffort: 'high',
         }));
     } finally { await host.close(); }
 }

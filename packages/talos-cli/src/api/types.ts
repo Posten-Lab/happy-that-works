@@ -343,6 +343,7 @@ export type Metadata = {
   currentModelCode?: string,
   operatingModes?: Array<{ code: string; value: string; description?: string | null }>,
   currentOperatingModeCode?: string,
+  currentReasoningEffort?: string,
   thoughtLevels?: Array<{ code: string; value: string; description?: string | null }>,
   currentThoughtLevelCode?: string,
   path: string,

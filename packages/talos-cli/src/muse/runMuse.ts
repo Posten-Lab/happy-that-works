@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { configuration } from '@/configuration';
@@ -21,6 +21,19 @@ export function runMuse(opts: { credentials: Credentials; startedBy?: 'daemon' |
                 record(id) {
                     mkdirSync(directory, { recursive: true, mode: 0o700 });
                     appendFileSync(journal, `${id}\n`, { mode: 0o600 });
+                },
+            }, {
+                load(id) {
+                    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Invalid Muse session identity');
+                    try { return JSON.parse(readFileSync(join(directory, `${id}.controls.json`), 'utf8')); }
+                    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
+                },
+                save(id, state) {
+                    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Invalid Muse session identity');
+                    mkdirSync(directory, { recursive: true, mode: 0o700 });
+                    const target = join(directory, `${id}.controls.json`);
+                    writeFileSync(`${target}.tmp`, JSON.stringify(state), { mode: 0o600 });
+                    renameSync(`${target}.tmp`, target);
                 },
             });
         },

@@ -25,6 +25,7 @@ export const MetadataSchema = z.preprocess(normalizeMetadata, z.object({
         description: z.string().nullish(),
     })).optional(),
     currentOperatingModeCode: z.string().optional(),
+    currentReasoningEffort: z.string().optional(),
     thoughtLevels: z.array(z.object({
         code: z.string(),
         value: z.string(),
