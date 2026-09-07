@@ -23,3 +23,27 @@ Already installed `talos-1` binaries cannot be relabelled. One native migration 
 The real authenticated `eas fingerprint:generate --build-profile production --platform ios --json --non-interactive` command and `expo-updates runtimeversion:resolve --platform ios --workflow managed` returned the same hash for the candidate. Production release preflight and brand verification passed. Native delivery and a real OTA publish are verified separately after merge; local checks are not claimed as publication.
 
 Reference: [Expo runtime versions](https://docs.expo.dev/eas-update/runtime-versions/).
+
+## Migration build environment correction
+
+EAS build 20 (`50da5496-bef1-477d-b7ad-e64a9a1fb336`) stopped before compilation
+because the remote runtime differed. The EAS fingerprint diff identified only
+one hashed difference: `expoConfig.android.intentFilters` was empty remotely.
+Jenkins supplied `EXPO_PUBLIC_TALOS_WEBAPP_URL`, while the production EAS profile
+did not. The additional generated `ios` source had a null hash and did not
+contribute to the runtime. No native directory exclusion or hash override was added.
+
+The production profile now carries the public server URL, app URL, and install
+command used by Jenkins. A configuration regression test compares the worker
+and runner inputs; the actual Expo runtime verification also resolves both
+environments and requires equality before any cloud build.
+
+Validation on 2026-09-07:
+- 40 mobile release/store-continuity tests passed.
+- Real Expo runtime resolver verified repeatability, worker/runner equivalence,
+  JavaScript-only compatibility and native plugin invalidation.
+- Isolated pnpm install runtime: `86d99034771c86a8c2ff5ad743c06e0650f848f6`.
+- Real `expo prebuild --platform ios --no-install` retained exactly that runtime
+  before/after generation. Generated native output was removed afterward.
+- Replacement cloud build and production OTA delivery remain separate required
+  deployment checks; these local checks do not claim a successful store delivery.

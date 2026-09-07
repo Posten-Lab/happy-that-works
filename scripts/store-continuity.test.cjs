@@ -78,3 +78,15 @@ test('native fingerprint ignores commit labels but retains native compatibility 
     assert.notEqual(fileHookTransform(source, JSON.stringify(config)), fileHookTransform(source, JSON.stringify({ ...config, runtimeVersion: 'talos-2' })));
     assert.equal(fileHookTransform({ type: 'file', id: 'other' }, 'untouched'), 'untouched');
 });
+
+// Regression: build 20 lost production deep links because these values existed
+// only in Jenkins, changing the runtime when EAS evaluated app.config.js.
+test('EAS production worker retains the same native config as the release runner', () => {
+    const profile = JSON.parse(fs.readFileSync(path.join(appDirectory, 'eas.json'), 'utf8')).build.production.env;
+    const pipeline = fs.readFileSync(path.join(__dirname, '../deploy/mobile/Jenkinsfile'), 'utf8');
+    const runner = { APP_ENV: 'production' };
+    for (const [, key, value] of pipeline.matchAll(/(EXPO_PUBLIC_TALOS_\w+) = '([^']+)'/g)) runner[key] = value;
+    for (const [key, value] of Object.entries(runner)) assert.equal(profile[key], value, `${key} must reach EAS`);
+    assert.deepEqual(loadConfig(profile), loadConfig(runner));
+    assert.ok(loadConfig(profile).android.intentFilters.length > 0);
+});
