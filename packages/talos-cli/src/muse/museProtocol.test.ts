@@ -23,6 +23,15 @@ describe('Muse transcript mapping', () => {
         expect(events[0].data).toMatchObject({ callId: 'tool1', name: 'Bash', input: { command: 'false' } });
         expect(events[1].data).toMatchObject({ callId: 'tool1', isError: true, output: 'exit 1' });
     });
+    it('maps native question tools and persisted answers into the existing question UI', () => {
+        const events = new MuseMessageMapper().map({ itemId: 'question', kind: 'toolCall', status: 'completed', tool: 'request_user_input',
+            args: JSON.stringify({ questions: [{ id: 'color', question: 'Which color?', options: [{ label: 'Blue' }], selection: { mode: 'single' } }] }),
+            visibleOutput: JSON.stringify({ status: 'answered', answers: [{ id: 'color', selected_label: 'Blue' }] }),
+        });
+        expect(events[0].data).toMatchObject({ name: 'AskUserQuestion', input: { questions: [{ allowFreeText: true, multiSelect: false }] } });
+        expect(events[1].data).toMatchObject({ output: { answers: { 'Which color?': 'Blue' } } });
+    });
+
     it('does not expose raw reasoning text', () => {
         const mapper = new MuseMessageMapper();
         expect(mapper.map({ itemId: 'r', kind: 'reasoning', status: 'completed', text: 'private', summary: ['Public summary'] })[0].data).toEqual({ type: 'reasoning', message: 'Public summary' });

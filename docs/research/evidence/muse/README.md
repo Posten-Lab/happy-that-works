@@ -222,3 +222,10 @@ seeded account; the app/daemon resume path was the path validated here.
 Stale Muse model preferences in existing session settings and saved message
 snapshots are now ignored by the updated app, preventing an invisible old model
 choice from trapping the fixed-model UI. Native routing checks remain authoritative.
+
+A fresh browser test also caught `request_user_input` being labeled as a generic
+tool, which could show approval buttons in place of the answer form. Native
+question tools now map to the existing AskUserQuestion component, and native
+persisted answer results are normalized to the same answer map as live replies.
+The updated 18 adapter/protocol tests pass. A second real provider process (13623)
+also exited normally after SIGTERM with the shared shutdown fix.

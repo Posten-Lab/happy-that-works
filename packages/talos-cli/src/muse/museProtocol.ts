@@ -8,7 +8,7 @@ export function object(value: unknown): JsonObject {
 export function text(value: unknown): string { return typeof value === 'string' ? value : ''; }
 
 export function museToolName(name: unknown): string {
-    return name === 'bash' ? 'Bash' : text(name) || 'Muse tool';
+    return name === 'bash' ? 'Bash' : name === 'request_user_input' ? 'AskUserQuestion' : text(name) || 'Muse tool';
 }
 
 export type MuseMessage = { id: string; user?: string; data?: ACPMessageData };
@@ -35,9 +35,31 @@ export class MuseMessageMapper {
         if (item.kind === 'toolCall') {
             let input: unknown = item.args;
             try { input = JSON.parse(text(item.args)); } catch { /* Preserve malformed provider input. */ }
-            emit('start', { data: { type: 'tool-call', callId: id, id, name: museToolName(item.tool ?? item.toolName), input } });
+            const name = museToolName(item.tool ?? item.toolName);
+            if (name === 'AskUserQuestion') input = { ...object(input), questions: (Array.isArray(object(input).questions) ? object(input).questions as unknown[] : []).map(raw => {
+                const q = object(raw);
+                return { ...q, allowFreeText: true, multiSelect: object(q.selection).mode === 'multiple' };
+            }) };
+            let output = item.visibleOutput ?? item.failureReason ?? item.result ?? '';
+            if (name === 'AskUserQuestion' && completed) {
+                let answer: unknown = output;
+                try { answer = JSON.parse(text(output)); } catch { /* Native results may already be structured. */ }
+                if (Array.isArray(object(answer).answers)) {
+                    const questions = (object(input).questions as JsonObject[]) ?? [];
+                    const answers: Record<string, string> = {};
+                    for (const raw of object(answer).answers as unknown[]) {
+                        const a = object(raw);
+                        const q = questions.find(q => q.id === (a.id ?? a.questionId));
+                        if (!q) continue;
+                        const labels = a.selected_labels ?? a.selectedLabels;
+                        answers[text(q.question)] = text(a.selected_label ?? a.selectedLabel ?? a.free_text ?? a.freeText) || (Array.isArray(labels) ? labels.map(text).join(', ') : '');
+                    }
+                    output = { answers };
+                }
+            }
+            emit('start', { data: { type: 'tool-call', callId: id, id, name, input } });
             if (completed) emit('result', { data: { type: 'tool-result', callId: id, id,
-                output: item.visibleOutput ?? item.failureReason ?? item.result ?? '', isError: item.status !== 'completed' } });
+                output, isError: item.status !== 'completed' } });
         } else if (completed && item.kind === 'userMessage') {
             if (!item.retracted && !this.submittedCommands.has(text(item.commandId)) && text(item.text)) {
                 emit('user', { user: text(item.displayText) || text(item.text) });
