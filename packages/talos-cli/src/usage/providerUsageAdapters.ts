@@ -1,3 +1,4 @@
+import { readClaudeUsageIdentity, matchClaudeUsageIdentity } from './claudeUsageIdentity';
 import { query, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { ProviderUsageSnapshot, UsageProvider } from '@ahmadposten/talos-wire';
 import { CodexAppServerClient } from '@/codex/codexAppServerClient';
@@ -38,6 +39,7 @@ export const readClaudeUsage: UsageAdapter = async (resolve) => {
     const closed = new Promise<void>((done) => { releaseInput = done; });
     async function* idleInput(): AsyncGenerator<SDKUserMessage> { await closed; }
     const controller = new AbortController();
+    const identityBefore = await readClaudeUsageIdentity();
     const client = query({
         prompt: idleInput(),
         options: {
@@ -56,7 +58,17 @@ export const readClaudeUsage: UsageAdapter = async (resolve) => {
         const usage = client.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET;
         if (typeof usage !== 'function') return emptyUsage('claude', 'unsupported', Date.now(), 'This Claude SDK version cannot read plan usage.');
         const account = await client.accountInfo();
-        return resolve(claudeAccountKey(account), async () => normalizeClaudeUsage(account, await usage.call(client)));
+        const identity = matchClaudeUsageIdentity(account, identityBefore, await readClaudeUsageIdentity());
+        const result = await resolve(claudeAccountKey(account) ?? identity, async () => {
+            const snapshot = normalizeClaudeUsage(account, await usage.call(client));
+            if (snapshot.account && identity) snapshot.account.id = identity;
+            return snapshot;
+        });
+        // Do not attribute a reading (including a cached one) after a sign-in switch.
+        if (identity && matchClaudeUsageIdentity(account, identityBefore, await readClaudeUsageIdentity()) !== identity) {
+            return emptyUsage('claude', 'unavailable', Date.now(), 'Your Claude sign-in changed. Refresh to read the current account.');
+        }
+        return result;
     }, () => { releaseInput(); controller.abort(); client.close(); });
 };
 

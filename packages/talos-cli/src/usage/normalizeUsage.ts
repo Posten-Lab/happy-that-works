@@ -107,9 +107,8 @@ export function normalizeCodexUsage(accountResponse: unknown, limitsResponse: un
 
 export function claudeAccountKey(accountInfo: unknown): string | undefined {
     const account = record(accountInfo);
-    // Current SDK accountInfo exposes email and organization *name*, not immutable IDs.
-    // Do not equate identically named workspaces or claim cross-machine identity.
-    // Accept explicit IDs only if a future SDK adds them to this same-query response.
+    // Both immutable user and organization IDs are required: names and plans
+    // cannot distinguish separate accounts or workspaces.
     return typeof account?.accountId === 'string' && account.accountId.trim() && typeof account.organizationId === 'string' && account.organizationId.trim()
         ? identityHash('claude', [account.accountId, account.organizationId]) : undefined;
 }

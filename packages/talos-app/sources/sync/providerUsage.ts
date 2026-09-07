@@ -88,3 +88,11 @@ export function mergeProviderUsageEntries(entries: readonly ProviderUsageEntry[]
     }).sort((a, b) => (a.provider === b.provider ? 0 : a.provider === 'codex' ? -1 : 1)
         || a.machineLabel.localeCompare(b.machineLabel));
 }
+
+/** A machine lookup is a source, not evidence of another subscription. */
+export function partitionProviderUsageEntries(entries: readonly ProviderUsageEntry[]) {
+    return {
+        accounts: entries.filter(entry => !!entry.snapshot?.account?.id),
+        connections: entries.filter(entry => !entry.snapshot?.account?.id),
+    };
+}

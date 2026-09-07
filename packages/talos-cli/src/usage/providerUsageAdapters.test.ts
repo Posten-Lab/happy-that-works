@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ query: vi.fn(), connect: vi.fn(), disconnect: vi.fn(), readAccount: vi.fn(), readAccountRateLimits: vi.fn() }));
+const mocks = vi.hoisted(() => ({ identity: vi.fn(), query: vi.fn(), connect: vi.fn(), disconnect: vi.fn(), readAccount: vi.fn(), readAccountRateLimits: vi.fn() }));
+vi.mock('./claudeUsageIdentity', async (original) => ({ ...await original<typeof import('./claudeUsageIdentity')>(), readClaudeUsageIdentity: mocks.identity }));
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: mocks.query }));
 vi.mock('@/codex/codexAppServerClient', () => ({ CodexAppServerClient: class {
     connect = mocks.connect; disconnect = mocks.disconnect; readAccount = mocks.readAccount; readAccountRateLimits = mocks.readAccountRateLimits;
@@ -45,6 +46,25 @@ describe('provider usage adapter lifecycle', () => {
         expect(args.options.abortController.signal.aborted).toBe(true);
         expect(close).toHaveBeenCalledOnce();
         expect(usage).toHaveBeenCalledOnce();
+    });
+
+    it('attaches the same stable Claude identity on separate machines', async () => {
+        const metadata = { accountId: 'user', organizationId: 'org', email: 'a@example.com', organization: 'Workspace' };
+        mocks.identity.mockResolvedValue(metadata);
+        mocks.query.mockReturnValue({ accountInfo: async () => ({ email: metadata.email, organization: metadata.organization, apiProvider: 'firstParty' }),
+            usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: async () => ({ rate_limits_available: true, rate_limits: { five_hour: { utilization: 10 } } }), close: vi.fn() });
+        const first = await readClaudeUsage(resolve);
+        const second = await readClaudeUsage(resolve);
+        expect(first.account?.id).toMatch(/^[a-f0-9]{64}$/);
+        expect(second.account?.id).toBe(first.account?.id);
+    });
+
+    it('discards a reading when Claude switches accounts during usage retrieval', async () => {
+        const metadata = { accountId: 'user', organizationId: 'org', email: 'a@example.com', organization: 'Workspace' };
+        mocks.identity.mockResolvedValueOnce(metadata).mockResolvedValueOnce(metadata).mockResolvedValueOnce({ ...metadata, accountId: 'other' });
+        mocks.query.mockReturnValue({ accountInfo: async () => ({ email: metadata.email, organization: metadata.organization, apiProvider: 'firstParty' }),
+            usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: async () => ({ rate_limits_available: true, rate_limits: { five_hour: { utilization: 10 } } }), close: vi.fn() });
+        expect(await readClaudeUsage(resolve)).toMatchObject({ status: 'unavailable', account: null, windows: [] });
     });
 
     it('reports an unsupported Claude method without calling the model', async () => {

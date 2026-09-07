@@ -1,0 +1,13 @@
+{
+  "accountCards": {
+    "claude": 1,
+    "codex": 1
+  },
+  "noHorizontalOverflow": true,
+  "phantomAccounts": 0,
+  "quotaMeters": 5,
+  "sourcesPerAccount": [
+    2,
+    2
+  ]
+}

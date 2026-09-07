@@ -1,0 +1,48 @@
+{
+  "verifiedAt": "2026-09-07T06:41:24.077Z",
+  "transport": "Two real Mac/Dell candidate daemons, isolated real relay, encrypted machine RPC, installed signed-in providers, no model turns",
+  "matchingAccountIdentities": {
+    "codex": true,
+    "claude": true
+  },
+  "machines": [
+    {
+      "machine": "Computer 1",
+      "results": [
+        {
+          "provider": "codex",
+          "elapsedMs": 1099,
+          "windows": 3,
+          "balances": 4,
+          "verifiedIdentity": true
+        },
+        {
+          "provider": "claude",
+          "elapsedMs": 958,
+          "windows": 2,
+          "balances": 1,
+          "verifiedIdentity": true
+        }
+      ]
+    },
+    {
+      "machine": "Computer 2",
+      "results": [
+        {
+          "provider": "codex",
+          "elapsedMs": 1489,
+          "windows": 3,
+          "balances": 4,
+          "verifiedIdentity": true
+        },
+        {
+          "provider": "claude",
+          "elapsedMs": 1389,
+          "windows": 2,
+          "balances": 1,
+          "verifiedIdentity": true
+        }
+      ]
+    }
+  ]
+}
