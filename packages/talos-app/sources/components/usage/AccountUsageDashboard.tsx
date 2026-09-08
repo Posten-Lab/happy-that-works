@@ -3,9 +3,10 @@ import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import type { ProviderUsageBalance, ProviderUsageWindow } from '@ahmadposten/talos-wire';
+import type { ProviderUsageBalance, ProviderUsageWindow, UsageProvider } from '@ahmadposten/talos-wire';
 import { Text } from '@/components/StyledText';
 import type { ProviderUsageEntry } from '@/sync/providerUsage';
+import { UsageProviderCarousel } from './UsageProviderCarousel';
 import {
     balanceRemainingSuffix, checkedAgo, disabledUsageState, formatAllowance, formatRemainingPercent, formatUsageDate,
     resetCountdown, severityLabels, sortUsageWindows, usageSeverity, type UsageSeverity,
@@ -354,9 +355,9 @@ function LimitsToWatch({ entries, now }: { entries: ProviderUsageEntry[]; now: n
 
 /** Sources without a verified identity never become account cards. Their
  * diagnostics and any unidentified readings remain available on demand. */
-function UsageConnections({ entries, now }: { entries: ProviderUsageEntry[]; now: number }) {
+function UsageConnections({ entries, now, initiallyExpanded = false }: { entries: ProviderUsageEntry[]; now: number; initiallyExpanded?: boolean }) {
     const { theme } = useUnistyles();
-    const [expanded, setExpanded] = React.useState(false);
+    const [expanded, setExpanded] = React.useState(initiallyExpanded);
     if (!entries.length) return null;
     const machines = new Set(entries.flatMap(entry => entry.machineIds));
     const checking = entries.some(entry => entry.refreshing);
@@ -394,13 +395,35 @@ export const AccountUsageDashboard = React.memo(function AccountUsageDashboard({
     const { theme } = useUnistyles();
     const [now, setNow] = React.useState(Date.now);
     const [contentWidth, setContentWidth] = React.useState(0);
+    const [selectedProvider, setSelectedProvider] = React.useState<UsageProvider>('codex');
     React.useEffect(() => {
         const interval = setInterval(() => setNow(Date.now()), 15_000);
         return () => clearInterval(interval);
     }, []);
     const { accounts: orderedEntries, connections } = React.useMemo(() => partitionProviderUsageEntries(entries), [entries]);
     const cardWidth = contentWidth >= 800 ? (contentWidth - 18) / 2 : '100%';
+    const mobile = contentWidth > 0 && contentWidth < 800;
     const providers = ['codex', 'claude'] as const;
+    const pages = providers.flatMap(provider => {
+        const accounts = orderedEntries.filter(entry => entry.provider === provider);
+        const providerConnections = connections.filter(entry => entry.provider === provider);
+        if (!accounts.length && (!mobile || !providerConnections.length)) return [];
+        const label = provider === 'codex' ? 'Codex' : 'Claude';
+        return [{ id: provider, label, content: <View style={{ gap: 12 }} testID={`usage-provider-group-${provider}`}>
+            <View style={[styles.providerRow, { paddingHorizontal: 4 }]}>
+                <View style={styles.providerIcon}>
+                    <Ionicons name={provider === 'codex' ? 'terminal-outline' : 'sparkles-outline'} size={22} color={theme.colors.accent} />
+                </View>
+                <View>
+                    <Text style={styles.provider} accessibilityRole="header">{label}</Text>
+                    <Text style={styles.providerDescription}>{provider === 'codex' ? 'OpenAI' : 'Anthropic'}</Text>
+                </View>
+            </View>
+            {accounts.map(entry => <AccountCard key={entry.key} entry={entry} now={now} width="100%" />)}
+            {mobile && <UsageConnections entries={providerConnections} now={now} initiallyExpanded={accounts.length === 0} />}
+        </View> }];
+    });
+    const carousel = mobile && pages.length > 1;
     return (
         <View style={styles.dashboard}>
             <View style={styles.heading}>
@@ -426,24 +449,12 @@ export const AccountUsageDashboard = React.memo(function AccountUsageDashboard({
                 </Pressable>
             </View>
             <LimitsToWatch entries={orderedEntries} now={now} />
-            <View style={styles.grid} onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}>
-                {providers.map(provider => {
-                    const accounts = orderedEntries.filter(entry => entry.provider === provider);
-                    if (!accounts.length) return null;
-                    return <View key={provider} style={{ width: cardWidth, gap: 12 }} testID={`usage-provider-group-${provider}`}>
-                        <View style={[styles.providerRow, { paddingHorizontal: 4 }]}>
-                            <View style={styles.providerIcon}>
-                                <Ionicons name={provider === 'codex' ? 'terminal-outline' : 'sparkles-outline'} size={22} color={theme.colors.accent} />
-                            </View>
-                            <View>
-                                <Text style={styles.provider} accessibilityRole="header">{provider === 'codex' ? 'Codex' : 'Claude'}</Text>
-                                <Text style={styles.providerDescription}>{provider === 'codex' ? 'OpenAI' : 'Anthropic'}</Text>
-                            </View>
-                        </View>
-                        {accounts.map(entry => <AccountCard key={entry.key} entry={entry} now={now} width="100%" />)}
-                    </View>;
-                })}
-                {orderedEntries.length === 0 && (
+            <View onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}>
+                {carousel ? <UsageProviderCarousel pages={pages} width={contentWidth} selectedProvider={selectedProvider} onSelect={setSelectedProvider} />
+                    : <View style={styles.grid}>
+                        {pages.map(page => <View key={page.id} style={{ width: cardWidth }}>{page.content}</View>)}
+                    </View>}
+                {pages.length === 0 && (
                     <View style={styles.card}>
                         <View style={styles.empty}>
                             <View style={styles.emptyIcon}>{loading ? <ActivityIndicator color={theme.colors.accent} /> : <Ionicons name="desktop-outline" size={28} color={theme.colors.accent} />}</View>
@@ -453,7 +464,7 @@ export const AccountUsageDashboard = React.memo(function AccountUsageDashboard({
                     </View>
                 )}
             </View>
-            <UsageConnections entries={connections} now={now} />
+            {!mobile && <UsageConnections entries={connections} now={now} />}
             <View style={styles.footnote}>
                 <Ionicons name="information-circle-outline" size={15} color={theme.colors.textSecondary} style={{ marginTop: 1 }} />
                 <Text style={[styles.small, { flex: 1 }]}>These are your provider’s account allowances, including usage outside Talos. Separate accounts and model limits are shown individually.</Text>

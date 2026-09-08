@@ -1,0 +1,611 @@
+{
+  "at": "2026-09-08T05:04:40.675Z",
+  "environment": "Isolated real relay and built daemon; authenticated Codex; Claude signed out. No synthetic provider snapshots.",
+  "results": [
+    {
+      "check": "Live Codex allowance, selected tab and page height",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "true",
+          "focused": true
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "false",
+          "focused": false
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": false,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": true,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 1154,
+        "x": 0
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 1644
+    },
+    {
+      "check": "Tab press opens real Claude signed-out state",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": true
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 308,
+        "x": 350
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 798
+    },
+    {
+      "check": "Refresh retains selected Claude page",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": false
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 308,
+        "x": 350
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 798
+    },
+    {
+      "check": "ArrowLeft selects and focuses Codex",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "true",
+          "focused": true
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "false",
+          "focused": false
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": false,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": true,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 1154,
+        "x": 0
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 1644
+    },
+    {
+      "check": "End selects Claude",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": true
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 308,
+        "x": 350
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 798
+    },
+    {
+      "check": "Home selects Codex",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "true",
+          "focused": true
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "false",
+          "focused": false
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": false,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": true,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 1154,
+        "x": 0
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 1644
+    },
+    {
+      "check": "ArrowLeft wraps to Claude",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": true
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 308,
+        "x": 350
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 798
+    },
+    {
+      "check": "Real touch swipe right selects Codex",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "true",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "false",
+          "focused": true
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": false,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": true,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 1154,
+        "x": 0
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 1595
+    },
+    {
+      "check": "Real touch swipe left selects Claude",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": true
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 308,
+        "x": 350
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 712
+    },
+    {
+      "check": "Phone resize retains Claude and realigns offset",
+      "width": 430,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": true
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 390,
+        "height": 308,
+        "x": 390
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 798
+    },
+    {
+      "check": "Small phone has no horizontal overflow",
+      "width": 320,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": true
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1172
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 362
+        }
+      ],
+      "pager": {
+        "width": 280,
+        "height": 362,
+        "x": 280
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 900
+    },
+    {
+      "check": "Desktop retains grid and connection details",
+      "width": 1280,
+      "overflow": false,
+      "tabs": [],
+      "panels": [],
+      "pager": null,
+      "liveCodexMeters": 3,
+      "claudeSignedOut": false,
+      "historyTop": 1633
+    },
+    {
+      "check": "Returning to mobile retains Claude",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": false
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 308,
+        "x": 350
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 798
+    },
+    {
+      "check": "Light theme Codex",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "true",
+          "focused": true
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "false",
+          "focused": false
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": false,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": true,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 1154,
+        "x": 0
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 1644
+    },
+    {
+      "check": "Light theme Claude",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": true
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 308,
+        "x": 350
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 798
+    },
+    {
+      "check": "Light theme return to mobile",
+      "width": 390,
+      "overflow": false,
+      "tabs": [
+        {
+          "id": "usage-tab-codex",
+          "selected": "false",
+          "focused": false
+        },
+        {
+          "id": "usage-tab-claude",
+          "selected": "true",
+          "focused": false
+        }
+      ],
+      "panels": [
+        {
+          "id": "usage-page-codex",
+          "inert": true,
+          "height": 1154
+        },
+        {
+          "id": "usage-page-claude",
+          "inert": false,
+          "height": 308
+        }
+      ],
+      "pager": {
+        "width": 350,
+        "height": 308,
+        "x": 350
+      },
+      "liveCodexMeters": 3,
+      "claudeSignedOut": true,
+      "historyTop": 798
+    }
+  ],
+  "checks": {
+    "typecheck": "passed",
+    "appTests": {
+      "files": 74,
+      "passed": 777
+    },
+    "focusedUsageTests": {
+      "files": 3,
+      "passed": 24,
+      "includedInAppTotal": true
+    },
+    "browserErrors": []
+  },
+  "screenshots": [
+    {
+      "file": "desktop-dark.png",
+      "sha256": "a6c024d04b970b70dcb1547ec95d521da0de8f29a91156392144df6f1d7267c0"
+    },
+    {
+      "file": "desktop-light.png",
+      "sha256": "841ca60e5030a66a31e00cf675b65ab6f8096dbb1f1271abfb9e8f9e036177ff"
+    },
+    {
+      "file": "mobile-claude-dark.png",
+      "sha256": "3f1d73f20c3c0201e93987d7cb2bbe243eb5048abfd58762064cd92dec2dfe18"
+    },
+    {
+      "file": "mobile-claude-light.png",
+      "sha256": "af69808c82c3fd3cdc0cb8431debb96149f4172e3011ef5e6ab8ccd0ef0f7614"
+    },
+    {
+      "file": "mobile-codex-dark.png",
+      "sha256": "2861a8db27fb578260f6e9237bf7b865d9a7a3156bf8a70da8f12620772ca139"
+    },
+    {
+      "file": "mobile-codex-light.png",
+      "sha256": "db278b910948a8ac2ddbb5776cf082c6d002db8aeaf2eedbed516d0c34067edf"
+    }
+  ]
+}
