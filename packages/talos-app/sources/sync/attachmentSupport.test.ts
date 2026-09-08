@@ -6,11 +6,12 @@ import {
 } from './attachmentSupport';
 
 describe('supportsImageAttachmentsForFlavor', () => {
-    it('supports legacy sessions, Claude, and Codex', () => {
+    it('supports legacy sessions, Claude, Codex, and Muse', () => {
         expect(supportsImageAttachmentsForFlavor(undefined)).toBe(true);
         expect(supportsImageAttachmentsForFlavor(null)).toBe(true);
         expect(supportsImageAttachmentsForFlavor('claude')).toBe(true);
         expect(supportsImageAttachmentsForFlavor('codex')).toBe(true);
+        expect(supportsImageAttachmentsForFlavor('muse')).toBe(true);
     });
 
     it('rejects Gemini, OpenClaw, and unknown explicit flavors', () => {
@@ -21,9 +22,9 @@ describe('supportsImageAttachmentsForFlavor', () => {
 });
 
 describe('getImageAttachmentSendPlan', () => {
-    it('uses attachments and sends text for Codex', () => {
+    it.each(['codex', 'muse'])('uses attachments and sends image-only messages for %s', (flavor) => {
         expect(getImageAttachmentSendPlan({
-            flavor: 'codex',
+            flavor,
             text: '',
             attachmentCount: 1,
         })).toEqual({

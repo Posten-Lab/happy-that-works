@@ -238,8 +238,15 @@ Current limits:
 
 - Text messages are emitted from authoritative completed items; live token deltas
   are not rendered. Tool starts/results and activity events are forwarded.
-- App attachments are explicitly rejected with the existing attachment-status event.
-  Native workspace file access remains Muse's own behavior.
+- App attachments are supported when Image Upload is enabled in Features. PNG,
+  JPEG, GIF and WebP bytes are sent as native MSP image inputs. Other files
+  (including documents and unsupported image formats) are saved privately under
+  `TALOS_HOME_DIR/muse/attachments/<native-session-hash>/` and referenced for Muse's
+  native tools; what Muse can interpret depends on those tools. Files remain in
+  that cache across resume and terminal handoff, following the existing Codex
+  persistent-cache approach; no automatic cache expiry is implemented.
+  Downloads and native admission report per-file accepted/rejected status.
+  See [attachment validation](evidence/muse-attachments/README.md).
 - Talos-specific MCP tools are not injected. Existing native Muse configuration is
   inherited; dynamic MCP/tool registration needs separate verification.
 - Fixed-model multi-turn inference, resume, external model-change rejection,

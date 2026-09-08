@@ -1,3 +1,6 @@
+import { prepareMuseAttachments } from './museAttachments';
+import type { PendingAttachment } from '@/utils/MessageQueue2';
+import type { FileStatusReason } from '@/api/types';
 import { parseMuseControls, museEffort, museWireEffort, museHostArgs, museTerminalArgs, musePermissionFromNative, museEffortLevels, type MuseControlState, type MuseControlStore } from './museControls';
 import { assertMuseNativeArgs, assertMuseRoute, museModelRestriction, museSupportedModel } from './museModelPolicy';
 import { realpathSync } from 'node:fs';
@@ -16,11 +19,13 @@ export interface MuseSessionCallbacks {
     notice(message: string): void;
     permission(id: string, tool: string, input: unknown): Promise<PermissionResult>;
     cancelPermission?(id: string): void;
+    fileStatus?(ref: string, status: 'accepted' | 'rejected', reason?: FileStatusReason): void;
     exited(error?: Error): void;
 }
 
 /** Owns only the native process/protocol boundary. Talos owns transport and UI. */
 export class MuseSession {
+    readonly supportsAttachments = true;
     private host: SpawnedMspConnection | null = null;
     private hostArguments: string[] = [];
     private nativeHandoff = false;
@@ -405,7 +410,7 @@ export class MuseSession {
         try { await this.nativeExit; } finally { clearTimeout(timer); this.nativeExit = null; }
     }
 
-    async prompt(prompt: string, options: { model?: string | null; permissionMode?: string; effort?: string } = {}) {
+    async prompt(prompt: string, options: { model?: string | null; permissionMode?: string; effort?: string } = {}, attachments: PendingAttachment[] = []) {
         await this.switchMode('remote');
         let host = this.host;
         if (!host) throw new Error('Muse is not connected');
@@ -444,6 +449,9 @@ export class MuseSession {
         this.controls.effort = effort;
         this.persistControls();
         this.callbacks.metadata({ currentOperatingModeCode: this.permissionMode, currentReasoningEffort: effort });
+        const prepared = await prepareMuseAttachments(attachments, this.sessionId);
+        for (const rejected of prepared.rejected) this.callbacks.fileStatus?.(rejected.ref, 'rejected', rejected.reason);
+        if (!prompt.trim() && prepared.input.length === 0) return;
         const commandId = host.connection.mintCommandId();
         this.submissions?.record(commandId);
         this.mapper.submitted(commandId);
@@ -452,13 +460,17 @@ export class MuseSession {
         void done.catch(() => {});
         try {
             const ack = await host.connection.command('turn/start', { sessionId: this.sessionId,
-                input: [{ type: 'text', text: this.needsSessionInstructions
+                input: [...prepared.input, { type: 'text', text: this.needsSessionInstructions
                     ? `Talos session instructions:\n${museSessionInstructions()}\n\nUser message:\n${prompt}` : prompt }],
                 ...(this.needsSessionInstructions ? { displayText: prompt } : {}),
                 reasoningEffort: museWireEffort(effort) }, { commandId });
+            for (const ref of prepared.accepted) this.callbacks.fileStatus?.(ref, 'accepted');
             this.needsSessionInstructions = false;
             this.setTurnId(text(ack.turnId) || commandId);
-        } catch (error) { this.finishTurn(error instanceof Error ? error : new Error(String(error))); }
+        } catch (error) {
+            for (const ref of prepared.accepted) this.callbacks.fileStatus?.(ref, 'rejected', 'unsupported');
+            this.finishTurn(error instanceof Error ? error : new Error(String(error)));
+        }
         let recovering = false;
         const recover = async () => {
             if (recovering || !this.turn || this.host !== host) return;

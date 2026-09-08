@@ -2,7 +2,7 @@ import { reconnectMetadata } from '@/daemon/recovery/reconnectMetadata';
 import { randomUUID } from 'node:crypto';
 import { ApiClient } from '@/api/api';
 import type { ApiSessionClient, ACPMessageData } from '@/api/apiSession';
-import type { Metadata, Session } from '@/api/types';
+import type { FileStatusReason, Metadata, Session } from '@/api/types';
 import { type Credentials, readSettings } from '@/persistence';
 import { initialMachineMetadata } from '@/daemon/run';
 import { notifyDaemonSessionStarted } from '@/daemon/controlClient';
@@ -10,7 +10,8 @@ import { encodeBase64, decodeBase64 } from '@/api/encryption';
 import { createSessionMetadata, type BackendFlavor } from '@/utils/createSessionMetadata';
 import { setupOfflineReconnection } from '@/utils/setupOfflineReconnection';
 import { BasePermissionHandler, type PermissionResult } from '@/utils/BasePermissionHandler';
-import { MessageQueue2 } from '@/utils/MessageQueue2';
+import { downloadFileEventAttachment } from '@/utils/attachmentEvents';
+import { type PendingAttachment, MessageQueue2 } from '@/utils/MessageQueue2';
 import { hashObject } from '@/utils/deterministicJson';
 import { registerKillSessionHandler } from '@/claude/registerKillSessionHandler';
 import { logger } from '@/ui/logger';
@@ -26,11 +27,13 @@ export interface ManagedProviderCallbacks {
     notice(message: string): void;
     permission(id: string, tool: string, input: unknown): Promise<PermissionResult>;
     cancelPermission?(id: string): void;
+    fileStatus(ref: string, status: 'accepted' | 'rejected', reason?: FileStatusReason): void;
     exited(error?: Error): void;
 }
 export interface ManagedProvider {
+    readonly supportsAttachments?: boolean;
     start(resumeId?: string, mode?: 'local' | 'remote'): Promise<void>;
-    prompt(prompt: string, options: ProviderPromptOptions): Promise<void>;
+    prompt(prompt: string, options: ProviderPromptOptions, attachments?: PendingAttachment[]): Promise<void>;
     switchMode(mode: 'local' | 'remote'): Promise<void>;
     cancel(): Promise<void>;
     dispose(): Promise<void>;
@@ -157,6 +160,7 @@ export async function runManagedProvider(opts: {
         notice(message) { session.sendSessionEvent({ type: 'message', message }); logger.debug(`[${opts.flavor}] ${message}`); },
         permission: (id, tool, input) => permissions.request(id, tool, input),
         cancelPermission: id => permissions.cancel(id),
+        fileStatus: (ref, status, reason) => session.sendFileStatus(ref, status, reason),
         exited(error) {
             failure = error;
             if (!error && !systemTermination && !cleaningUp) stopRecovery();
@@ -170,19 +174,36 @@ export async function runManagedProvider(opts: {
         await session.close();
         throw error;
     }
+    let incomingMessages = Promise.resolve();
     function bind() {
-        session.onFileEvent(message => {
-            session.sendFileStatus(message.content.data.ev.ref, 'rejected', 'unsupported');
-            session.sendSessionEvent({ type: 'message', message: 'This provider currently accepts text prompts. Open files from the native CLI workspace.' });
+        const boundSession = session;
+        boundSession.onFileEvent(message => {
+            if (driver.supportsAttachments) {
+                boundSession.trackAttachmentDownload(downloadFileEventAttachment(boundSession, message));
+            } else {
+                boundSession.sendFileStatus(message.content.data.ev.ref, 'rejected', 'unsupported');
+                boundSession.sendSessionEvent({ type: 'message', message: 'This provider currently accepts text prompts. Open files from the native CLI workspace.' });
+            }
         });
-        session.onUserMessage(message => {
-            if (!message.content.text) return;
+        boundSession.onUserMessage(message => {
+            // Claim synchronously at the text boundary, before another file event
+            // can arrive. Wait in arrival order so slow downloads cannot reorder turns.
+            const attachments = driver.supportsAttachments
+                ? boundSession.drainAttachmentsForUserMessage() : Promise.resolve([]);
             currentPromptOptions = {
                 model: message.meta?.model !== undefined ? message.meta.model : currentPromptOptions.model,
                 permissionMode: message.meta?.permissionMode ?? currentPromptOptions.permissionMode,
                 effort: message.meta?.hasOwnProperty('effort') ? message.meta.effort ?? undefined : currentPromptOptions.effort,
             };
-            queue.push(message.content.text, currentPromptOptions);
+            const promptOptions = currentPromptOptions;
+            incomingMessages = incomingMessages.then(async () => {
+                const resolved = await attachments;
+                if (ending || (!message.content.text && resolved.length === 0)) return;
+                if (resolved.length > 0) queue.pushIsolated(message.content.text, promptOptions, resolved);
+                else queue.push(message.content.text, promptOptions);
+            }).catch(error => {
+                boundSession.sendSessionEvent({ type: 'message', message: `Could not prepare message: ${String(error)}` });
+            });
         });
         session.rpcHandlerManager.registerHandler('abort', async () => { permissions.abortAll(); await driver.cancel(); });
         session.rpcHandlerManager.registerHandler<{ to: 'local' | 'remote' }, boolean>('switch', async ({ to }) => {
@@ -213,7 +234,7 @@ export async function runManagedProvider(opts: {
         while (!ending) {
             const batch = await queue.waitForMessagesAndGetAsString(new AbortController().signal);
             if (!batch || ending) break;
-            try { await driver.prompt(batch.message, batch.mode); }
+            try { await driver.prompt(batch.message, batch.mode, batch.attachments); }
             catch (error) { session.sendSessionEvent({ type: 'message', message: String(error) }); }
             finally { thinking = false; session.keepAlive(false, mode); session.sendSessionEvent({ type: 'ready' }); }
         }
