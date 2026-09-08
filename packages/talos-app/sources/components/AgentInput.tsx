@@ -869,7 +869,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 // Read live text from the textarea — `hasText` is debounced via
                 // startTransition and would lag behind a quick type-then-Enter.
                 const liveText = inputRef.current?.getText() ?? '';
-                if (liveText.trim()) {
+                if (liveText.trim() || hasImages) {
                     if (isSendBlocked) {
                         handleBlockedSendAttempt();
                     } else if (!props.isSendDisabled) {
@@ -889,7 +889,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
         }
         return false; // Key was not handled
-    }, [suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.showAbortButton, props.onAbort, isAborting, handleAbortPress, agentInputEnterToSend, props.onSend, props.onPermissionModeChange, availableModes, permissionModeKey, isSendBlocked, handleBlockedSendAttempt, props.isSendDisabled]);
+    }, [hasImages, suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.showAbortButton, props.onAbort, isAborting, handleAbortPress, agentInputEnterToSend, props.onSend, props.onPermissionModeChange, availableModes, permissionModeKey, isSendBlocked, handleBlockedSendAttempt, props.isSendDisabled]);
 
 
 
@@ -1380,7 +1380,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     style={[
                                         styles.sendButton,
                                         isSendBlocked ? styles.sendButtonLocked :
-                                        (hasText || props.isSending || (props.onMicPress && !props.isMicActive))
+                                        (hasText || hasImages || props.isSending || (props.onMicPress && !props.isMicActive))
                                             ? styles.sendButtonActive
                                             : styles.sendButtonInactive
                                     ]}
@@ -1408,7 +1408,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 size={15}
                                                 color={theme.colors.textSecondary}
                                             />
-                                        ) : hasText ? (
+                                        ) : (hasText || hasImages) ? (
                                             <Octicons
                                                 name="arrow-up"
                                                 size={16}

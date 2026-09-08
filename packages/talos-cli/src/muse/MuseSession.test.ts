@@ -11,7 +11,7 @@ function fixture(sessionToolsUrl?: string) {
     const close = vi.fn(async () => {});
     const host = { connection: { command, request, mintCommandId: () => 'turn-1' }, close, exited: new Promise(() => {}) };
     mock.connect.mockImplementation(async (_: string, callback: typeof notify) => { notify = callback; return host; });
-    const callbacks = { message: vi.fn(), metadata: vi.fn(), mode: vi.fn(), activity: vi.fn(), notice: vi.fn(), permission: vi.fn(async () => ({ decision: 'denied' as const })), exited: vi.fn() };
+    const callbacks = { fileStatus: vi.fn(), message: vi.fn(), metadata: vi.fn(), mode: vi.fn(), activity: vi.fn(), notice: vi.fn(), permission: vi.fn(async () => ({ decision: 'denied' as const })), exited: vi.fn() };
     return { session: new MuseSession('/tmp', callbacks, [], undefined, undefined, sessionToolsUrl), callbacks, command, request, close, notify: (method: string, params: any) => notify(method, params) };
 }
 beforeEach(() => vi.clearAllMocks());
@@ -246,4 +246,48 @@ describe('MuseSession lifecycle', () => {
         await f.session.dispose();
     });
 
+});
+
+
+describe('MuseSession attachment submission', () => {
+    const attachment = { ref: 'image-ref', data: Buffer.from('89504e470d0a1a0a', 'hex'), mimeType: 'image/png', name: 'photo.png' };
+    it('submits image-only input and accepts only after native admission', async () => {
+        const f = fixture(); await f.session.start();
+        f.command.mockImplementation(async method => {
+            if (method === 'turn/start') {
+                expect(f.callbacks.fileStatus).not.toHaveBeenCalled();
+                f.notify('turn/completed', { turnId: 'turn-1' });
+            }
+            return { turnId: 'turn-1' } as any;
+        });
+        try {
+            await f.session.prompt('', {}, [attachment]);
+            expect(f.command).toHaveBeenCalledWith('turn/start', expect.objectContaining({ input: [
+                { type: 'image', mediaType: 'image/png', base64Data: attachment.data.toString('base64') },
+                { type: 'text', text: '' },
+            ] }), expect.anything());
+            expect(f.callbacks.fileStatus).toHaveBeenCalledWith('image-ref', 'accepted');
+        } finally { await f.session.dispose(); }
+    });
+    it('reports native input rejection and leaves the next turn usable', async () => {
+        const f = fixture(); await f.session.start();
+        f.command.mockRejectedValueOnce(new Error('inputTooLarge'));
+        try {
+            await expect(f.session.prompt('look', {}, [attachment])).rejects.toThrow('inputTooLarge');
+            expect(f.callbacks.fileStatus).toHaveBeenCalledWith('image-ref', 'rejected', 'unsupported');
+            f.command.mockImplementation(async method => {
+                if (method === 'turn/start') f.notify('turn/completed', { turnId: 'turn-1' });
+                return { turnId: 'turn-1' } as any;
+            });
+            await f.session.prompt('continue');
+        } finally { await f.session.dispose(); }
+    });
+    it('rejects empty attachments without submitting an empty turn', async () => {
+        const f = fixture(); await f.session.start();
+        try {
+            await f.session.prompt('', {}, [{ ...attachment, data: new Uint8Array() }]);
+            expect(f.callbacks.fileStatus).toHaveBeenCalledWith('image-ref', 'rejected', 'empty_bytes');
+            expect(f.command.mock.calls.some(([method]) => method === 'turn/start')).toBe(false);
+        } finally { await f.session.dispose(); }
+    });
 });
