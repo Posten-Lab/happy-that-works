@@ -7,10 +7,10 @@ import { MuseSession } from './MuseSession';
 function fixture(sessionToolsUrl?: string) {
     let notify: (method: string, params: any) => void = () => {};
     const command = vi.fn(async (method: string, _params?: unknown, _options?: unknown) => method.startsWith('session/') ? { session: { sessionId: 'native-id', modelId: 'muse-spark-1.3-contributor', providerId: 'meta' }, history: { mode: 'inline', items: [] } } : { turnId: 'turn-1' });
-    const request = vi.fn(async (_method: string) => ({ models: [], session: { modelId: 'muse-spark-1.3-contributor', providerId: 'meta' } } as any));
+    const request = vi.fn(async (_method: string, _params?: unknown) => ({ models: [], session: { modelId: 'muse-spark-1.3-contributor', providerId: 'meta' } } as any));
     const close = vi.fn(async () => {});
     const host = { connection: { command, request, mintCommandId: () => 'turn-1' }, close, exited: new Promise(() => {}) };
-    mock.connect.mockImplementation(async (_: string, callback: typeof notify) => { notify = callback; return host; });
+    mock.connect.mockImplementation(async (_: string, callback: typeof notify) => { if (callback) notify = callback; return host; });
     const callbacks = { fileStatus: vi.fn(), message: vi.fn(), metadata: vi.fn(), mode: vi.fn(), activity: vi.fn(), notice: vi.fn(), permission: vi.fn(async () => ({ decision: 'denied' as const })), exited: vi.fn() };
     return { session: new MuseSession('/tmp', callbacks, [], undefined, undefined, sessionToolsUrl), callbacks, command, request, close, notify: (method: string, params: any) => notify(method, params) };
 }
@@ -74,10 +74,14 @@ describe('MuseSession lifecycle', () => {
         await Promise.all([f.session.dispose(), f.session.dispose()]);
         expect(f.close).toHaveBeenCalledTimes(1);
     });
-    it('recovers a resumed turn without treating an incomplete live fold as failure', async () => {
-        const f = fixture(); await f.session.start('native-id');
+    it.each([undefined, 'native-id'])('recovers dropped notifications for resume=%s without treating an incomplete live fold as failure', async (resumeId) => {
+        const f = fixture(); await f.session.start(resumeId);
         let pages = 0;
-        f.request.mockImplementation(async method => {
+        f.request.mockImplementation(async (method, params?: any) => {
+            // A live cursor can be accepted by an observer yet skip its reply.
+            if (method === 'view/page' && params?.cursor === 'observed-cursor') return { events: [
+                { method: 'turn/completed', params: { turnId: 'turn-1', terminal: 'completed' } },
+            ], nextCursor: null };
             if (method === 'view/page') return { events: ++pages === 1
                 ? [{ method: 'turn/completed', params: { turnId: 'turn-1', terminal: 'failed', reason: 'incomplete' } }]
                 : [{ method: 'item/completed', params: { item: { itemId: 'recovered', kind: 'agentMessage', status: 'completed', text: 'recovered reply' } } },
@@ -86,10 +90,44 @@ describe('MuseSession lifecycle', () => {
         });
         await f.session.prompt('hello');
         expect(pages).toBe(2);
-        expect(f.request).toHaveBeenCalledWith('view/page', expect.objectContaining({ cursor: 'observed-cursor' }));
+        expect(f.request).toHaveBeenCalledWith('view/page', { sessionId: 'native-id', limit: 1000 });
+        expect(f.request).not.toHaveBeenCalledWith('view/page', expect.objectContaining({ cursor: 'observed-cursor' }));
         expect(f.callbacks.message).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ message: 'recovered reply' }) }));
+        f.command.mockImplementation(async method => {
+            if (method === 'turn/start') f.notify('turn/completed', { turnId: 'turn-1', terminal: 'completed' });
+            return { turnId: 'turn-1' } as any;
+        });
+        await f.session.prompt('Follow up after recovery');
+        expect(f.callbacks.message.mock.calls.filter(([m]) => m.data?.message === 'recovered reply')).toHaveLength(1);
         await f.session.dispose();
     }, 10000);
+    it('ignores a late observer response after the original turn has finished', async () => {
+        const f = fixture(); await f.session.start();
+        vi.useFakeTimers();
+        let releasePage!: (page: any) => void;
+        const observer = { connection: { request: vi.fn(() => new Promise(resolve => { releasePage = resolve; })) }, close: vi.fn(async () => {}) };
+        mock.connect.mockResolvedValue(observer);
+        try {
+            const first = f.session.prompt('First');
+            await vi.advanceTimersByTimeAsync(2000);
+            expect(observer.connection.request).toHaveBeenCalledWith('view/page', expect.anything());
+            f.notify('turn/completed', { turnId: 'turn-1', terminal: 'completed' });
+            await first;
+            let secondFinished = false;
+            const second = f.session.prompt('Second').then(() => { secondFinished = true; });
+            await vi.advanceTimersByTimeAsync(0);
+            releasePage({ events: [
+                { method: 'item/completed', params: { item: { itemId: 'late', kind: 'agentMessage', text: 'stale reply' } } },
+                { method: 'turn/completed', params: { turnId: 'turn-1', terminal: 'completed' } },
+            ] });
+            await vi.advanceTimersByTimeAsync(0);
+            expect(secondFinished).toBe(false);
+            expect(f.callbacks.message).not.toHaveBeenCalled();
+            expect(observer.close).toHaveBeenCalledOnce();
+            f.notify('turn/completed', { turnId: 'turn-1', terminal: 'completed' });
+            await second;
+        } finally { await f.session.dispose(); vi.useRealTimers(); }
+    });
     it.each([['yolo', 'approved'], ['bypassPermissions', 'approved'], ['never', 'denied']])('handles native approval requests without prompting in %s mode', async (mode, decision) => {
         const f = fixture();
         const session = new MuseSession('/tmp', f.callbacks, mode === 'yolo' ? ['--yolo'] : mode === 'never' ? ['--approval-mode', 'never'] : ['--disable-approval']);

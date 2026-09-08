@@ -28,7 +28,6 @@ export class MuseSession {
     readonly supportsAttachments = true;
     private host: SpawnedMspConnection | null = null;
     private hostArguments: string[] = [];
-    private nativeHandoff = false;
     private native: ChildProcess | null = null;
     private nativeExit: Promise<void> | null = null;
     private mapper = new MuseMessageMapper();
@@ -96,7 +95,6 @@ export class MuseSession {
             this.needsSessionInstructions = !resumeId && mode === 'remote';
         }
         this.sessionId = resumeId ?? '';
-        this.nativeHandoff = Boolean(resumeId);
         if (resumeId) {
             const saved = this.controlStore?.load(resumeId);
             if (saved) {
@@ -363,7 +361,6 @@ export class MuseSession {
                         if (!this.transitioning && !this.disposed) this.callbacks.exited();
                     }, error => this.callbacks.exited(error));
                     this.mode = 'local';
-                    this.nativeHandoff = true;
                     await this.connect(); // Observer only: session/read never acquires a writer lease.
                     if (child.exitCode !== null || child.signalCode !== null) {
                         throw new Error(`Muse terminal exited during startup (${child.exitCode ?? child.signalCode})`);
@@ -455,7 +452,8 @@ export class MuseSession {
         const commandId = host.connection.mintCommandId();
         this.submissions?.record(commandId);
         this.mapper.submitted(commandId);
-        const done = new Promise<void>((resolve, reject) => { this.turn = { id: commandId, resolve, reject }; });
+        let turn!: NonNullable<MuseSession['turn']>;
+        const done = new Promise<void>((resolve, reject) => { turn = this.turn = { id: commandId, resolve, reject }; });
         // Install rejection handling before an early terminal notification can arrive.
         void done.catch(() => {});
         try {
@@ -471,44 +469,50 @@ export class MuseSession {
             for (const ref of prepared.accepted) this.callbacks.fileStatus?.(ref, 'rejected', 'unsupported');
             this.finishTurn(error instanceof Error ? error : new Error(String(error)));
         }
+        const isCurrentTurn = () => Boolean(turn && this.turn === turn && this.host === host && !this.disposed);
         let recovering = false;
         const recover = async () => {
-            if (recovering || !this.turn || this.host !== host) return;
+            if (recovering || !isCurrentTurn()) return;
             recovering = true;
             let observer: SpawnedMspConnection | undefined;
             try {
-                // A native-terminal resume can stop Muse 1.0.3's live deliveries.
-                // Read through a separate observer so paging cannot disturb the writer.
+                // Muse can stop live deliveries on fresh sessions too. Reconcile
+                // every turn through a separate observer; never page the writer.
                 observer = await connectMuse(this.cwd);
-                let cursor = text(before.viewCursor);
+                if (!isCurrentTurn()) return;
+                // Writer cursors count live revisions; a new observer folds
+                // those revisions differently. Reusing the writer's cursor can
+                // silently skip the reply even when completion is found.
+                let cursor: string | undefined;
                 const events: JsonObject[] = [];
                 do {
                     const page = await observer.connection.request('view/page', { sessionId: this.sessionId, limit: 1000, ...(cursor ? { cursor } : {}) });
+                    if (!isCurrentTurn()) return;
                     events.push(...(Array.isArray(page.events) ? page.events.map(object) : []));
                     const next = text(page.nextCursor);
                     if (next && next === cursor) throw new Error('Muse recovery cursor did not advance');
-                    cursor = next;
-                } while (cursor && this.turn);
-                const terminal = events.find(e => e.method === 'turn/completed' && object(e.params).turnId === this.turn?.id
+                    cursor = next || undefined;
+                } while (cursor && isCurrentTurn());
+                const terminal = events.find(e => e.method === 'turn/completed' && object(e.params).turnId === turn?.id
                     // Read-only folds synthesize "incomplete" while a live writer is running.
                     && !(object(e.params).terminal === 'failed' && (object(e.params).reason === 'incomplete' || object(object(e.params).error).message === 'incomplete')));
-                for (const event of events) {
-                    if (event.method === 'session/todoListChanged') this.todos(event.params, text(object(event.params).viewCursor));
-                }
+                const latestTodos = [...events].reverse().find(event => event.method === 'session/todoListChanged');
+                if (latestTodos) this.todos(latestTodos.params, text(object(latestTodos.params).viewCursor));
                 if (terminal) {
                     for (const event of events) {
                         if (text(event.method).startsWith('item/')) this.item(object(event.params).item);
                     }
                     this.notification('turn/completed', object(terminal.params));
-                } else if (this.turn) {
+                } else if (isCurrentTurn()) {
                     const pending = await host.connection.request('approval/listPending', { sessionId: this.sessionId });
+                    if (!isCurrentTurn()) return;
                     for (const request of Array.isArray(pending.approvals) ? pending.approvals : []) this.notification('approval/requested', object(request));
                     for (const request of Array.isArray(pending.userInputs) ? pending.userInputs : []) this.notification('userInput/requested', object(request));
                 }
-            } catch (error) { this.callbacks.notice(`Muse event recovery failed: ${String(error)}`); }
+            } catch (error) { if (isCurrentTurn()) this.callbacks.notice(`Muse event recovery failed: ${String(error)}`); }
             finally { await observer?.close(); recovering = false; }
         };
-        const recovery = this.nativeHandoff ? setInterval(() => void recover(), 2000) : undefined;
+        const recovery = setInterval(() => void recover(), 2000);
         try { await done; } finally { clearInterval(recovery); }
     }
 
