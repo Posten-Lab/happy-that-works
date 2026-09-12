@@ -34,6 +34,7 @@ import { storage, useIsDataReady, useLocalSetting, useRealtimeStatus, useSession
 import { useSession, useMachine } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
+import { sessionSearch } from '@/sync/search/sessionSearch';
 import { t } from '@/text';
 import { tracking } from '@/track';
 import { getVoiceMessageCount, getVoiceOnboardingPromptLoadCount } from '@/sync/persistence';
@@ -62,7 +63,7 @@ import { resolveAgentDefaultConfig } from '@/sync/agentDefaults';
 import { performAgentGoalAction } from './agentGoalActionHandler';
 import { getMachineRecovery, getSessionRecovery, hasUnresolvedSessionRecovery, type SessionRecovery } from '@/utils/sessionRecovery';
 
-export const SessionView = React.memo((props: { id: string }) => {
+export const SessionView = React.memo((props: { id: string; searchMessageId?: string; searchSeq?: number; searchBlockIndex?: number }) => {
     const sessionId = props.id;
     const router = useRouter();
     const session = useSession(sessionId);
@@ -79,6 +80,26 @@ export const SessionView = React.memo((props: { id: string }) => {
     const { width: windowWidth } = useWindowDimensions();
     const fileDiffsSidebarEnabled = useSetting('fileDiffsSidebar');
     const zenMode = useLocalSetting('zenMode');
+    const searchRestorationKey = props.searchMessageId && Number.isSafeInteger(props.searchSeq) && props.searchSeq! > 0
+        ? `${sessionId}:${props.searchMessageId}:${props.searchSeq}`
+        : null;
+    const [searchRestoration, setSearchRestoration] = React.useState<{ key: string; failed: boolean } | null>(null);
+    const isRestoringSearch = searchRestorationKey !== null && searchRestoration?.key !== searchRestorationKey;
+    const searchRestorationFailed = searchRestorationKey !== null && searchRestoration?.key === searchRestorationKey && searchRestoration.failed;
+
+    // A saved search URL must restore the same history after an app reload.
+    React.useEffect(() => {
+        if (!isDataReady || !searchRestorationKey) return;
+        let cancelled = false;
+        void sessionSearch.openSession(sessionId, props.searchSeq).then(() => {
+            if (!cancelled) setSearchRestoration({ key: searchRestorationKey, failed: false });
+        }).catch(() => {
+            if (cancelled) return;
+            setSearchRestoration({ key: searchRestorationKey, failed: true });
+            Modal.alert(t('common.error'), t('sessionSearch.openError'));
+        });
+        return () => { cancelled = true; };
+    }, [isDataReady, sessionId, searchRestorationKey, props.searchSeq]);
 
     // Base condition: can we show the diff sidebar at all?
     const canShowSidebar = fileDiffsSidebarEnabled
@@ -189,11 +210,11 @@ export const SessionView = React.memo((props: { id: string }) => {
 
     // Compute header props based on session state
     const headerProps = useMemo(() => {
-        if (!isDataReady) {
+        if (!isDataReady || isRestoringSearch) {
             return { title: '', folderName: undefined, isConnected: false };
         }
         if (!session) {
-            return { title: t('errors.sessionDeleted'), folderName: undefined, isConnected: false };
+            return { title: t(searchRestorationFailed ? 'sessionSearch.openError' : 'errors.sessionDeleted'), folderName: undefined, isConnected: false };
         }
         const isConnected = session.presence === 'online' && !unresolvedRecovery;
         const pathSegments = session.metadata?.path?.split(/[/\\]/).filter(Boolean);
@@ -204,7 +225,7 @@ export const SessionView = React.memo((props: { id: string }) => {
             folderName,
             isConnected,
         };
-    }, [session, isDataReady, unresolvedRecovery]);
+    }, [session, isDataReady, unresolvedRecovery, isRestoringSearch, searchRestorationFailed]);
     const headerRight = session && deviceType === 'phone' && Platform.OS !== 'web'
         ? (
             <Pressable
@@ -271,18 +292,18 @@ export const SessionView = React.memo((props: { id: string }) => {
 
             {/* Content based on state */}
             <View style={{ flex: 1, paddingTop: !(isLandscape && deviceType === 'phone' && Platform.OS !== 'web') ? safeArea.top + headerHeight + (!isTablet && realtimeStatus !== 'disconnected' ? 32 : 0) : 0 }}>
-                {!isDataReady ? (
-                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                {!isDataReady || isRestoringSearch ? (
+                    <View testID="session-search-restoring" accessibilityLabel={t('common.loading')} style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         <ActivityIndicator size="small" color={theme.colors.textSecondary} />
                     </View>
                 ) : !session ? (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                        <Ionicons name="trash-outline" size={48} color={theme.colors.textSecondary} />
-                        <Text style={{ color: theme.colors.text, fontSize: 20, marginTop: 16, fontWeight: '600' }}>{t('errors.sessionDeleted')}</Text>
-                        <Text style={{ color: theme.colors.textSecondary, fontSize: 15, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>{t('errors.sessionDeletedDescription')}</Text>
+                        <Ionicons name={searchRestorationFailed ? 'alert-circle-outline' : 'trash-outline'} size={48} color={theme.colors.textSecondary} />
+                        <Text style={{ color: theme.colors.text, fontSize: 20, marginTop: 16, fontWeight: '600' }}>{t(searchRestorationFailed ? 'sessionSearch.openError' : 'errors.sessionDeleted')}</Text>
+                        {!searchRestorationFailed && <Text style={{ color: theme.colors.textSecondary, fontSize: 15, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>{t('errors.sessionDeletedDescription')}</Text>}
                     </View>
                 ) : (
-                    <SessionViewLoaded key={sessionId} sessionId={sessionId} session={session} />
+                    <SessionViewLoaded key={sessionId} sessionId={sessionId} session={session} searchMessageId={props.searchMessageId} searchBlockIndex={props.searchBlockIndex} />
                 )}
             </View>
         </>
@@ -434,7 +455,7 @@ const ChatComposer = React.memo(function ChatComposer(props: ChatComposerProps) 
     );
 });
 
-function SessionViewLoaded({ sessionId, session }: { sessionId: string, session: Session }) {
+function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockIndex }: { sessionId: string; session: Session; searchMessageId?: string; searchBlockIndex?: number }) {
     const { theme } = useUnistyles();
     const router = useRouter();
     const safeArea = useSafeAreaInsets();
@@ -723,7 +744,7 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
         <>
             <Deferred>
                 {messages.length > 0 && (
-                    <ChatList session={session} />
+                    <ChatList session={session} searchMessageId={searchMessageId} searchBlockIndex={searchBlockIndex} />
                 )}
             </Deferred>
             {/*

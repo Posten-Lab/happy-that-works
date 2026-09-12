@@ -6,6 +6,7 @@ import { clearPersistence, loadRegisteredPushToken } from '@/sync/persistence';
 import { unregisterPushToken } from '@/sync/apiPush';
 import { Platform } from 'react-native';
 import { trackLogout } from '@/track';
+import { sessionSearch } from '@/sync/search/sessionSearch';
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -39,6 +40,9 @@ export function AuthProvider({ children, initialCredentials }: { children: React
 
     const logout = async () => {
         trackLogout();
+        // In-memory search state is cleared synchronously. An unavailable disk
+        // cache must never prevent the user from signing out.
+        await sessionSearch.clear().catch(() => {});
         const registeredPushToken = credentials ? loadRegisteredPushToken() : null;
         if (credentials && registeredPushToken) {
             try {

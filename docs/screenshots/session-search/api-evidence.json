@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-09-12T10:57:03.471Z",
+  "server": "http://localhost:62740",
+  "sessionsTotal": 163,
+  "defaultSessions": 161,
+  "sessionPages": 2,
+  "longSessionMessages": 230,
+  "longSessionPages": 3,
+  "assertions": [
+    "Recent archived sessions included",
+    "Archived sessions older than 90 days excluded",
+    "Renaming an old archive does not change coverage",
+    "Active sessions older than 90 days included",
+    "Recent empty session title included",
+    "Pagination covers more than 150 sessions",
+    "A recent archive beyond the ordinary session list is covered",
+    "Latest message timestamps reported accurately",
+    "Message pagination covers 230 encrypted messages"
+  ],
+  "result": "passed"
+}

@@ -19,6 +19,7 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const ja: TranslationStructure = {
+    sessionSearch: defaultTranslations.sessionSearch,
     tabs: {
         // Tab navigation labels
         inbox: '受信トレイ',

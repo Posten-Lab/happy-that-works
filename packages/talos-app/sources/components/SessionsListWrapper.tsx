@@ -2,6 +2,7 @@ import * as React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { SessionsList } from './SessionsList';
+import { SessionSearch } from './SessionSearch';
 import { EmptyMainScreen } from './EmptyMainScreen';
 import { useVisibleSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
 
@@ -42,31 +43,31 @@ export const SessionsListWrapper = React.memo(() => {
 
     if (sessionListViewData === null) {
         return (
-            <View style={styles.container}>
+            <SessionSearch>
                 <View style={styles.loadingContainerWrapper}>
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="small" color={theme.colors.textSecondary} />
                     </View>
                 </View>
-            </View>
+            </SessionSearch>
         );
     }
 
     if (sessionListViewData.length === 0) {
         return (
-            <View style={styles.container}>
+            <SessionSearch>
                 <View style={styles.emptyStateContainer}>
                     <View style={styles.emptyStateContentContainer}>
                         <EmptyMainScreen />
                     </View>
                 </View>
-            </View>
+            </SessionSearch>
         );
     }
 
     return (
-        <View style={styles.container}>
+        <SessionSearch>
             <SessionsList />
-        </View>
+        </SessionSearch>
     );
 });

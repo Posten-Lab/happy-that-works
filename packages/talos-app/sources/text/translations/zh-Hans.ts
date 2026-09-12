@@ -18,6 +18,7 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const zhHans: TranslationStructure = {
+    sessionSearch: defaultTranslations.sessionSearch,
     tabs: {
         // Tab navigation labels
         inbox: '收件箱',

@@ -1,3 +1,11 @@
+# Search your sessions
+
+Find past conversations by title and the messages you sent.
+
+- Search active sessions and archives with a message in the last 90 days.
+- Include agent replies or search older history when you need more.
+- Tap a matching excerpt to jump straight to that message.
+
 # Muse session tools
 
 - Muse tool calls use compact progress rows. Tap a row to inspect its details.

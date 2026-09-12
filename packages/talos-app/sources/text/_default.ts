@@ -15,6 +15,32 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const en = {
+    sessionSearch: {
+        placeholder: 'Search sessions',
+        clear: 'Clear search',
+        includeAgentReplies: 'Include agent replies',
+        recentHistory: 'All active sessions and archives used in the last 90 days.',
+        allHistory: 'All active and archived sessions.',
+        searchOlder: 'Search older sessions',
+        searchRecent: 'Return to the last 90 days',
+        archived: 'Archived',
+        titleMatch: 'Title match',
+        you: 'You',
+        agent: 'Agent',
+        indexing: ({ indexed, total }: { indexed: number; total: number }) => `Searching history… ${indexed} of ${total} sessions ready`,
+        indexError: 'Some history could not be searched. Please retry.',
+        openError: 'Could not open this conversation. Please try again.',
+        resultCount: ({ count }: { count: number }) => `${count} ${count === 1 ? 'session' : 'sessions'}`,
+        moreMatches: ({ count }: { count: number }) => `${count} more ${count === 1 ? 'match' : 'matches'} in this session`,
+        fewerMatches: 'Show fewer matches',
+        noResults: 'No matches yet',
+        noResultsWhileIndexing: 'Results will appear as more history is searched.',
+        noResultsDescription: 'Try different words or extend the search to older sessions.',
+        startTitle: 'Find a conversation',
+        startDescription: 'Search titles and messages you sent. Select a matching message to jump to that point in the conversation.',
+        matchingMessage: 'Search match',
+        dismissMatch: 'Dismiss search highlight',
+    },
     tabs: {
         // Tab navigation labels
         inbox: 'Inbox',

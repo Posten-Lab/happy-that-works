@@ -4,12 +4,13 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useFriendRequests, useSocketStatus, useRealtimeStatus } from '@/sync/storage';
 import { useVisibleSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
 import { useIsTablet } from '@/utils/responsive';
-import { useRouter } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { EmptySessionsTablet } from './EmptySessionsTablet';
 import { EmptyMainScreen } from './EmptyMainScreen';
 import { TalosBrand } from './TalosBrand';
 import { RoundButton } from './RoundButton';
 import { SessionsList } from './SessionsList';
+import { SessionSearch } from './SessionSearch';
 import { FABWide } from './FABWide';
 import { TabBar, TabType } from './TabBar';
 import { InboxView } from './InboxView';
@@ -237,6 +238,10 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     // Tab state management
     // NOTE: Zen tab removed - the feature never got to a useful state
     const [activeTab, setActiveTab] = React.useState<TabType>('sessions');
+    const { sessionSearch: searchRequest } = useGlobalSearchParams<{ sessionSearch?: string }>();
+    React.useEffect(() => {
+        if (searchRequest) setActiveTab('sessions');
+    }, [searchRequest]);
 
     const handleNewSession = React.useCallback(() => {
         router.navigate('/new');
@@ -261,32 +266,19 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
 
     // Sidebar variant
     if (variant === 'sidebar') {
-        // Loading state
-        if (sessionListViewData === null) {
-            return (
-                <View style={styles.sidebarContentContainer}>
-                    <View style={styles.tabletLoadingContainer}>
-                        <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-                    </View>
-                </View>
-            );
-        }
-
-        // Empty state
-        if (sessionListViewData.length === 0) {
-            return (
-                <View style={styles.sidebarContentContainer}>
-                    <View style={styles.emptyStateContainer}>
-                        <EmptySessionsTablet />
-                    </View>
-                </View>
-            );
-        }
-
-        // Sessions list
         return (
             <View style={styles.sidebarContentContainer}>
-                <SessionsList />
+                <SessionSearch>
+                    {sessionListViewData === null ? (
+                        <View style={styles.tabletLoadingContainer}>
+                            <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                        </View>
+                    ) : sessionListViewData.length === 0 ? (
+                        <View style={styles.emptyStateContainer}>
+                            <EmptySessionsTablet />
+                        </View>
+                    ) : <SessionsList />}
+                </SessionSearch>
             </View>
         );
     }
