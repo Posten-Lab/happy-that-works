@@ -1,0 +1,23 @@
+appId: com.ahposten.talos.dev
+---
+- tapOn:
+    point: "79%,16%"
+- extendedWaitUntil:
+    visible:
+      id: "session-search-input"
+    timeout: 15000
+- tapOn:
+    id: "session-search-input"
+- inputText: "copper lantern"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Synthetic release workflow"
+    timeout: 30000
+- tapOn: ".*Please remember the copper lantern publishing checklist.*"
+- extendedWaitUntil:
+    visible:
+      id: "session-search-target"
+    timeout: 20000
+- assertVisible: ".*Please remember the copper lantern publishing checklist.*"
+- assertNotVisible: "Could not open this conversation. Please try again."
+- takeScreenshot: /tmp/talos-session-tap-review/native-after-match

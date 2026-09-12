@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-09-12T14:57:46.449Z",
+  "reports": [
+    {
+      "origin": "https://api.happy.ahposten.com",
+      "calls": [
+        {
+          "endpoint": "session-detail",
+          "status": 404
+        },
+        {
+          "endpoint": "session-list",
+          "status": 200
+        }
+      ],
+      "sessionOpened": true,
+      "matchingSequenceFound": 3,
+      "messages": 132
+    },
+    {
+      "origin": "https://api.talosapp.ai",
+      "calls": [
+        {
+          "endpoint": "session-detail",
+          "status": 200
+        }
+      ],
+      "sessionOpened": true,
+      "matchingSequenceFound": 3,
+      "messages": 132
+    }
+  ]
+}

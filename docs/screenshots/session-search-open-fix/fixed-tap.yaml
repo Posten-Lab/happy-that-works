@@ -1,0 +1,20 @@
+appId: com.ahposten.talos.dev
+---
+- extendedWaitUntil:
+    visible:
+      id: "session-search-input"
+    timeout: 15000
+- tapOn:
+    id: "session-search-input"
+- inputText: "copper lantern"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "Synthetic release workflow"
+    timeout: 30000
+- tapOn: "Synthetic release workflow"
+- extendedWaitUntil:
+    notVisible:
+      id: "session-search-input"
+    timeout: 15000
+- assertNotVisible: "Could not open this conversation. Please try again."
+- takeScreenshot: /tmp/talos-session-tap-review/native-after-open

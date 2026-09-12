@@ -1,0 +1,13 @@
+Running on Talos-Search-Review - iOS 26.1 - 97E6D136-DE5B-4871-A56A-E4516C9EE92B
+ > Flow fixed-match
+Tap on point (79%,16%)... COMPLETED
+Assert that id: session-search-input is visible... COMPLETED
+Tap on id: session-search-input... COMPLETED
+Input text copper lantern... COMPLETED
+Hide Keyboard... COMPLETED
+Assert that "Synthetic release workflow" is visible... COMPLETED
+Tap on ".*Please remember the copper lantern publishing checklist.*"... COMPLETED
+Assert that id: session-search-target is visible... COMPLETED
+Assert that ".*Please remember the copper lantern publishing checklist.*" is visible... COMPLETED
+Assert that "Could not open this conversation. Please try again." is not visible... COMPLETED
+Take screenshot /tmp/talos-session-tap-review/native-after-match... COMPLETED

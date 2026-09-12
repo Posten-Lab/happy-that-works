@@ -9,6 +9,7 @@ import { parseToken } from '@/utils/parseToken';
 import { createSearchCache } from './searchCache';
 import { SearchCoordinator, type SearchSessionDescriptor } from './searchCoordinator';
 import { extractSearchMessages } from './searchIndex';
+import { getSearchSession, SearchRequestError } from './getSearchSession';
 export type { SessionSearchResult, SearchMessage } from './searchIndex';
 
 export const sessionSearch = new SearchCoordinator();
@@ -32,7 +33,7 @@ export function configureSessionSearch(credentials: AuthCredentials, encryption:
                 signal: controller.signal,
                 headers: { Authorization: `Bearer ${credentials.token}`, 'X-Talos-Client': getTalosClientId() },
             });
-            if (!response.ok) throw new Error(`Unable to load conversation history (${response.status}). Please retry.`);
+            if (!response.ok) throw new SearchRequestError(response.status);
             return await response.json() as T;
         } finally {
             clearTimeout(timeout);
@@ -67,7 +68,7 @@ export function configureSessionSearch(credentials: AuthCredentials, encryption:
             if (since !== null) params.set('lastMessageSince', String(since));
             return request(`/v2/sessions?${params}`, signal);
         },
-        getSession: async id => (await request<{ session: SearchSessionDescriptor }>(`/v1/sessions/${encodeURIComponent(id)}`)).session,
+        getSession: id => getSearchSession(id, request),
         decryptSession: async descriptor => {
             const cipher = await sessionEncryption(descriptor);
             const metadata = await cipher.decryptMetadata(descriptor.metadataVersion, descriptor.metadata);
@@ -98,8 +99,7 @@ export function configureSessionSearch(credentials: AuthCredentials, encryption:
         },
         openSession: async (descriptor, seq) => {
             // Check existence and refresh metadata before showing a cached result.
-            const response = await request<{ session: SearchSessionDescriptor }>(`/v1/sessions/${encodeURIComponent(descriptor.id)}`);
-            const fresh = response.session;
+            const fresh = await getSearchSession(descriptor.id, request);
             const cipher = await sessionEncryption(fresh);
             const metadata = await cipher.decryptMetadata(fresh.metadataVersion, fresh.metadata);
             const agentState = await cipher.decryptAgentState(fresh.agentStateVersion, fresh.agentState);

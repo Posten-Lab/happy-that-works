@@ -1,3 +1,7 @@
+# Search result fixes
+
+Open archived search results when connected to an older server.
+
 # Search your sessions
 
 Find past conversations by title and the messages you sent.
