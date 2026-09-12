@@ -12,6 +12,20 @@ const VOICE_SOFT_PAYWALL_SHOWN_KEY = 'voice-soft-paywall-shown';
 const VOICE_ONBOARDING_PROMPT_LOAD_COUNT_KEY = 'voice-onboarding-prompt-load-count';
 const VOICE_MESSAGE_COUNT_KEY = 'voice-message-count';
 
+// Only request identifiers are persisted; prompts and agent instructions stay in encrypted settings/RPC.
+export function loadPendingWorkflowStart(): { id: string; machineId: string } | null {
+    const value = mmkv.getString('pending-workflow-start-v1');
+    if (!value) return null;
+    try {
+        const parsed = JSON.parse(value);
+        return typeof parsed.id === 'string' && typeof parsed.machineId === 'string' ? { id: parsed.id, machineId: parsed.machineId } : null;
+    } catch { return null; }
+}
+export function savePendingWorkflowStart(value: { id: string; machineId: string } | null) {
+    if (value) mmkv.set('pending-workflow-start-v1', JSON.stringify({ id: value.id, machineId: value.machineId }));
+    else mmkv.delete('pending-workflow-start-v1');
+}
+
 export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'openclaw' | 'muse';
 export type NewSessionSessionType = 'simple' | 'worktree';
 

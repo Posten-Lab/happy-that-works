@@ -78,6 +78,7 @@ export const SettingsView = React.memo(function SettingsView() {
     const { theme } = useUnistyles();
     const router = useRouter();
     const experiments = useSetting('experiments');
+    const expWorkflows = useSetting('expWorkflows');
     const expAgentLibrary = useSetting('expAgentLibrary');
     const showAgentLibrary = experiments && expAgentLibrary;
     const appVersion = Constants.expoConfig?.version || '1.0.0';
@@ -383,6 +384,7 @@ export const SettingsView = React.memo(function SettingsView() {
                     icon={<Ionicons name="mic-outline" size={29} color={theme.colors.accent} />}
                     onPress={() => router.push('/settings/voice')}
                 />
+                {expWorkflows && <Item title="Workflows" subtitle="Plan, execute, review · Experimental" icon={<Ionicons name="git-network-outline" size={29} color={theme.colors.accent} />} onPress={() => router.push('/workflows' as any)} />}
                 {showAgentLibrary && <Item
                     title="Agent library"
                     subtitle="Your specialists · Experimental"

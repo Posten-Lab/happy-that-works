@@ -20,6 +20,7 @@ export default function AgentLibraryScreen() {
     const { theme } = useUnistyles();
     const router = useRouter();
     const experiments = useSetting('experiments');
+    const expWorkflows = useSetting('expWorkflows');
     const expAgentLibrary = useSetting('expAgentLibrary');
     const library = useSetting('agentLibrary');
     const machines = useAllMachines({ includeOffline: false }).filter(isMachineOnline);
@@ -138,10 +139,10 @@ export default function AgentLibraryScreen() {
                 {step === 3 && <>
                     <Text style={{ ...text, fontSize: 24, fontWeight: '700' }}>{draft.name}</Text><Text style={muted}>{draft.description}</Text>
                     <Text style={text}>{draft.provider} · {draft.model} · {draft.effort ?? 'provider default'} effort</Text>
-                    <Text style={muted}>{draft.permissionMode === 'read-only' ? 'Read only' : 'Ask for untrusted actions'} · Direct sessions only</Text>
+                    <Text style={muted}>{draft.permissionMode === 'read-only' ? 'Read only' : 'Ask for untrusted actions'} · Direct sessions and experimental workflows</Text>
                     <Text selectable style={text}>{draft.instructions}</Text>
                     <Text style={muted}>{draft.documents.length} instruction files · {draft.specialties.join(', ') || 'General specialist'}</Text>
-                    <Text style={muted}>Saved in your encrypted account settings. Editing this agent changes future sessions. Sessions already started retain their configuration. Automatic delegation and workflows are not available in this experiment.</Text>
+                    <Text style={muted}>Saved in your encrypted account settings. Editing this agent changes future sessions. Sessions already started retain their configuration. Use Workflows to assign saved agents to a planning and review team. Existing workflow runs keep their own snapshots.</Text>
                 </>}
             </View>
             {error ? <Text accessibilityRole="alert" style={{ color: colors.textDestructive }}>{error}</Text> : null}
@@ -151,7 +152,8 @@ export default function AgentLibraryScreen() {
                 {button('Cancel', () => { void leave(); })}
             </View>
         </> : <>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{button('My agents', () => setTab('mine'), tab === 'mine')}{button('Discover', () => setTab('discover'), tab === 'discover')}{button('Create agent', () => begin(newAgent()))}</View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{expWorkflows && button('Workflows', () => router.push('/workflows' as any))}
+                {button('My agents', () => setTab('mine'), tab === 'mine')}{button('Discover', () => setTab('discover'), tab === 'discover')}{button('Create agent', () => begin(newAgent()))}</View>
             {tab === 'mine' && library.length === 0 && <View style={card}><Text style={{ ...text, fontSize: 20, fontWeight: '600' }}>Meet your next specialist</Text><Text style={muted}>Start with a template or create an agent around the work you do most often.</Text>{button('Explore templates', () => setTab('discover'), true)}</View>}
             {tab === 'discover' && agentTemplates.map(template => <View key={template.name} style={card}><Ionicons name={template.avatar} size={32} color={colors.accent} /><Text style={{ ...text, fontSize: 22, fontWeight: '600' }}>{template.name}</Text><Text style={muted}>{template.description}</Text><Text style={muted}>Talos template · Customize instructions and choose your model</Text>{button(`Customize ${template.name}`, () => begin({ ...newAgent(), ...template }))}</View>)}
             {tab === 'mine' && library.map(agent => <View key={agent.id} style={card}>

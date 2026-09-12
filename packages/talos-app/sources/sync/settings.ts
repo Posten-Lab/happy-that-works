@@ -1,3 +1,4 @@
+import { WorkflowLibrarySchema } from '@ahmadposten/talos-wire';
 import * as z from 'zod';
 import { AgentLibrarySchema } from '@/agents/agentDefinition';
 import { AgentDefaultOverridesSchema } from './agentDefaults';
@@ -21,6 +22,8 @@ export const SettingsSchema = z.object({
     wrapLinesInDiffs: z.boolean().describe('Whether to wrap long lines in diff views'),
     diffStyle: z.enum(['unified', 'split']).describe('Diff view style (split is web-only)'),
     analyticsOptOut: z.boolean().describe('Whether to opt out of anonymous analytics'),
+    expWorkflows: z.boolean(),
+    workflowLibrary: WorkflowLibrarySchema,
     expAgentLibrary: z.boolean(),
     agentLibrary: AgentLibrarySchema,
     experiments: z.boolean().describe('Whether to enable experimental features'),
@@ -96,6 +99,8 @@ export const settingsDefaults: Settings = {
     diffStyle: 'unified',
     analyticsOptOut: false,
     experiments: false,
+    expWorkflows: false,
+    workflowLibrary: [],
     expAgentLibrary: false,
     agentLibrary: [],
     alwaysShowContextSize: false,

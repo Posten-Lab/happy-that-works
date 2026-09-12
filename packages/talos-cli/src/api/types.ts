@@ -143,6 +143,7 @@ export const MachineMetadataSchema = z.object({
     detectedAt: z.number(),
   }).optional(),
   providerUsage: z.object({ rpcAvailable: z.boolean() }).optional(),
+  workflows: z.object({ version: z.literal(1) }).optional(),
   resumeSupport: z.object({
     rpcAvailable: z.boolean(),
     requiresSameMachine: z.boolean(),
@@ -335,6 +336,8 @@ export const MessageContentSchema = z.union([UserMessageSchema, AgentMessageSche
 export type MessageContent = z.infer<typeof MessageContentSchema>
 
 export type Metadata = {
+  workflowRunId?: string;
+  workflowManaged?: boolean;
   /**
    * ACP session config option value (normalized for UI metadata consumers).
    */

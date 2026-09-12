@@ -4,3 +4,5 @@ export * from './sessionProtocol';
 export * from './voice';
 export * from './compatibility';
 export * from './providerUsage';
+
+export * from './workflows';

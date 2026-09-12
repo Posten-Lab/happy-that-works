@@ -115,6 +115,8 @@ export default function RootLayout() {
                     headerTitle: t('settings.appearance'),
                 }}
             />
+            <Stack.Screen name="workflows/index" options={{ headerTitle: "Workflows" }} />
+            <Stack.Screen name="workflows/[id]" options={{ headerTitle: "Workflow run" }} />
             <Stack.Screen name="agents/index" options={{ headerTitle: "Agent library" }} />
             <Stack.Screen
                 name="settings/agents"

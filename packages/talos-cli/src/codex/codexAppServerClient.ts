@@ -1,3 +1,4 @@
+import { workflowEnvironment } from '@/workflows/environment';
 /**
  * Codex App Server Client — drives Codex via the v2 JSON-RPC protocol
  * (`codex app-server`), replacing the legacy MCP-based CodexMcpClient.
@@ -262,7 +263,7 @@ export class CodexAppServerClient {
     private eventHandler: ((msg: EventMsg) => void) | null = null;
     private approvalHandler: ApprovalHandler | null = null;
 
-    constructor(sandboxConfig?: SandboxConfig) {
+    constructor(sandboxConfig?: SandboxConfig, private workflowMode = false) {
         this.sandboxConfig = sandboxConfig;
     }
 
@@ -572,7 +573,7 @@ export class CodexAppServerClient {
 
         // Build env — same filtering as the old MCP client
         const env: Record<string, string> = {};
-        for (const [key, value] of Object.entries(process.env)) {
+        for (const [key, value] of Object.entries(this.workflowMode ? workflowEnvironment(process.env, true) : process.env)) {
             if (typeof value === 'string') env[key] = value;
         }
         // Mute noisy rollout list logging
@@ -769,6 +770,15 @@ export class CodexAppServerClient {
         sandbox?: SandboxMode;
         mcpServers?: Record<string, unknown>;
     }): Promise<{ threadId: string; model: string }> {
+        let workflowConfig: Record<string, unknown> = {};
+        if (this.workflowMode) {
+            const result = await this.request('config/read', { includeLayers: false, cwd: opts.cwd }) as { config: Record<string, any> };
+            const disable = (entries: Record<string, unknown> | null = {}) => Object.fromEntries(Object.keys(entries ?? {}).map(k => [k, { enabled: false }]));
+            workflowConfig = { mcp_servers: disable(result.config.mcp_servers), plugins: disable(result.config.plugins),
+                apps: { ...disable(result.config.apps), _default: { enabled: false } },
+                'features.multi_agent': false, 'features.apps': false, web_search: 'disabled',
+                'sandbox_workspace_write.network_access': false };
+        }
         const params: NewConversationParams = {
             model: opts.model ?? null,
             modelProvider: null,
@@ -776,7 +786,7 @@ export class CodexAppServerClient {
             cwd: opts.cwd ?? process.cwd(),
             approvalPolicy: opts.approvalPolicy ?? null,
             sandbox: opts.sandbox ?? null,
-            config: this.buildThreadConfig(opts.mcpServers),
+            config: this.workflowMode ? { ...this.buildThreadConfig(opts.mcpServers), ...workflowConfig } : this.buildThreadConfig(opts.mcpServers),
             baseInstructions: null,
             developerInstructions: TALOS_DEVELOPER_INSTRUCTIONS,
             compactPrompt: null,
@@ -1057,6 +1067,7 @@ export class CodexAppServerClient {
         sandbox?: SandboxMode;
         effort?: ReasoningEffort;
         extraInputItems?: InputItem[];
+        outputSchema?: Record<string, unknown>;
     }): Promise<void> {
         if (!this._threadId) {
             throw new Error('No active thread. Call startThread first.');
@@ -1078,6 +1089,7 @@ export class CodexAppServerClient {
         if (opts?.approvalPolicy) params.approvalPolicy = opts.approvalPolicy;
         if (opts?.model) params.model = opts.model;
         if (opts?.effort) params.effort = opts.effort;
+        if (opts?.outputSchema) params.outputSchema = opts.outputSchema;
 
         // Map sandbox mode to the camelCase policy format the server expects
         if (opts?.sandbox) {
@@ -1121,6 +1133,7 @@ export class CodexAppServerClient {
         sandbox?: SandboxMode;
         effort?: ReasoningEffort;
         extraInputItems?: InputItem[];
+        outputSchema?: Record<string, unknown>;
         turnTimeoutMs?: number;
     }): Promise<{ aborted: boolean }> {
         // Wait for any in-flight interruptTurn() to complete before starting a new

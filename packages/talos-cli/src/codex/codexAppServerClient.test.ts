@@ -128,6 +128,21 @@ describe('CodexAppServerClient sandbox integration', () => {
         process.env.RUST_LOG = originalRustLog;
     });
 
+    it.each([null, { inherited: { enabled: true } }])('isolates workflow tools even when optional config maps are %j', async (entries) => {
+        const { CodexAppServerClient } = await import('./codexAppServerClient');
+        const client = new CodexAppServerClient(undefined, true);
+        const request = vi.spyOn(client as any, 'request').mockImplementation(async (method: unknown) => method === 'config/read'
+            ? { config: { mcp_servers: entries, plugins: entries, apps: entries } }
+            : { thread: { id: 'workflow-thread' }, model: 'gpt-5.6-sol' });
+        await client.startThread({ cwd: '/project', model: 'gpt-5.6-sol', approvalPolicy: 'never', sandbox: 'read-only' });
+        expect(request).toHaveBeenCalledWith('config/read', { includeLayers: false, cwd: '/project' });
+        const config = request.mock.calls.find(call => call[0] === 'thread/start')![1] as any;
+        expect(config.approvalPolicy).toBe('never');
+        expect(config.config).toMatchObject({ 'features.multi_agent': false, 'features.apps': false, web_search: 'disabled', apps: { _default: { enabled: false } } });
+        expect(config.config.mcp_servers).toEqual(entries ? { inherited: { enabled: false } } : {});
+        expect(config.config.plugins).toEqual(entries ? { inherited: { enabled: false } } : {});
+    });
+
     it('reports goal action support for Codex versions with goal action requests', async () => {
         const { CodexAppServerClient } = await import('./codexAppServerClient');
 

@@ -1,0 +1,512 @@
+[
+  {
+    "id": "0bbd2372-bbab-44f1-a5e3-77909af90289",
+    "status": "complete",
+    "planVersion": 1,
+    "reviewRound": 1,
+    "artifactVersion": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d",
+    "tasks": [
+      {
+        "stage": "propose",
+        "round": 1,
+        "agentName": "Aster",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Plan version 1 is sufficient for the isolated workflow test.",
+        "findings": []
+      },
+      {
+        "stage": "propose",
+        "round": 1,
+        "agentName": "Kepler",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Plan version 1 is sufficient for this isolated file-write task.",
+        "findings": []
+      },
+      {
+        "stage": "consolidate",
+        "round": 1,
+        "agentName": "Aster",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Both proposals agree and raise no unresolved objections. The consolidated plan is implementable and directly covers the exact-content, scope, and verification requirements.",
+        "findings": []
+      },
+      {
+        "stage": "plan_vote",
+        "round": 1,
+        "agentName": "Aster",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Plan version 1 directly satisfies the assignment and acceptance criteria while preserving the required file scope and using the configured completion check.",
+        "findings": []
+      },
+      {
+        "stage": "plan_vote",
+        "round": 1,
+        "agentName": "Kepler",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Plan version 1 is complete, correctly scoped, and directly satisfies the acceptance criteria. It preserves the exact required bytes, limits changes to result.txt, requires the real configured completion check, and captures both file and check evidence for reviewer inspection.",
+        "findings": []
+      },
+      {
+        "stage": "execute",
+        "round": 1,
+        "agentName": "Forge",
+        "version": "plan:1",
+        "status": "interrupted",
+        "error": "Agent interrupted or step time limit reached. Inspect before retrying."
+      },
+      {
+        "stage": "execute",
+        "round": 1,
+        "agentName": "Forge",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "result.txt satisfies the acceptance criteria and is ready for independent review.",
+        "findings": []
+      },
+      {
+        "stage": "review",
+        "round": 1,
+        "agentName": "Iris",
+        "version": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d",
+        "status": "interrupted",
+        "error": "Agent interrupted or step time limit reached. Inspect before retrying."
+      },
+      {
+        "stage": "review",
+        "round": 1,
+        "agentName": "Iris",
+        "version": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Acceptance criterion verified with no blocking findings.",
+        "findings": []
+      },
+      {
+        "stage": "review",
+        "round": 1,
+        "agentName": "Sentinel",
+        "version": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Acceptance criteria and required verification pass with no blocking findings.",
+        "findings": []
+      }
+    ],
+    "checks": [
+      {
+        "name": "Required verification",
+        "exitCode": 0,
+        "output": "WORKFLOW_CHECK_PASSED\n",
+        "version": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d"
+      }
+    ],
+    "events": [
+      {
+        "at": 1789243681754,
+        "text": "Run created in an isolated worktree. All required participants must approve."
+      },
+      {
+        "at": 1789243681850,
+        "text": "Aster: propose started."
+      },
+      {
+        "at": 1789243688497,
+        "text": "Aster: approve \u2014 Plan version 1 is sufficient for the isolated workflow test."
+      },
+      {
+        "at": 1789243688508,
+        "text": "Kepler: propose started."
+      },
+      {
+        "at": 1789243695444,
+        "text": "Kepler: approve \u2014 Plan version 1 is sufficient for this isolated file-write task."
+      },
+      {
+        "at": 1789243695455,
+        "text": "Advancing to consolidate."
+      },
+      {
+        "at": 1789243695467,
+        "text": "Aster: consolidate started."
+      },
+      {
+        "at": 1789243702358,
+        "text": "Aster: approve \u2014 Both proposals agree and raise no unresolved objections. The consolidated plan is implementable and directly covers the exact-content, scope, and verification requirements."
+      },
+      {
+        "at": 1789243702371,
+        "text": "Advancing to plan_vote."
+      },
+      {
+        "at": 1789243702381,
+        "text": "Aster: plan_vote started."
+      },
+      {
+        "at": 1789243708379,
+        "text": "Aster: approve \u2014 Plan version 1 directly satisfies the assignment and acceptance criteria while preserving the required file scope and using the configured completion check."
+      },
+      {
+        "at": 1789243708392,
+        "text": "Kepler: plan_vote started."
+      },
+      {
+        "at": 1789243714136,
+        "text": "Kepler: approve \u2014 Plan version 1 is complete, correctly scoped, and directly satisfies the acceptance criteria. It preserves the exact required bytes, limits changes to result.txt, requires the real configured completion check, and captures both file and check evidence for reviewer inspection."
+      },
+      {
+        "at": 1789243714148,
+        "text": "Every planner approved. Your approval is required before execution."
+      },
+      {
+        "at": 1789243892469,
+        "text": "Forge: execute started."
+      },
+      {
+        "at": 1789243911627,
+        "text": "Paused by you."
+      },
+      {
+        "at": 1789243930583,
+        "text": "Forge: execute started."
+      },
+      {
+        "at": 1789243990457,
+        "text": "Forge: approve \u2014 result.txt satisfies the acceptance criteria and is ready for independent review."
+      },
+      {
+        "at": 1789243990470,
+        "text": "Advancing to verify."
+      },
+      {
+        "at": 1789243990572,
+        "text": "Advancing to review."
+      },
+      {
+        "at": 1789243990606,
+        "text": "Iris: review started."
+      },
+      {
+        "at": 1789244009959,
+        "text": "Coordinator stopped. Inspect any interrupted work before resuming."
+      },
+      {
+        "at": 1789244070501,
+        "text": "Iris: review started."
+      },
+      {
+        "at": 1789244096013,
+        "text": "Iris: approve \u2014 Acceptance criterion verified with no blocking findings."
+      },
+      {
+        "at": 1789244096024,
+        "text": "Sentinel: review started."
+      },
+      {
+        "at": 1789244113729,
+        "text": "Sentinel: approve \u2014 Acceptance criteria and required verification pass with no blocking findings."
+      },
+      {
+        "at": 1789244113779,
+        "text": "Completed: every required reviewer approved this revision and all completion checks passed."
+      }
+    ]
+  },
+  {
+    "id": "eb29e8f3-bf29-47bc-9dcb-327b596809c3",
+    "status": "complete",
+    "planVersion": 1,
+    "reviewRound": 2,
+    "artifactVersion": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d",
+    "tasks": [
+      {
+        "stage": "propose",
+        "round": 1,
+        "agentName": "Aster",
+        "version": "plan:1",
+        "status": "interrupted",
+        "error": "Cannot convert undefined or null to object"
+      },
+      {
+        "stage": "propose",
+        "round": 1,
+        "agentName": "Aster",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Plan version 1 deliberately creates the expected round-1 failure, requires both reviewers to catch it, and corrects it only in the correction round.",
+        "findings": []
+      },
+      {
+        "stage": "propose",
+        "round": 1,
+        "agentName": "Kepler",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Plan version 1 intentionally introduces the required round-1 fault, then corrects it only in the correction round, with exact-content validation and reviewer gates.",
+        "findings": []
+      },
+      {
+        "stage": "consolidate",
+        "round": 1,
+        "agentName": "Aster",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "The proposals agree and all objections are resolved: round 1 intentionally fails, both reviewers must request changes, and approval is allowed only after the correction and passing exact-content check.",
+        "findings": []
+      },
+      {
+        "stage": "plan_vote",
+        "round": 1,
+        "agentName": "Aster",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Plan version 1 fully covers the controlled two-round regression workflow and final acceptance criteria.",
+        "findings": []
+      },
+      {
+        "stage": "plan_vote",
+        "round": 1,
+        "agentName": "Kepler",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Plan version 1 correctly encodes the controlled regression workflow: the deliberate round-1 fault, expected completion-check failure, mandatory change requests from both reviewers, correction to the exact accepted bytes, passing verification, and sole-file-change validation. No dependencies or package-manager actions are introduced.",
+        "findings": []
+      },
+      {
+        "stage": "execute",
+        "round": 1,
+        "agentName": "Forge",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Round 1 is ready for independent review with the deliberate fault intact.",
+        "findings": []
+      },
+      {
+        "stage": "review",
+        "round": 1,
+        "agentName": "Iris",
+        "version": "b3ae63d22bb4c5a53d5a79a53851deade01202e9d4ce7b058dfade319dd5bead",
+        "status": "done",
+        "decision": "changes",
+        "summary": "Round 1 correctly exposes the deliberate acceptance-criteria failure. Correction is required before approval.",
+        "findings": [
+          {
+            "title": "result.txt has the deliberately incorrect round-1 content",
+            "evidence": "Byte inspection shows exactly `WORKFLOW_NEEDS_FIX\\n` (19 bytes), while acceptance requires exactly `WORKFLOW_E2E_OK\\n`. The required completion check exits 1 with AssertionError.",
+            "correction": "In the correction round, replace the complete file contents with exactly `WORKFLOW_E2E_OK\\n`, rerun the real completion check to obtain exit 0, and confirm result.txt remains the sole changed file.",
+            "blocking": true
+          }
+        ]
+      },
+      {
+        "stage": "review",
+        "round": 1,
+        "agentName": "Sentinel",
+        "version": "b3ae63d22bb4c5a53d5a79a53851deade01202e9d4ce7b058dfade319dd5bead",
+        "status": "done",
+        "decision": "changes",
+        "summary": "Round 1 must not be approved. The deliberate incorrect content remains and the real completion check fails.",
+        "findings": [
+          {
+            "title": "result.txt has incorrect required content",
+            "evidence": "Direct byte inspection shows WORKFLOW_NEEDS_FIX followed by exactly one newline. The real completion check asserting equality with b'WORKFLOW_E2E_OK\\n' exits 1 with AssertionError.",
+            "correction": "In the correction round, replace the complete file contents with exactly WORKFLOW_E2E_OK followed by one newline, rerun the real completion check, and confirm result.txt remains the only changed file.",
+            "blocking": true
+          }
+        ]
+      },
+      {
+        "stage": "execute",
+        "round": 2,
+        "agentName": "Forge",
+        "version": "plan:1",
+        "status": "done",
+        "decision": "approve",
+        "summary": "Correction round complete and ready for independent review.",
+        "findings": []
+      },
+      {
+        "stage": "review",
+        "round": 2,
+        "agentName": "Iris",
+        "version": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d",
+        "status": "done",
+        "decision": "approve",
+        "summary": "All acceptance criteria are satisfied with no unresolved blocking findings.",
+        "findings": []
+      },
+      {
+        "stage": "review",
+        "round": 2,
+        "agentName": "Sentinel",
+        "version": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d",
+        "status": "done",
+        "decision": "approve",
+        "summary": "All acceptance criteria pass with no unresolved blocking findings.",
+        "findings": []
+      }
+    ],
+    "checks": [
+      {
+        "name": "Required verification",
+        "exitCode": 0,
+        "output": "WORKFLOW_CHECK_PASSED\n",
+        "version": "8cf61323c55953a2701fc681643f192615dfdd6a362f2a45b01e0371f1742a9d"
+      }
+    ],
+    "events": [
+      {
+        "at": 1789242833032,
+        "text": "Run created in an isolated worktree. All required participants must approve."
+      },
+      {
+        "at": 1789242833115,
+        "text": "Aster: propose started."
+      },
+      {
+        "at": 1789242833257,
+        "text": "Cannot convert undefined or null to object"
+      },
+      {
+        "at": 1789242905094,
+        "text": "Aster: propose started."
+      },
+      {
+        "at": 1789242918048,
+        "text": "Aster: approve \u2014 Plan version 1 deliberately creates the expected round-1 failure, requires both reviewers to catch it, and corrects it only in the correction round."
+      },
+      {
+        "at": 1789242918058,
+        "text": "Kepler: propose started."
+      },
+      {
+        "at": 1789242927067,
+        "text": "Kepler: approve \u2014 Plan version 1 intentionally introduces the required round-1 fault, then corrects it only in the correction round, with exact-content validation and reviewer gates."
+      },
+      {
+        "at": 1789242927078,
+        "text": "Advancing to consolidate."
+      },
+      {
+        "at": 1789242927088,
+        "text": "Aster: consolidate started."
+      },
+      {
+        "at": 1789242940768,
+        "text": "Aster: approve \u2014 The proposals agree and all objections are resolved: round 1 intentionally fails, both reviewers must request changes, and approval is allowed only after the correction and passing exact-content check."
+      },
+      {
+        "at": 1789242940778,
+        "text": "Advancing to plan_vote."
+      },
+      {
+        "at": 1789242940788,
+        "text": "Aster: plan_vote started."
+      },
+      {
+        "at": 1789242946374,
+        "text": "Aster: approve \u2014 Plan version 1 fully covers the controlled two-round regression workflow and final acceptance criteria."
+      },
+      {
+        "at": 1789242946384,
+        "text": "Kepler: plan_vote started."
+      },
+      {
+        "at": 1789242952602,
+        "text": "Kepler: approve \u2014 Plan version 1 correctly encodes the controlled regression workflow: the deliberate round-1 fault, expected completion-check failure, mandatory change requests from both reviewers, correction to the exact accepted bytes, passing verification, and sole-file-change validation. No dependencies or package-manager actions are introduced."
+      },
+      {
+        "at": 1789242952611,
+        "text": "Every planner approved. Your approval is required before execution."
+      },
+      {
+        "at": 1789243117095,
+        "text": "Forge: execute started."
+      },
+      {
+        "at": 1789243167165,
+        "text": "Forge: approve \u2014 Round 1 is ready for independent review with the deliberate fault intact."
+      },
+      {
+        "at": 1789243167175,
+        "text": "Advancing to verify."
+      },
+      {
+        "at": 1789243167269,
+        "text": "Advancing to review."
+      },
+      {
+        "at": 1789243167291,
+        "text": "Iris: review started."
+      },
+      {
+        "at": 1789243210289,
+        "text": "Iris: changes \u2014 Round 1 correctly exposes the deliberate acceptance-criteria failure. Correction is required before approval."
+      },
+      {
+        "at": 1789243210301,
+        "text": "Sentinel: review started."
+      },
+      {
+        "at": 1789243229715,
+        "text": "Sentinel: changes \u2014 Round 1 must not be approved. The deliberate incorrect content remains and the real completion check fails."
+      },
+      {
+        "at": 1789243229746,
+        "text": "Advancing to execute."
+      },
+      {
+        "at": 1789243229757,
+        "text": "Forge: execute started."
+      },
+      {
+        "at": 1789243263307,
+        "text": "Forge: approve \u2014 Correction round complete and ready for independent review."
+      },
+      {
+        "at": 1789243263317,
+        "text": "Advancing to verify."
+      },
+      {
+        "at": 1789243263394,
+        "text": "Advancing to review."
+      },
+      {
+        "at": 1789243263415,
+        "text": "Iris: review started."
+      },
+      {
+        "at": 1789243281466,
+        "text": "Iris: approve \u2014 All acceptance criteria are satisfied with no unresolved blocking findings."
+      },
+      {
+        "at": 1789243281479,
+        "text": "Sentinel: review started."
+      },
+      {
+        "at": 1789243297948,
+        "text": "Sentinel: approve \u2014 All acceptance criteria pass with no unresolved blocking findings."
+      },
+      {
+        "at": 1789243297976,
+        "text": "Completed: every required reviewer approved this revision and all completion checks passed."
+      }
+    ]
+  }
+]
