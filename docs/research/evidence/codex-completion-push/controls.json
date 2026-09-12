@@ -1,0 +1,14 @@
+[
+  {
+    "check": "cancelled-turn-did-not-send-done"
+  },
+  {
+    "check": "server-received-notification",
+    "kind": "done",
+    "elapsedMs": 5809
+  },
+  {
+    "check": "followup-completed-once",
+    "doneCount": 1
+  }
+]

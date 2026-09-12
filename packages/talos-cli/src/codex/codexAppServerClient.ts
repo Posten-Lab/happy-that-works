@@ -334,11 +334,14 @@ export class CodexAppServerClient {
     ): void {
         const aborted = status === 'cancelled' || status === 'canceled' || status === 'aborted' || status === 'interrupted';
 
-        this.tryResolvePendingTurn(aborted, turnId, source);
-        this._turnId = null;
-
         if (turnId && this.completedTurnIds.has(turnId)) {
             return;
+        }
+        // A repeated terminal event can arrive while the next turn/start RPC
+        // is still pending. Do not let it settle or clear that new turn.
+        this.tryResolvePendingTurn(aborted, turnId, source);
+        if (!turnId || this._turnId === turnId) {
+            this._turnId = null;
         }
         if (turnId) {
             this.completedTurnIds.add(turnId);
@@ -405,10 +408,8 @@ export class CodexAppServerClient {
         }
 
         if (method === 'thread/status/changed') {
-            const statusType = params?.status?.type;
-            if (statusType === 'idle' && this.pendingTurnCompletion) {
-                this.emitRawTurnCompletion(this._turnId, 'completed', null, method);
-            }
+            // Idle also precedes interrupted/failed turn completions. It does
+            // not tell us the outcome; wait for the terminal turn event.
             return true;
         }
 
@@ -524,14 +525,9 @@ export class CodexAppServerClient {
                 });
             }
 
-            if (item.phase === 'final_answer' && this.pendingTurnCompletion) {
-                this.emitRawTurnCompletion(
-                    this.extractTurnId(params),
-                    'completed',
-                    null,
-                    `${method}:final_answer`,
-                );
-            }
+            // The final answer is an item, not a terminal lifecycle event.
+            // Codex can still be finishing the turn; wait for turn/completed
+            // before releasing the queue and notifying the user.
             return true;
         }
 
@@ -1119,12 +1115,13 @@ export class CodexAppServerClient {
         }
     }
 
-    /** Default timeout for waiting on turn completion (ms). 10 minutes. */
-    private static readonly TURN_TIMEOUT_MS = 10 * 60 * 1000;
-
     /**
      * Send a user turn and wait for it to complete (task_complete or turn_aborted).
      * Returns { aborted: true } if the turn was aborted (user cancel, permission reject, etc.).
+     * Interactive turns have no wall-clock deadline: tools and approvals can take
+     * arbitrarily long. Bounded callers can supply turnTimeoutMs and must stop the
+     * provider on timeout. Disconnect, process exit, and user abort still settle
+     * an interactive wait.
      */
     async sendTurnAndWait(prompt: string, opts?: {
         model?: string;
@@ -1147,7 +1144,7 @@ export class CodexAppServerClient {
             await new Promise(resolve => setTimeout(resolve, 0));
         }
 
-        const timeoutMs = opts?.turnTimeoutMs ?? CodexAppServerClient.TURN_TIMEOUT_MS;
+        const timeoutMs = opts?.turnTimeoutMs;
         let timer: ReturnType<typeof setTimeout> | null = null;
 
         const completion = new Promise<boolean>((resolve) => {
@@ -1156,12 +1153,14 @@ export class CodexAppServerClient {
                 turnId: null,
             };
 
-            timer = setTimeout(() => {
-                if (this.pendingTurnCompletion) {
-                    logger.warn(`[CodexAppServer] Turn timed out after ${timeoutMs}ms — treating as abort`);
-                    this.resolvePendingTurn(true);
-                }
-            }, timeoutMs);
+            if (timeoutMs !== undefined) {
+                timer = setTimeout(() => {
+                    if (this.pendingTurnCompletion) {
+                        logger.warn(`[CodexAppServer] Turn timed out after ${timeoutMs}ms — treating as abort`);
+                        this.resolvePendingTurn(true);
+                    }
+                }, timeoutMs);
+            }
         });
 
         try {
