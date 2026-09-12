@@ -159,12 +159,13 @@ export function sessionRoutes(app: Fastify) {
             querystring: z.object({
                 cursor: z.string().optional(),
                 limit: z.coerce.number().int().min(1).max(200).default(50),
-                changedSince: z.coerce.number().int().positive().optional()
+                changedSince: z.coerce.number().int().positive().optional(),
+                lastMessageSince: z.coerce.number().int().nonnegative().max(8_640_000_000_000_000).optional(),
             }).optional()
         }
     }, async (request, reply) => {
         const userId = request.userId;
-        const { cursor, limit = 50, changedSince } = request.query || {};
+        const { cursor, limit = 50, changedSince, lastMessageSince } = request.query || {};
 
         // Decode cursor - simple ID-based cursor
         let cursorSessionId: string | undefined;
@@ -178,6 +179,18 @@ export function sessionRoutes(app: Fastify) {
 
         // Build where clause
         const where: Prisma.SessionWhereInput = { accountId: userId };
+
+        // Search coverage is based on conversation activity, not metadata updates:
+        // renaming or archiving an old conversation must not make it recent again.
+        // Keep all active sessions, and use creation time for empty conversations.
+        if (lastMessageSince !== undefined) {
+            const cutoff = new Date(lastMessageSince);
+            where.OR = [
+                { active: true },
+                { messages: { some: { createdAt: { gte: cutoff } } } },
+                { messages: { none: {} }, createdAt: { gte: cutoff } },
+            ];
+        }
 
         // Add changedSince filter (just a filter, doesn't affect pagination)
         if (changedSince) {
@@ -212,6 +225,11 @@ export function sessionRoutes(app: Fastify) {
                 dataEncryptionKey: true,
                 active: true,
                 lastActiveAt: true,
+                messages: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: { createdAt: true },
+                },
             }
         });
 
@@ -234,6 +252,7 @@ export function sessionRoutes(app: Fastify) {
                 updatedAt: v.updatedAt.getTime(),
                 active: v.active,
                 activeAt: v.lastActiveAt.getTime(),
+                lastMessageAt: v.messages[0]?.createdAt.getTime() ?? null,
                 metadata: v.metadata,
                 metadataVersion: v.metadataVersion,
                 agentState: v.agentState,

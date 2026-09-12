@@ -63,6 +63,7 @@ import { encryptBlob } from '@/encryption/blob';
 import { readFileBytes } from '@/utils/readFileBytes';
 import { Modal } from '@/modal';
 import { t } from '@/text';
+import { configureSessionSearch, sessionSearch } from './search/sessionSearch';
 
 type V3GetSessionMessagesResponse = {
     messages: ApiMessage[];
@@ -255,6 +256,11 @@ class Sync {
 
     async #init() {
 
+        configureSessionSearch(this.credentials, this.encryption, {
+            applySession: session => this.applySessions([session]),
+            loadMessage: (sessionId, seq, signal) => this.loadSearchMessage(sessionId, seq, signal),
+        });
+
         // Subscribe to updates
         this.subscribeToUpdates();
 
@@ -307,6 +313,38 @@ class Sync {
         if (session) {
             voiceHooks.onSessionFocus(sessionId, session.metadata || undefined);
         }
+    }
+
+    /** Load the contiguous history needed for an exact search target. Indexing
+     * itself never touches these UI cursors or activates the agent. */
+    loadSearchMessage = async (sessionId: string, seq: number, signal?: AbortSignal) => {
+        if (!Number.isSafeInteger(seq) || seq < 1) throw new Error('Invalid search message sequence');
+        const ensureCurrent = () => { if (signal?.aborted) throw new Error('Search account disconnected.'); };
+        ensureCurrent();
+        await this.getSessionMessageLock(sessionId).inLock(async () => {
+            ensureCurrent();
+            const encryption = this.encryption.getSessionEncryption(sessionId);
+            if (!encryption) throw new Error('Conversation encryption is not ready.');
+            const knownLastSeq = this.sessionLastSeq.get(sessionId);
+            if (knownLastSeq === undefined) await this.fetchInitialLatestPage(sessionId, encryption, signal);
+            else await this.fetchForwardSince(sessionId, encryption, knownLastSeq, signal);
+            ensureCurrent();
+            storage.getState().applyMessagesLoaded(sessionId);
+        });
+        while ((this.sessionOldestSeq.get(sessionId) ?? Infinity) > seq) {
+            ensureCurrent();
+            const state = storage.getState().sessionMessages[sessionId];
+            if (!state?.hasMoreOlder) throw new Error('The matching message is no longer available.');
+            // The initial chat fetch also starts a background prefetch. Let its
+            // current page finish before asking for the next page ourselves.
+            if (state.isLoadingOlder) {
+                await this.getSessionMessageLock(sessionId).inLock(async () => {});
+                await new Promise(resolve => setTimeout(resolve, 10));
+                continue;
+            }
+            await this.loadOlderMessages(sessionId, signal);
+        }
+        ensureCurrent();
     }
 
     private getMessagesSync(sessionId: string): InvalidateSync {
@@ -2000,7 +2038,8 @@ class Sync {
 
     private fetchInitialLatestPage = async (
         sessionId: string,
-        encryption: ReturnType<Encryption['getSessionEncryption']> & {}
+        encryption: ReturnType<Encryption['getSessionEncryption']> & {},
+        signal?: AbortSignal,
     ) => {
         const response = await apiSocket.request(
             `/v3/sessions/${sessionId}/messages?before_seq=${SEQ_BACKWARD_INITIAL_SENTINEL}&limit=100`
@@ -2011,7 +2050,8 @@ class Sync {
         const data = await response.json() as V3GetSessionMessagesResponse;
         const messages = Array.isArray(data.messages) ? data.messages : [];
 
-        await this.applyFetchedMessages(sessionId, encryption, messages);
+        await this.applyFetchedMessages(sessionId, encryption, messages, signal);
+        if (signal?.aborted) throw new Error('Search account disconnected.');
 
         // Anchor both ends so future incremental forward sync resumes from
         // maxSeq, and loadOlderMessages can page backward from minSeq.
@@ -2033,7 +2073,8 @@ class Sync {
     private fetchForwardSince = async (
         sessionId: string,
         encryption: ReturnType<Encryption['getSessionEncryption']> & {},
-        fromSeq: number
+        fromSeq: number,
+        signal?: AbortSignal,
     ) => {
         let afterSeq = fromSeq;
         while (true) {
@@ -2044,7 +2085,8 @@ class Sync {
             const data = await response.json() as V3GetSessionMessagesResponse;
             const messages = Array.isArray(data.messages) ? data.messages : [];
 
-            await this.applyFetchedMessages(sessionId, encryption, messages);
+            await this.applyFetchedMessages(sessionId, encryption, messages, signal);
+            if (signal?.aborted) throw new Error('Search account disconnected.');
 
             let maxSeq = afterSeq;
             for (const message of messages) {
@@ -2064,10 +2106,12 @@ class Sync {
     private applyFetchedMessages = async (
         sessionId: string,
         encryption: ReturnType<Encryption['getSessionEncryption']> & {},
-        messages: ApiMessage[]
+        messages: ApiMessage[],
+        signal?: AbortSignal,
     ) => {
         if (messages.length === 0) return;
         const decryptedMessages = await encryption.decryptMessages(messages);
+        if (signal?.aborted) throw new Error('Search account disconnected.');
         const normalizedMessages: NormalizedMessage[] = [];
         for (let i = 0; i < decryptedMessages.length; i++) {
             const decrypted = decryptedMessages[i];
@@ -2089,7 +2133,8 @@ class Sync {
      * earliest message, when no initial fetch has happened yet, or when an
      * older-fetch is already in flight for this session.
      */
-    loadOlderMessages = async (sessionId: string) => {
+    loadOlderMessages = async (sessionId: string, signal?: AbortSignal) => {
+        if (signal?.aborted) throw new Error('Search account disconnected.');
         const oldestSeq = this.sessionOldestSeq.get(sessionId);
         if (oldestSeq === undefined || oldestSeq <= 1) {
             return;
@@ -2103,6 +2148,7 @@ class Sync {
         const lock = this.getSessionMessageLock(sessionId);
         try {
             await lock.inLock(async () => {
+                if (signal?.aborted) throw new Error('Search account disconnected.');
                 const encryption = this.encryption.getSessionEncryption(sessionId);
                 if (!encryption) {
                     log.log(`💬 loadOlderMessages: encryption not ready for ${sessionId}`);
@@ -2123,7 +2169,8 @@ class Sync {
                 const data = await response.json() as V3GetSessionMessagesResponse;
                 const messages = Array.isArray(data.messages) ? data.messages : [];
 
-                await this.applyFetchedMessages(sessionId, encryption, messages);
+                await this.applyFetchedMessages(sessionId, encryption, messages, signal);
+                if (signal?.aborted) throw new Error('Search account disconnected.');
 
                 let minSeq = beforeSeq;
                 for (const message of messages) {
@@ -2137,7 +2184,7 @@ class Sync {
                 });
             });
         } finally {
-            storage.getState().applyOlderMessagesLoading(sessionId, false);
+            if (!signal?.aborted) storage.getState().applyOlderMessagesLoading(sessionId, false);
         }
     }
 
@@ -2197,6 +2244,9 @@ class Sync {
             return;
         }
         const updateData = validatedUpdate.data;
+        if (updateData.body.t === 'new-message' || updateData.body.t === 'new-session' || updateData.body.t === 'update-session') {
+            sessionSearch.invalidate();
+        }
         console.log(`🔄 Sync: Validated update type: ${updateData.body.t}`);
 
         if (updateData.body.t === 'new-message') {
@@ -2298,6 +2348,7 @@ class Sync {
         } else if (updateData.body.t === 'delete-session') {
             log.log('🗑️ Delete session update received');
             const sessionId = updateData.body.sid;
+            sessionSearch.removeSession(sessionId);
 
             // Remove session from storage
             storage.getState().deleteSession(sessionId);
@@ -2812,6 +2863,7 @@ class Sync {
     })[]) => {
         const active = storage.getState().getActiveSessions();
         storage.getState().applySessions(sessions);
+        sessions.forEach(session => sessionSearch.updateSession(session));
         const newActive = storage.getState().getActiveSessions();
         this.applySessionDiff(active, newActive);
     }

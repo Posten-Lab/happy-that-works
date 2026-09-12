@@ -158,6 +158,7 @@
     "livekit-client": "^2.15.4",
     "lottie-react-native": "~7.3.1",
     "mermaid": "^11.12.1",
+    "minisearch": "^7.2.0",
     "posthog-react-native": "~4.37.5",
     "preact": "^10.29.1",
     "prismjs": "^1.30.0",

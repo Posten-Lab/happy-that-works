@@ -22,10 +22,25 @@ const TAURI_HEADER_CONTROL_LEFT = Math.ceil(92 / DEFAULT_APP_ZOOM);
 export const SidebarNavigator = React.memo(() => {
     const auth = useAuth();
     const isTablet = useIsTablet();
-    const zenMode = useLocalSetting('zenMode');
+    const [zenMode, setZenMode] = useLocalSettingMutable('zenMode');
+    const router = useRouter();
     const isDesktopLayout = auth.isAuthenticated && isTablet;
     const showSidebar = isDesktopLayout && !zenMode;
     const { width: windowWidth } = useWindowDimensions();
+
+    React.useEffect(() => {
+        if (Platform.OS !== 'web' || !auth.isAuthenticated) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+            event.preventDefault();
+            setZenMode(false);
+            const request = String(Date.now());
+            if (isTablet) router.setParams({ sessionSearch: request });
+            else router.navigate({ pathname: '/', params: { sessionSearch: request } });
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [auth.isAuthenticated, isTablet, router, setZenMode]);
 
     // Calculate target drawer width
     const fullDrawerWidth = React.useMemo(() => {

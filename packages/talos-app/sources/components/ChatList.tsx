@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { useSession, useSessionMessages, useSetting } from "@/sync/storage";
+import { storage, useSession, useSessionMessages, useSetting } from "@/sync/storage";
 import { sync } from '@/sync/sync';
-import { ActivityIndicator, AppState, FlatList, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, View } from 'react-native';
+import { ActivityIndicator, AppState, FlatList, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, Text, View } from 'react-native';
 import { useCallback } from 'react';
 import { useHeaderHeight } from '@/utils/responsive';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,15 +11,17 @@ import { DuplicateSheet } from './DuplicateSheet';
 import { Metadata, Session } from '@/sync/storageTypes';
 import { ChatFooter } from './ChatFooter';
 import { Message } from '@/sync/typesMessage';
-import { DisplayItem, ToolGroupItem, useGroupedMessages } from '@/hooks/useGroupedMessages';
+import { DisplayItem, ToolGroupItem, groupToolCallsForDisplay, useGroupedMessages } from '@/hooks/useGroupedMessages';
 import { Octicons } from '@expo/vector-icons';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Modal } from '@/modal';
 import { useSessionQuickActions } from '@/hooks/useSessionQuickActions';
+import { invertedSearchOffset, resolveSearchMessageId } from './sessionSearchPresentation';
+import { t } from '@/text';
 
 const SCROLL_THRESHOLD = 300;
 
-export const ChatList = React.memo((props: { session: Session }) => {
+export const ChatList = React.memo((props: { session: Session; searchMessageId?: string; searchBlockIndex?: number }) => {
     const { messages, hasMoreOlder, isLoadingOlder } = useSessionMessages(props.session.id);
     return (
         <ChatListInternal
@@ -28,6 +30,8 @@ export const ChatList = React.memo((props: { session: Session }) => {
             messages={messages}
             hasMoreOlder={hasMoreOlder}
             isLoadingOlder={isLoadingOlder}
+            searchMessageId={props.searchMessageId}
+            searchBlockIndex={props.searchBlockIndex}
         />
     )
 });
@@ -64,9 +68,14 @@ const ChatListInternal = React.memo((props: {
     messages: Message[],
     hasMoreOlder: boolean,
     isLoadingOlder: boolean,
+    searchMessageId?: string,
+    searchBlockIndex?: number,
 }) => {
     const { theme } = useUnistyles();
     const flatListRef = React.useRef<FlatList>(null);
+    const viewportRef = React.useRef<View>(null);
+    const searchMessageRef = React.useRef<View>(null);
+    const scrollOffsetRef = React.useRef(0);
     const [showScrollButton, setShowScrollButton] = React.useState(false);
     // Tracks whether the scroll-button is currently shown, so we only call
     // setShowScrollButton when the threshold is actually crossed instead of
@@ -86,7 +95,80 @@ const ChatListInternal = React.memo((props: {
         () => ({ collapseCurrentTurn }),
         [collapseCurrentTurn],
     );
-    const displayItems = useGroupedMessages(props.messages, groupToolCalls, groupingOptions);
+    const groupedItems = useGroupedMessages(props.messages, groupToolCalls, groupingOptions);
+    const searchTargetKey = props.searchMessageId ? `${props.searchMessageId}:${props.searchBlockIndex ?? ''}` : undefined;
+    const [dismissedSearchId, setDismissedSearchId] = React.useState<string | undefined>();
+    const searchTargetId = React.useMemo(() => (
+        searchTargetKey === dismissedSearchId ? undefined : resolveSearchMessageId(
+            storage.getState().sessionMessages[props.sessionId]?.reducerState,
+            props.searchMessageId,
+            '',
+            props.searchBlockIndex,
+        )
+    ), [props.messages, props.sessionId, props.searchMessageId, props.searchBlockIndex, searchTargetKey, dismissedSearchId]);
+    // Reveal the matching agent text even when it lives inside collapsed work.
+    // Other turns retain their normal grouping and collapse state.
+    const displayItems = React.useMemo(() => groupedItems.flatMap((item): DisplayItem[] => (
+        item.type === 'agent-work-group' && item.messages.some((message) => message.id === searchTargetId)
+            ? groupToolCallsForDisplay(item.messages, true)
+            : [item]
+    )), [groupedItems, searchTargetId]);
+    const searchTargetIndex = displayItems.findIndex((item) => item.type === 'message' && item.message.id === searchTargetId);
+    const pendingSearchScroll = React.useRef(false);
+    const searchScrollTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchScrollRetries = React.useRef(0);
+    const searchScrollDeadline = React.useRef(0);
+    const searchTargetIndexRef = React.useRef(searchTargetIndex);
+    searchTargetIndexRef.current = searchTargetIndex;
+    const scrollToSearchTarget = useCallback(() => {
+        if (!pendingSearchScroll.current || Date.now() > searchScrollDeadline.current || searchTargetIndexRef.current < 0 || !flatListRef.current) return;
+        const target = searchMessageRef.current;
+        if (!target) {
+            flatListRef.current.scrollToIndex({ index: searchTargetIndexRef.current, animated: false, viewPosition: 0.5 });
+            return;
+        }
+        // scrollToIndex uses estimated row heights until virtualization has
+        // measured the intervening history. Once the row mounts, use its real
+        // viewport position so distant variable-height messages land exactly.
+        if (Platform.OS === 'web') {
+            (target as unknown as HTMLElement).scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+            return;
+        }
+        viewportRef.current?.measureInWindow((_x, viewportY, _width, viewportHeight) => {
+            target.measureInWindow((_targetX, targetY, _targetWidth, targetHeight) => {
+                if (!pendingSearchScroll.current || viewportHeight <= 0 || targetHeight <= 0) return;
+                const offset = invertedSearchOffset(scrollOffsetRef.current, viewportY, viewportHeight, targetY, targetHeight);
+                if (Math.abs(offset - scrollOffsetRef.current) > 2) flatListRef.current?.scrollToOffset({ offset, animated: false });
+            });
+        });
+    }, []);
+    const scheduleSearchScroll = useCallback(() => {
+        if (!pendingSearchScroll.current || Date.now() > searchScrollDeadline.current) return;
+        if (searchScrollTimer.current) clearTimeout(searchScrollTimer.current);
+        searchScrollTimer.current = setTimeout(scrollToSearchTarget, 80);
+    }, [scrollToSearchTarget]);
+
+    React.useEffect(() => {
+        if (searchTargetIndex < 0) return;
+        pendingSearchScroll.current = true;
+        searchScrollDeadline.current = Date.now() + 10_000;
+        searchScrollRetries.current = 0;
+        searchScrollTimer.current = setTimeout(scrollToSearchTarget, 100);
+        return () => {
+            pendingSearchScroll.current = false;
+            if (searchScrollTimer.current) clearTimeout(searchScrollTimer.current);
+        };
+    }, [searchTargetId, scrollToSearchTarget]);
+
+    const handleScrollToIndexFailed = useCallback((info: { averageItemLength: number; index: number }) => {
+        if (!pendingSearchScroll.current || searchScrollRetries.current >= 12) return;
+        searchScrollRetries.current += 1;
+        // Variable-height virtualized rows need one estimated scroll so the
+        // target region mounts, followed by an exact measured scroll.
+        flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
+        if (searchScrollTimer.current) clearTimeout(searchScrollTimer.current);
+        searchScrollTimer.current = setTimeout(scrollToSearchTarget, 120);
+    }, [scrollToSearchTarget]);
 
     // Tracks which groups are explicitly collapsed. Groups start collapsed;
     // pending approval groups are the only ones we auto-expand.
@@ -247,7 +329,7 @@ const ChatListInternal = React.memo((props: {
                 />
             );
         }
-        return (
+        const message = (
             <MessageView
                 message={item.message}
                 metadata={props.metadata}
@@ -255,7 +337,18 @@ const ChatListInternal = React.memo((props: {
                 onForkFromUserMessage={canFork ? handleForkFromMessage : undefined}
             />
         );
-    }, [props.metadata, props.sessionId, canFork, handleForkFromMessage, collapsedGroups, handleToggleGroup]);
+        return item.message.id === searchTargetId ? (
+            <View ref={searchMessageRef} onLayout={scheduleSearchScroll} style={styles.searchMatch} testID="session-search-target">
+                <View style={styles.searchMatchHeader}>
+                    <Text style={styles.searchMatchLabel}>{t('sessionSearch.matchingMessage')}</Text>
+                    <Pressable accessibilityRole="button" accessibilityLabel={t('sessionSearch.dismissMatch')} hitSlop={8} onPress={() => setDismissedSearchId(searchTargetKey)}>
+                        <Octicons name="x" size={16} color={theme.colors.textSecondary} />
+                    </Pressable>
+                </View>
+                {message}
+            </View>
+        ) : message;
+    }, [props.metadata, props.sessionId, canFork, handleForkFromMessage, collapsedGroups, handleToggleGroup, searchTargetId, searchTargetKey, scheduleSearchScroll, theme.colors.textSecondary]);
 
     // In inverted FlatList, offset 0 = latest messages (visual bottom).
     // Offset increases as user scrolls up to see older messages.
@@ -265,6 +358,7 @@ const ChatListInternal = React.memo((props: {
     // the user's viewport when reading older messages mid-stream).
     const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetY = e.nativeEvent.contentOffset.y;
+        scrollOffsetRef.current = offsetY;
         const next = offsetY > SCROLL_THRESHOLD;
         if (next !== showScrollButtonRef.current) {
             showScrollButtonRef.current = next;
@@ -294,6 +388,8 @@ const ChatListInternal = React.memo((props: {
         const node = (flatListRef.current as any)?.getScrollableNode?.() as HTMLElement | undefined;
         if (!node) return;
         const handler = (e: WheelEvent) => {
+            pendingSearchScroll.current = false;
+            if (searchScrollTimer.current) clearTimeout(searchScrollTimer.current);
             if (e.shiftKey && Math.abs(e.deltaX) > 0 && Math.abs(e.deltaY) < 1) {
                 node.scrollTop += e.deltaX;
                 e.preventDefault();
@@ -304,7 +400,7 @@ const ChatListInternal = React.memo((props: {
     }, []);
 
     return (
-        <View style={{ flex: 1 }}>
+        <View ref={viewportRef} style={{ flex: 1 }}>
             <FlatList
                 ref={flatListRef}
                 data={displayItems}
@@ -328,6 +424,9 @@ const ChatListInternal = React.memo((props: {
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 renderItem={renderItem}
                 onScroll={handleScroll}
+                onScrollToIndexFailed={handleScrollToIndexFailed}
+                onContentSizeChange={scheduleSearchScroll}
+                onScrollBeginDrag={() => { pendingSearchScroll.current = false; if (searchScrollTimer.current) clearTimeout(searchScrollTimer.current); }}
                 scrollEventThrottle={16}
                 ListHeaderComponent={<ListFooter sessionId={props.sessionId} />}
                 ListFooterComponent={<ListHeader isLoadingOlder={props.isLoadingOlder} />}
@@ -356,6 +455,22 @@ function isCollapsibleDisplayItem(item: DisplayItem): item is ToolGroupItem | Ex
 }
 
 const styles = StyleSheet.create((theme) => ({
+    searchMatch: {
+        backgroundColor: theme.colors.accentSoft,
+        borderLeftWidth: 3,
+        borderLeftColor: theme.colors.accent,
+    },
+    searchMatchHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
+    searchMatchLabel: {
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+    },
     scrollButtonContainer: {
         position: 'absolute',
         left: 0,
