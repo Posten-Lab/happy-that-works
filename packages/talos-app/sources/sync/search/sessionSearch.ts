@@ -17,7 +17,7 @@ export const sessionSearch = new SearchCoordinator();
 export function configureSessionSearch(credentials: AuthCredentials, encryption: Encryption, handlers: {
     applySession(session: Omit<Session, 'presence'>): void;
     loadMessage(sessionId: string, seq: number, signal?: AbortSignal): Promise<void>;
-}) {
+} = { applySession: () => {}, loadMessage: async () => {} }) {
     const baseUrl = getServerUrl().replace(/\/$/, '');
     const accountController = new AbortController();
     async function request<T>(path: string, signal?: AbortSignal): Promise<T> {

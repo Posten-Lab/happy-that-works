@@ -1,3 +1,7 @@
+# Resume and background search
+
+Resume archived conversations directly from the app. Search indexes automatically as you use Talos and can refresh while the app is in the background.
+
 # Search result fixes
 
 Open archived search results when connected to an older server.

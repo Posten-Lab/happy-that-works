@@ -46,10 +46,9 @@ import { FileViewPanel } from '@/components/FileViewPanel';
 import { prefetchPierreDiff } from '@/components/diff/PierreDiffView';
 import { GitFileStatus } from '@/sync/gitStatusFiles';
 import { useOverlayNav } from '@/-session/sessionOverlayNav';
-import { formatPathRelativeToHome, getResumeCommandBlock, getSessionAvatarId, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
+import { formatPathRelativeToHome, getSessionAvatarId, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
 import { useSessionQuickActions } from '@/hooks/useSessionQuickActions';
 import { isVersionSupported, MINIMUM_CLI_VERSION } from '@/utils/versionUtils';
-import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
@@ -539,10 +538,8 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
     const sessionUsage = useSessionUsage(sessionId);
     const alwaysShowContextSize = useSetting('alwaysShowContextSize');
     const experiments = useSetting('experiments');
-    const expResumeSession = useSetting('expResumeSession');
-    const { canResume, resumeSession, resumingSession } = useSessionQuickActions(session);
+    const { canResume, resumeSession, resumeSessionSubtitle, resumingSession } = useSessionQuickActions(session);
     const isDisconnected = !sessionStatus.isConnected;
-    const resumeCommandBlock = getResumeCommandBlock(session);
 
     // Image attachment state (expImageUpload feature flag)
     const expImageUpload = useSetting('expImageUpload');
@@ -805,17 +802,11 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
         />
     );
 
-    // Disconnected sessions get the full Resume affordance regardless of
-    // whether they were explicitly archived or just lost their CLI (e.g.
-    // Ctrl-C in terminal — lifecycleState stays 'running', server flips
-    // active=false). InactiveArchivedHint handles both cases: shows the
-    // Resume button when canResume is true, falls back to the
-    // copy-this-command hint when the experiments toggle is off or the
-    // machine isn't reachable.
+    // Resume is a standard action; unavailable hosts get an explanation.
     const inactiveHint = isDisconnected ? (
         <CenteredInputWidth horizontalPadding={sessionInputHorizontalPadding}>
             <InactiveArchivedHint
-                resumeCommandBlock={expResumeSession ? resumeCommandBlock : null}
+                resumeUnavailableReason={resumeSessionSubtitle}
                 canResume={canResume}
                 resuming={resumingSession}
                 onResume={resumeSession}
@@ -930,7 +921,7 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
 }
 
 function InactiveArchivedHint(props: {
-    resumeCommandBlock: NonNullable<ReturnType<typeof getResumeCommandBlock>> | null;
+    resumeUnavailableReason: string;
     canResume: boolean;
     resuming: boolean;
     onResume: () => void;
@@ -962,9 +953,9 @@ function InactiveArchivedHint(props: {
                 {props.recovery?.status === 'failed' && props.recovery.error && (
                     <Text style={hintTextStyle}>{props.recovery.error}</Text>
                 )}
-                {props.canResume || props.restoringAutomatically ? null : props.resumeCommandBlock && (
+                {props.canResume || props.restoringAutomatically ? null : props.resumeUnavailableReason && (
                     <Text style={hintTextStyle}>
-                        {t('session.resumeFromTerminal')}
+                        {props.resumeUnavailableReason}
                     </Text>
                 )}
             </View>
@@ -972,6 +963,8 @@ function InactiveArchivedHint(props: {
                 <ActivityIndicator size="small" color={theme.colors.textSecondary} accessibilityLabel={t('sessionRecovery.restoring')} />
             ) : props.canResume ? (
                 <Pressable
+                    testID="session-resume-button"
+                    accessibilityRole="button"
                     onPress={props.onResume}
                     disabled={props.resuming}
                     style={({ pressed }) => ({
@@ -992,59 +985,8 @@ function InactiveArchivedHint(props: {
                         </Text>
                     )}
                 </Pressable>
-            ) : props.resumeCommandBlock && (
-                <ResumeCommandCopyBlock resumeCommandBlock={props.resumeCommandBlock} />
-            )}
+            ) : null}
         </View>
-    );
-}
-
-function ResumeCommandCopyBlock({ resumeCommandBlock }: {
-    resumeCommandBlock: NonNullable<ReturnType<typeof getResumeCommandBlock>>;
-}) {
-    const { theme } = useUnistyles();
-    const [copied, setCopied] = React.useState(false);
-
-    return (
-        <Pressable
-            onPress={async () => {
-                await Clipboard.setStringAsync(resumeCommandBlock.copyText);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-            }}
-            style={{
-                minHeight: 48,
-                borderRadius: 14,
-                backgroundColor: theme.colors.surfaceHigh,
-                flexDirection: 'row',
-                gap: 8,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                alignItems: 'flex-start',
-            }}
-        >
-            <View style={{ flex: 1 }}>
-                {resumeCommandBlock.lines.map((line, index) => (
-                    <Text
-                        key={`${line}-${index}`}
-                        style={{
-                            color: theme.colors.text,
-                            fontSize: 13,
-                            lineHeight: 18,
-                            fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-                        }}
-                    >
-                        {line}
-                    </Text>
-                ))}
-            </View>
-            <Ionicons
-                name={copied ? 'checkmark' : 'copy-outline'}
-                size={16}
-                color={copied ? '#30D158' : theme.colors.textSecondary}
-                style={{ marginTop: 1 }}
-            />
-        </Pressable>
     );
 }
 

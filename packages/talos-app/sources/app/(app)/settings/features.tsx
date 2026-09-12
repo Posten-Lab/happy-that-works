@@ -107,8 +107,8 @@ export default function FeaturesSettingsScreen() {
                     showChevron={false}
                 />
                 <Item
-                    title="Resume Session"
-                    subtitle="Resume disconnected Claude Code, Codex, and Muse sessions via the machine daemon"
+                    title="Fork and Duplicate Sessions"
+                    subtitle="Create branches and rewind copies of supported conversations"
                     icon={<Ionicons name="play-circle-outline" size={29} color="#30D158" />}
                     rightElement={
                         <Switch

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const native = vi.hoisted(() => ({
-    platform: { OS: 'ios' },
+    platform: { OS: 'ios' }, AFTER_FIRST_UNLOCK: 3,
     getItemAsync: vi.fn(), setItemAsync: vi.fn(), deleteItemAsync: vi.fn(),
 }));
 vi.mock('react-native', () => ({ Platform: native.platform }));
@@ -23,4 +23,11 @@ describe('native account continuity after the store update', () => {
         expect(native.setItemAsync).not.toHaveBeenCalled();
         expect(native.deleteItemAsync).not.toHaveBeenCalled();
     });
+});
+
+it('preserves the installed keychain item while enabling locked-device background reads', async () => {
+    native.platform.OS = 'ios';
+    const credentials = { token: 'synthetic-token', secret: 'synthetic-secret' };
+    expect(await TokenStorage.setCredentials(credentials)).toBe(true);
+    expect(native.setItemAsync).toHaveBeenCalledWith('auth_credentials', JSON.stringify(credentials), { keychainAccessible: native.AFTER_FIRST_UNLOCK });
 });

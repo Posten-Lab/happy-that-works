@@ -80,10 +80,12 @@ export class SearchCoordinator {
         this.listeners.forEach(listener => listener());
     }
 
-    start = async (options: { allHistory?: boolean } = {}) => {
+    isConfigured = () => this.dependencies !== null;
+
+    start = async (options: { allHistory?: boolean; refresh?: boolean } = {}) => {
         const changedWindow = options.allHistory !== undefined && options.allHistory !== this.snapshot.allHistory;
         if (changedWindow) this.stop();
-        this.wanted = true;
+        this.wanted = options.refresh !== false;
         if (options.allHistory !== undefined) this.publish({ allHistory: options.allHistory });
         if (!this.dependencies) { this.publish({ error: 'Search is waiting for your account to connect.' }); return; }
         if (this.job && !changedWindow) return this.job;
@@ -102,7 +104,7 @@ export class SearchCoordinator {
                 this.job = null;
                 this.publish({ isIndexing: false });
                 // Reconcile archives, renames, missed socket events and deletions
-                // while the panel is open; cached pages make repeat scans cheap.
+                // while the app is active; cached pages make repeat scans cheap.
                 if (this.wanted) this.refreshTimer = setTimeout(() => { void this.start(); }, 30_000);
             }
         });
