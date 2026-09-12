@@ -562,12 +562,21 @@ function NewSessionScreen() {
     const libraryEnabled = agentLibraryEnabled({ experiments, expAgentLibrary });
     const savedAgent = agentId ? agentLibrary.find(a => a.id === agentId) : undefined;
     // Freeze the selected definition for this launch, including while settings sync.
-    const [profile, setProfile] = React.useState<AgentDefinition | null>(null);
+    const [selectedProfile, setProfile] = React.useState<AgentDefinition | null>(null);
+    const [createdAgentLaunch, setCreatedAgentLaunch] = React.useState<{
+        sessionId: string;
+        machineId: string;
+        path: string;
+        directory: string;
+        worktreeKey: string;
+        profile: AgentDefinition;
+    } | null>(null);
+    const profile = createdAgentLaunch?.profile ?? selectedProfile;
+    const createdAgentSession = createdAgentLaunch?.sessionId ?? null;
     React.useEffect(() => {
         if (savedAgent && libraryEnabled) setProfile(previous => previous?.id === savedAgent.id ? previous : JSON.parse(JSON.stringify(savedAgent)));
         else setProfile(null);
     }, [savedAgent, libraryEnabled, agentId]);
-    const [createdAgentSession, setCreatedAgentSession] = React.useState<string | null>(null);
 
     // Real data sources
     const allMachines = useAllMachines({ includeOffline: true });
@@ -618,13 +627,14 @@ function NewSessionScreen() {
     const hasText = useNewSessionDraft((s) => s.input.trim().length > 0);
     const selectedAgent = profile?.provider ?? draft.agentType;
     const setSelectedAgent = draft.setAgentType;
-    const selectedMachineId = draft.selectedMachineId;
+    const selectedMachineId = createdAgentLaunch?.machineId ?? draft.selectedMachineId;
     const setSelectedMachineId = draft.setMachineId;
-    const selectedPath = draft.selectedPath;
+    const selectedPath = createdAgentLaunch?.path ?? draft.selectedPath;
     const setSelectedPath = draft.setPath;
-    const [worktreeKey, setWorktreeKey] = React.useState<string>(
+    const [draftWorktreeKey, setWorktreeKey] = React.useState<string>(
         draft.worktreeKey ?? (draft.sessionType === 'worktree' ? '__new__' : '__none__')
     );
+    const worktreeKey = createdAgentLaunch?.worktreeKey ?? draftWorktreeKey;
     React.useEffect(() => {
         draft.setSessionType(worktreeKey !== '__none__' ? 'worktree' : 'simple');
         draft.setWorktreeKey(worktreeKey === '__none__' || worktreeKey === '__new__' ? null : worktreeKey);
@@ -858,8 +868,9 @@ function NewSessionScreen() {
     }, []);
 
     const togglePicker = React.useCallback((type: PickerType) => {
+        if (createdAgentLaunch) return;
         setActivePicker(v => v === type ? null : type);
-    }, []);
+    }, [createdAgentLaunch]);
 
     const isOffline = selectedMachine ? !isMachineOnline(selectedMachine) : false;
     const agent = availableAgents.find(a => a.key === selectedAgent) ?? ALL_AGENTS[0];
@@ -1010,7 +1021,19 @@ function NewSessionScreen() {
 
             switch (result.type) {
                 case 'success':
-                    if (profile) setCreatedAgentSession(result.sessionId);
+                    if (profile) {
+                        // A retry must validate and use the same destination and
+                        // definition, even if the shared draft/settings change.
+                        setCreatedAgentLaunch(previous => previous ?? {
+                            sessionId: result.sessionId,
+                            machineId: selectedMachineId,
+                            path: pathToUse,
+                            directory: spawnDirectory,
+                            worktreeKey,
+                            profile,
+                        });
+                        setActivePicker(null);
+                    }
                     await sync.refreshSessions();
                     if (profile) await saveSessionAgentProfile(result.sessionId, profile);
 
@@ -1057,8 +1080,12 @@ function NewSessionScreen() {
                         });
                     }
 
-                    draftState.setInput('');
-                    setCreatedAgentSession(null);
+                    // Uploads may take long enough for the user to edit the
+                    // draft. Only clear the exact text that was submitted.
+                    if (useNewSessionDraft.getState().input === draftState.input) {
+                        draftState.setInput('');
+                    }
+                    setCreatedAgentLaunch(null);
                     router.back();
                     navigateToSession(result.sessionId);
                     break;
@@ -1165,7 +1192,8 @@ function NewSessionScreen() {
 
     const configContent = (
         <>
-            <View style={[
+            <View pointerEvents={createdAgentLaunch ? 'none' : 'auto'} style={[
+                createdAgentLaunch && { opacity: 0.55 },
                 styles.configBox,
                 activePicker && styles.configBoxWithPopover,
                 sidebarLayout.showSidebar && styles.sidebarConfigBox,
@@ -1491,6 +1519,7 @@ function NewSessionScreen() {
                 <Text style={{ color: theme.colors.textSecondary }}>{profile ? `${profile.provider} · ${profile.model} · ${profile.effort ?? 'default'} effort · ${profile.permissionMode}` : 'Enable Agent library in Features and select a saved agent.'}</Text>
                 {profile && <Text style={{ color: theme.colors.textSecondary }}>{agentLaunchError(profile, liveModels) ?? 'Saved configuration will be used for this session.'}</Text>}
                 <Pressable accessibilityRole="button" onPress={() => router.replace('/agents' as any)}><Text style={{ color: theme.colors.accent }}>Back to agent library</Text></Pressable>
+                {createdAgentLaunch && <Text style={{ color: theme.colors.textSecondary }}>Destination locked: {createdAgentLaunch.directory}. Retry finishes setup in the existing session.</Text>}
                 {createdAgentSession && <Pressable accessibilityRole="button" onPress={() => navigateToSession(createdAgentSession)}><Text style={{ color: theme.colors.accent }}>Open created session</Text></Pressable>}
             </View>}
             {sidebarLayout.showSidebar ? (

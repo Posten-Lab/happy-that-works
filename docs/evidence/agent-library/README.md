@@ -39,12 +39,28 @@ The environment helper did not register a daemon automatically. The isolated dae
 
 After the user selected Codex for this increment, the updated wizard was exercised again against the real services. It displayed Codex with the machine's live model catalog and no Claude choice. The earlier Claude definition remained in the library with its start button disabled. A fresh Codex session returned both `IRIS_VERSION_TWO` and `MARKDOWN_REFERENCE_OK`, confirming the revised launch path and Markdown delivery. Tests and typechecking were rerun after the change.
 
+## Codex review and retry regression
+
+A read-only `codex review --base origin/main` found one P2 issue: after a post-spawn setup failure, editing the destination could cause the screen to validate a new machine but silently reuse the original session. The fix retains the original machine, requested path, resolved directory, worktree and agent definition and locks configuration controls after creation.
+
+The failure case was exercised with the real local server, daemon and Codex. Playwright aborted exactly one `GET /v1/sessions/:id` request after the daemon created the session (network fault injection, not a mocked service response). The app displayed the failure and locked destination. An attempted path-control click could not open the picker. After restoring requests, retry completed the exact same session ID, returned the saved Markdown instruction marker, and the real server's session count increased by exactly one across the failed attempt and retry.
+
+A second read-only Codex review found a P2 draft-loss issue: clearing the prompt after an asynchronous attachment upload could erase newer text entered during that upload. The app now clears only when the live draft still exactly matches the submitted text.
+
+For the regression check, Playwright held the real attachment request open, entered a different draft while the upload was pending, then released the request to the real server. Codex responded with the submitted task marker and saved Markdown marker. Returning to the new-session screen and then the Codex agent launch restored the newer, unsent draft. No upload or model response was fabricated.
+
+The complete app suite (878 tests) and typecheck passed after both fixes. The final read-only Codex review found no further actionable regressions in launch validation, snapshot persistence, retries or message configuration. The reviewer did not rerun tests; the executed checks above were run separately.
+
 ## Screenshots
 
 Screenshots show only the isolated test account. Phone screenshots use a 390×844 Chromium viewport.
 
 - [Codex-only runtime setup, phone](codex-runtime-mobile.png)
 - [Fresh Codex-only launch, phone](codex-only-session-mobile.png)
+- [Destination locked after network failure](retry-destination-locked-mobile.png)
+- [Same session completed on retry](retry-completed-mobile.png)
+- [Editing the draft during an attachment upload](upload-draft-during-mobile.png)
+- [Newer unsent draft preserved after delivery](upload-draft-preserved-mobile.png)
 - [Discover, desktop](discover-desktop.png)
 - [Review configuration, phone](review-mobile.png)
 - [Saved library, phone](library-mobile.png)

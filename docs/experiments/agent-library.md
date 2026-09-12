@@ -16,7 +16,7 @@ This increment runs new agent sessions with Codex. Earlier experimental definiti
 - Editing/deleting a library definition, or disabling the experiment, does not remove existing session snapshots. Resuming from another app device uses the same snapshot. This is configuration persistence, not an additional agent memory system.
 - Saving an edit detects a definition that changed in the local store while its editor was open. Account settings use the existing whole-field sync/merge behavior: simultaneous offline edits to different agents are not a collaborative merge system. Do not present this as a shared multi-user registry.
 - Definitions allow five instruction files, at most 16,000 characters each, and 24,000 characters of main instructions. The library has a 128,000 serialized-character budget and at most 100 agents, leaving space for encrypted account settings.
-- Session launch retains the newly created session ID if profile persistence fails, offers an open-session link, and reuses that session on retry. The draft task remains until successful send. No automatic release, npm publication or production migration is part of this increment.
+- Session launch retains the newly created session ID if profile persistence fails, offers an open-session link, and reuses that session on retry. The machine, directory, worktree and definition are frozen after creation; the configuration controls lock so a retry cannot silently target a different destination. The draft task remains until successful send. No automatic release, npm publication or production migration is part of this increment.
 
 ## Validation
 
