@@ -28,6 +28,7 @@ export function agentLibraryEnabled(settings: { experiments?: boolean; expAgentL
 
 /** Fail closed against the selected machine's live catalog, never a merged/fallback catalog. */
 export function agentLaunchError(agent: AgentDefinition, models: ProviderModel[] | null): string | null {
+    if (agent.provider !== 'codex') return 'This experiment supports Codex. Edit the agent and choose Codex to start a new session.';
     if (!models) return 'Connect an online machine and wait for its model catalog.';
     const model = models.find(m => m.code === agent.model);
     if (!model) return 'This model is unavailable on the selected machine. Edit the agent to choose another model.';

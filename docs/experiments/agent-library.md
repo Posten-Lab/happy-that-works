@@ -6,7 +6,7 @@ Enable **Settings → Features → Experimental Features → Agent library**. Th
 
 Users can create, edit, duplicate and delete agents, or customize the Atlas, Iris and Forma templates. The wizard includes a name, description, icon, specialties, instructions, Markdown/text attachments, runtime, model, reasoning effort and permissions. Model/effort options come from one selected online machine's real provider catalog. A session launch revalidates the configuration against the launch machine; it never substitutes a different model or effort silently.
 
-This increment supports Codex and Claude. Specialties are descriptions of focus, not verified tool capabilities. Browser/vision/image-generation capability matching, tool grants, automatic delegation, workflow execution, shared agent discovery, persistent agent memory and collective planning/review are future increments. The UI makes these boundaries explicit.
+This increment runs new agent sessions with Codex. Earlier experimental definitions from other runtimes remain readable, but require an explicit conversion to Codex and model selection before launch. Existing session snapshots are preserved. Specialties are descriptions of focus, not verified tool capabilities. Browser/vision/image-generation capability matching, tool grants, automatic delegation, workflow execution, shared agent discovery, persistent agent memory and collective planning/review are future increments. The UI makes these boundaries explicit.
 
 ## Persistence and compatibility
 

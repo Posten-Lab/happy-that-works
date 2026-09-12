@@ -30,7 +30,7 @@ export default function AgentLibraryScreen() {
     const [error, setError] = React.useState('');
     const [machineId, setMachineId] = React.useState('');
     const selectedMachine = machines.find(m => m.id === machineId) ?? machines[0];
-    const models = useProviderModels(draft?.provider ?? 'codex', selectedMachine ? [selectedMachine.id] : [], Boolean(draft));
+    const models = useProviderModels('codex', selectedMachine ? [selectedMachine.id] : [], draft?.provider === 'codex');
     const chosenModel = models?.find(m => m.code === draft?.model);
     const colors = theme.colors;
     const card = { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: 16, padding: 20, gap: 12 } as const;
@@ -116,7 +116,9 @@ export default function AgentLibraryScreen() {
                 </>}
                 {step === 2 && <>
                     <Text style={text}>Runtime</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>{(['codex', 'claude'] as const).map(provider => button(provider === 'codex' ? 'Codex' : 'Claude', () => patch({ provider, model: '', effort: null, permissionMode: 'default' }), draft.provider === provider))}</View>
+                    <Text style={text}>Codex</Text>
+                    <Text style={muted}>This first experiment runs agents with Codex.</Text>
+                    {draft.provider !== 'codex' && button('Use Codex', () => patch({ provider: 'codex', model: '', effort: null, permissionMode: 'default' }))}
                     <Text style={text}>Discover models on</Text>
                     {machines.map(m => button(m.metadata?.displayName || m.metadata?.host || m.id, () => { setMachineId(m.id); }, selectedMachine?.id === m.id))}
                     {!selectedMachine && <Text style={muted}>Connect a machine to choose a model. You can keep editing the other steps.</Text>}
@@ -154,8 +156,9 @@ export default function AgentLibraryScreen() {
             {tab === 'discover' && agentTemplates.map(template => <View key={template.name} style={card}><Ionicons name={template.avatar} size={32} color={colors.accent} /><Text style={{ ...text, fontSize: 22, fontWeight: '600' }}>{template.name}</Text><Text style={muted}>{template.description}</Text><Text style={muted}>Talos template · Customize instructions and choose your model</Text>{button(`Customize ${template.name}`, () => begin({ ...newAgent(), ...template }))}</View>)}
             {tab === 'mine' && library.map(agent => <View key={agent.id} style={card}>
                 <Ionicons name={agent.avatar} size={32} color={colors.accent} /><Text style={{ ...text, fontSize: 22, fontWeight: '600' }}>{agent.name}</Text><Text style={muted}>{agent.description}</Text><Text style={muted}>{agent.provider} · {agent.model} · v{agent.revision}</Text>
+                {agent.provider !== 'codex' && <Text style={muted}>Edit this agent to choose Codex before starting a new session.</Text>}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {button(`Start ${agent.name}`, () => router.push({ pathname: '/new', params: { agentId: agent.id } } as any), true)}
+                    {button(`Start ${agent.name}`, () => router.push({ pathname: '/new', params: { agentId: agent.id } } as any), true, agent.provider !== 'codex')}
                     {button(`Edit ${agent.name}`, () => begin({ ...agent, documents: [...agent.documents] }, agent))}
                     {button(`Duplicate ${agent.name}`, () => begin({ ...agent, id: randomUUID(), revision: 1, name: `${agent.name.slice(0, 54)} copy` }))}
                     {button(`Delete ${agent.name}`, () => { void (async () => { if (await Modal.confirm('Delete agent?', 'Existing sessions retain their configuration.', { confirmText: 'Delete', cancelText: 'Cancel' })) sync.applySettings({ agentLibrary: storage.getState().settings.agentLibrary.filter(a => a.id !== agent.id) }); })(); })}

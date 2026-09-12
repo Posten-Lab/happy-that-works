@@ -32,6 +32,11 @@ describe('experimental agent definitions', () => {
         const large = Array.from({ length: 6 }, (_, i) => ({ ...agent, id: String(i), instructions: 'a'.repeat(24000) }));
         expect(AgentLibrarySchema.safeParse(large).success).toBe(false);
     });
+    it('preserves earlier definitions but blocks new non-Codex launches', () => {
+        const earlier = { ...agent, provider: 'claude' as const, permissionMode: 'default' as const };
+        expect(settingsParse({ agentLibrary: [earlier] }).agentLibrary).toEqual([earlier]);
+        expect(agentLaunchError(earlier, catalog)).toContain('supports Codex');
+    });
     it('takes a deep snapshot and includes attached instructions', () => {
         const source = structuredClone(agent);
         const snapshot = AgentDefinitionSchema.parse(source);

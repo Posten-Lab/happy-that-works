@@ -33,12 +33,18 @@ The environment helper did not register a daemon automatically. The isolated dae
 6. Disabled the library and confirmed direct navigation was blocked. Continued the existing session: it retained v1 and returned the original `IRIS_AGENT_OK` instruction marker.
 7. Re-enabled the feature. A new v2 session returned both `IRIS_VERSION_TWO` and `MARKDOWN_REFERENCE_OK`, proving updated instructions and attached Markdown reached the provider.
 8. A fresh browser context authenticated against the same isolated account and recovered the saved library and the original v1 session's snapshot/read-only permissions through real account/session sync.
-9. Duplicated the saved agent, selected Claude/Sonnet from its live catalog and launched it. The session and snapshot were created, but Claude returned **OAuth session expired and could not be refreshed**. Claude response E2E remains blocked pending local reauthentication; the PR must remain draft until this passes.
+9. Duplicated the saved agent, selected Claude/Sonnet from its live catalog and launched it. The session and snapshot were created, but Claude returned **OAuth session expired and could not be refreshed**. The user subsequently requested Codex instead. New library launches are now restricted to Codex; the failed Claude test is not counted as passing validation or required for this increment.
+
+## Codex-only follow-up
+
+After the user selected Codex for this increment, the updated wizard was exercised again against the real services. It displayed Codex with the machine's live model catalog and no Claude choice. The earlier Claude definition remained in the library with its start button disabled. A fresh Codex session returned both `IRIS_VERSION_TWO` and `MARKDOWN_REFERENCE_OK`, confirming the revised launch path and Markdown delivery. Tests and typechecking were rerun after the change.
 
 ## Screenshots
 
 Screenshots show only the isolated test account. Phone screenshots use a 390×844 Chromium viewport.
 
+- [Codex-only runtime setup, phone](codex-runtime-mobile.png)
+- [Fresh Codex-only launch, phone](codex-only-session-mobile.png)
 - [Discover, desktop](discover-desktop.png)
 - [Review configuration, phone](review-mobile.png)
 - [Saved library, phone](library-mobile.png)
@@ -47,8 +53,8 @@ Screenshots show only the isolated test account. Phone screenshots use a 390×84
 
 ## Checks
 
-- App suite: 877 tests passed across 85 files, including the added snapshot, flag, model-validation and metadata-concurrency tests.
+- App suite: 878 tests passed across 85 files, including the added snapshot, flag, model-validation and metadata-concurrency tests.
 - App TypeScript check passed.
 - Whitespace/diff check passed.
-- Claude response validation: **blocked**, not passed.
+- Claude response validation: not passed; new Claude library launches are outside this Codex-only increment.
 - Native simulator/device validation: not run; responsive web evidence only.
