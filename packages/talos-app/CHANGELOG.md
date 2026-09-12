@@ -1,3 +1,7 @@
+# Resume after migration
+
+Resume older conversations automatically on the same computer after moving from Happy to Talos.
+
 # Resume and background search
 
 Resume archived conversations directly from the app. Search indexes automatically as you use Talos and can refresh while the app is in the background.

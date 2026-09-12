@@ -15,6 +15,7 @@ import { useSessionStatus } from '@/utils/sessionUtils';
 import { getResumeAvailability } from '@/utils/sessionResumeAvailability';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { resumeArchivedSession } from '@/sync/resumeArchivedSession';
+import { resolveSessionResumeMachine } from '@/utils/sessionResumeMachine';
 import { getSessionForkSource } from '@/utils/sessionFork';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/sync/storage';
@@ -47,6 +48,8 @@ export function useSessionQuickActions(
     const navigateToSession = useNavigateToSession();
     const machineId = session.metadata?.machineId ?? '';
     const machine = useMachine(machineId);
+    const machines = storage(state => state.machines);
+    const resumeMachine = resolveSessionResumeMachine(session, machines);
     const recovery = getMachineRecovery(machine?.daemonState);
     const sessionRecovery = getSessionRecovery(machine?.daemonState, session.id, session.metadata?.lifecycleState);
     const sessionStatus = useSessionStatus(session, hasUnresolvedSessionRecovery(sessionRecovery));
@@ -56,9 +59,9 @@ export function useSessionQuickActions(
     const resumeAvailability = React.useMemo(
         () => {
             if (restoringAutomatically) return { canResume: false, canShowResume: false, subtitle: '', message: t('sessionRecovery.restoring') };
-            return getResumeAvailability(session, machine, sessionStatus.isConnected);
+            return getResumeAvailability(session, resumeMachine ?? machine, sessionStatus.isConnected);
         },
-        [machine, session, sessionStatus.isConnected, restoringAutomatically],
+        [machine, resumeMachine, session, sessionStatus.isConnected, restoringAutomatically],
     );
 
     // Fork eligibility — separate from resume because fork works on both
@@ -116,7 +119,7 @@ export function useSessionQuickActions(
         const result = await resumeArchivedSession(session, {
             model: modeMeta.model ?? undefined,
             permissionMode: modeMeta.permissionMode,
-        });
+        }, storage.getState().machines);
 
         switch (result.type) {
             case 'success': {

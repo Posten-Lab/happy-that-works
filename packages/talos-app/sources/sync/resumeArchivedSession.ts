@@ -1,11 +1,12 @@
-import type { Session } from './storageTypes';
+import type { Machine, Session } from './storageTypes';
+import { resolveSessionResumeMachine } from '@/utils/sessionResumeMachine';
 import { machineResumeSession, machineSpawnNewSession } from './ops';
 
 /** Prefer reconnecting the original Talos session. Pre-recovery archives can
  * still resume their provider conversation through the daemon's spawn API. */
-export async function resumeArchivedSession(session: Session, options: { model?: string; permissionMode?: string }) {
-    const machineId = session.metadata?.machineId;
-    if (!machineId) return { type: 'error' as const, errorMessage: 'This session has no saved machine.' };
+export async function resumeArchivedSession(session: Session, options: { model?: string; permissionMode?: string }, machines: Record<string, Machine>) {
+    const machineId = resolveSessionResumeMachine(session, machines)?.id;
+    if (!machineId) return { type: 'error' as const, errorMessage: 'No online machine is available for this conversation.' };
     const result = await machineResumeSession({ machineId, sessionId: session.id, ...options });
     if (result.type !== 'error' || result.errorMessage !== 'Session recovery data is unavailable on this machine.') return result;
 
