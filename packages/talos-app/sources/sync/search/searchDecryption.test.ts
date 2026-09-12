@@ -132,3 +132,28 @@ describe('unreadable conversation messages', () => {
         expect(retried.messages.map(message => message.seq)).toEqual([1, 2, 3]);
     });
 });
+
+describe('opening search results on older relays', () => {
+    it('refreshes metadata through the paginated API and still loads the selected message', async () => {
+        let dependencies!: SearchDependencies;
+        vi.spyOn(sessionSearch, 'configure').mockImplementation(value => { dependencies = value; });
+        const fresh = { ...descriptor, metadataVersion: 2, metadata: 'fresh-title' };
+        const metadata = { summary: { text: 'Renamed conversation' } };
+        const cipher = {
+            decryptMetadata: vi.fn().mockResolvedValue(metadata),
+            decryptAgentState: vi.fn().mockResolvedValue({}),
+        };
+        const applySession = vi.fn();
+        const loadMessage = vi.fn().mockResolvedValue(undefined);
+        vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/v1/sessions/')
+            ? { ok: false, status: 404 }
+            : { ok: true, json: async () => ({ sessions: [fresh], nextCursor: null, hasNext: false }) }));
+        configureSessionSearch({ token: 'test-token', secret: 'test-secret' }, { anonID: 'test-key', getSessionEncryption: () => cipher } as unknown as Encryption, { applySession, loadMessage });
+
+        await expect(dependencies.getSession!('history')).resolves.toEqual(fresh);
+        await dependencies.openSession(descriptor, 3);
+        expect(cipher.decryptMetadata).toHaveBeenCalledWith(2, 'fresh-title');
+        expect(applySession).toHaveBeenCalledWith(expect.objectContaining({ id: 'history', metadata }));
+        expect(loadMessage).toHaveBeenCalledWith('history', 3, expect.any(AbortSignal));
+    });
+});

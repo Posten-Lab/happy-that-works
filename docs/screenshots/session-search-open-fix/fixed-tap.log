@@ -1,0 +1,11 @@
+Running on Talos-Search-Review - iOS 26.1 - 97E6D136-DE5B-4871-A56A-E4516C9EE92B
+ > Flow fixed-tap
+Assert that id: session-search-input is visible... COMPLETED
+Tap on id: session-search-input... COMPLETED
+Input text copper lantern... COMPLETED
+Hide Keyboard... COMPLETED
+Assert that "Synthetic release workflow" is visible... COMPLETED
+Tap on "Synthetic release workflow"... COMPLETED
+Assert that id: session-search-input is not visible... COMPLETED
+Assert that "Could not open this conversation. Please try again." is not visible... COMPLETED
+Take screenshot /tmp/talos-session-tap-review/native-after-open... COMPLETED

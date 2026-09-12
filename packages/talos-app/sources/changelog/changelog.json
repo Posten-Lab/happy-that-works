@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "Search result fixes",
+      "summary": "Open archived search results when connected to an older server.",
+      "markdown": ""
+    },
+    {
       "title": "Search your sessions",
       "summary": "Find past conversations by title and the messages you sent.",
       "markdown": "- Search active sessions and archives with a message in the last 90 days.\n- Include agent replies or search older history when you need more.\n- Tap a matching excerpt to jump straight to that message."
@@ -21,5 +26,5 @@
       "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
     }
   ],
-  "latestTitle": "Search your sessions"
+  "latestTitle": "Search result fixes"
 }
