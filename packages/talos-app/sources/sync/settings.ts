@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { AgentLibrarySchema } from '@/agents/agentDefinition';
 import { AgentDefaultOverridesSchema } from './agentDefaults';
 
 //
@@ -20,6 +21,8 @@ export const SettingsSchema = z.object({
     wrapLinesInDiffs: z.boolean().describe('Whether to wrap long lines in diff views'),
     diffStyle: z.enum(['unified', 'split']).describe('Diff view style (split is web-only)'),
     analyticsOptOut: z.boolean().describe('Whether to opt out of anonymous analytics'),
+    expAgentLibrary: z.boolean(),
+    agentLibrary: AgentLibrarySchema,
     experiments: z.boolean().describe('Whether to enable experimental features'),
     alwaysShowContextSize: z.boolean().describe('Always show context size in agent input'),
     agentInputEnterToSend: z.boolean().describe('Whether pressing Enter submits/sends in the agent input (web)'),
@@ -93,6 +96,8 @@ export const settingsDefaults: Settings = {
     diffStyle: 'unified',
     analyticsOptOut: false,
     experiments: false,
+    expAgentLibrary: false,
+    agentLibrary: [],
     alwaysShowContextSize: false,
     agentInputEnterToSend: true,
     avatarStyle: 'brutalist',

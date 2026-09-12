@@ -1,3 +1,4 @@
+import { agentInstructions } from '@/agents/agentDefinition';
 import Constants from 'expo-constants';
 import { apiSocket, getCurrentAppState, getTalosClientId } from '@/sync/apiSocket';
 import { notifyUnreadMessage } from '@/sync/webTabTitle';
@@ -773,7 +774,9 @@ class Sync {
             },
             meta: {
                 sentFrom,
-                appendSystemPrompt: systemPrompt,
+                appendSystemPrompt: session.metadata?.agentProfile
+                    ? systemPrompt + '\n\n' + agentInstructions(session.metadata.agentProfile)
+                    : systemPrompt,
                 ...(modeMeta.permissionMode !== undefined ? { permissionMode: modeMeta.permissionMode } : {}),
                 ...(modeMeta.model !== undefined ? { model: modeMeta.model } : {}),
                 ...(modeMeta.effort !== undefined ? { effort: modeMeta.effort } : {}),

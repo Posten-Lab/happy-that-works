@@ -1,11 +1,13 @@
 import { normalizeMetadata } from '@ahmadposten/talos-wire';
 import { z } from "zod";
+import { AgentDefinitionSchema } from "@/agents/agentDefinition";
 
 //
 // Agent states
 //
 
 export const MetadataSchema = z.preprocess(normalizeMetadata, z.object({
+    agentProfile: AgentDefinitionSchema.optional(),
     models: z.array(z.object({
         code: z.string(),
         value: z.string(),

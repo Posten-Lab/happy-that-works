@@ -197,6 +197,8 @@ describe('settings', () => {
                 analyticsOptOut: false,
                 inferenceOpenAIKey: null,
                 experiments: false,
+                expAgentLibrary: false,
+                agentLibrary: [],
                 alwaysShowContextSize: false,
                 agentInputEnterToSend: true,
                 avatarStyle: 'brutalist',

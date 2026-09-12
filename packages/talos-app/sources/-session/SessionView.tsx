@@ -501,8 +501,12 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
     ), [flavor, session.metadata]);
     const agentDefaultOverrides = useSetting('agentDefaultOverrides');
     const effectiveAgentDefaults = React.useMemo(() => (
-        resolveAgentDefaultConfig(agentDefaultOverrides, flavor)
-    ), [agentDefaultOverrides, flavor]);
+        session.metadata?.agentProfile ? {
+            permissionMode: session.metadata.agentProfile.permissionMode,
+            modelMode: session.metadata.agentProfile.model,
+            effortLevel: session.metadata.agentProfile.effort,
+        } : resolveAgentDefaultConfig(agentDefaultOverrides, flavor)
+    ), [agentDefaultOverrides, flavor, session.metadata?.agentProfile]);
 
     const permissionMode = React.useMemo<PermissionMode | null>(() => (
         resolveCurrentOption(availableModes, [
@@ -836,6 +840,9 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
 
     return (
         <>
+            {session.metadata?.agentProfile && <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+                <Text style={{ color: theme.colors.textSecondary }}>{session.metadata.agentProfile.name} · v{session.metadata.agentProfile.revision} · {session.metadata.agentProfile.provider} · {session.metadata.agentProfile.model}</Text>
+            </View>}
             {/* CLI Version Warning Overlay - Subtle centered pill */}
             {shouldShowCliWarning && !(isLandscape && deviceType === 'phone') && (
                 <Pressable

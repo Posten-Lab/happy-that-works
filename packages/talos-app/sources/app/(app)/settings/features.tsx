@@ -8,6 +8,7 @@ import { Switch } from '@/components/Switch';
 import { t } from '@/text';
 
 export default function FeaturesSettingsScreen() {
+    const [expAgentLibrary, setExpAgentLibrary] = useSettingMutable('expAgentLibrary');
     const [experiments, setExperiments] = useSettingMutable('experiments');
     const [analyticsOptOut, setAnalyticsOptOut] = useSettingMutable('analyticsOptOut');
     const [agentInputEnterToSend, setAgentInputEnterToSend] = useSettingMutable('agentInputEnterToSend');
@@ -82,6 +83,13 @@ export default function FeaturesSettingsScreen() {
                     }
                     showChevron={false}
                 />
+                {experiments && <Item
+                    title="Agent library"
+                    subtitle="Experimental: create specialists and start sessions with them"
+                    icon={<Ionicons name="people-outline" size={29} color="#5856D6" />}
+                    rightElement={<Switch value={expAgentLibrary} onValueChange={setExpAgentLibrary} />}
+                    showChevron={false}
+                />}
                 <Item
                     title={t('settingsFeatures.markdownCopyV2')}
                     subtitle={t('settingsFeatures.markdownCopyV2Subtitle')}

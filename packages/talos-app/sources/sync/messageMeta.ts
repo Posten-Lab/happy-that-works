@@ -14,20 +14,25 @@ export function resolveMessageModeMeta(
     settings?: Pick<Settings, 'agentDefaultOverrides'>,
 ): MessageModeMeta {
     const agentOverrides = getAgentDefaultOverride(settings?.agentDefaultOverrides, session.metadata?.flavor);
-    const meta: MessageModeMeta = {};
+    const profile = session.metadata?.agentProfile;
+    const meta: MessageModeMeta = profile ? {
+        permissionMode: profile.permissionMode,
+        model: profile.model,
+        effort: profile.effort,
+    } : {};
 
     if (session.permissionMode !== null && session.permissionMode !== undefined) {
         meta.permissionMode = session.permissionMode;
-    } else if (agentOverrides.permissionMode !== undefined) {
+    } else if (!profile && agentOverrides.permissionMode !== undefined) {
         meta.permissionMode = agentOverrides.permissionMode;
     }
 
-    const modelMode = session.modelMode ?? agentOverrides.modelMode;
+    const modelMode = session.modelMode ?? profile?.model ?? agentOverrides.modelMode;
     if (modelMode !== undefined) {
         meta.model = modelMode === 'default' ? null : modelMode;
     }
 
-    const effort = session.effortLevel ?? agentOverrides.effortLevel;
+    const effort = session.effortLevel ?? (profile ? profile.effort : agentOverrides.effortLevel);
     if (effort !== undefined) {
         meta.effort = effort;
     }

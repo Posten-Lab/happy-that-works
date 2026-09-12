@@ -115,6 +115,7 @@ export default function RootLayout() {
                     headerTitle: t('settings.appearance'),
                 }}
             />
+            <Stack.Screen name="agents/index" options={{ headerTitle: "Agent library" }} />
             <Stack.Screen
                 name="settings/agents"
                 options={{
