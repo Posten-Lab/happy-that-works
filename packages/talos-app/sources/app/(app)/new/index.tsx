@@ -1,3 +1,5 @@
+import { agentLibraryEnabled, agentLaunchError, type AgentDefinition } from '@/agents/agentDefinition';
+import { saveSessionAgentProfile } from '@/agents/sessionAgentProfile';
 import React from 'react';
 import {
     View,
@@ -18,7 +20,7 @@ import {
 } from 'react-native';
 import { GlassView } from 'expo-glass-effect';
 import { Ionicons, Octicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, useRouter } from 'expo-router';
+import { useNavigation, useRouter, useLocalSearchParams } from 'expo-router';
 import { Typography } from '@/constants/Typography';
 import { layout } from '@/components/layout';
 import {
@@ -553,6 +555,20 @@ function NewSessionScreen() {
     const navigation = useNavigation();
     const navigateToSession = useNavigateToSession();
 
+    const { agentId } = useLocalSearchParams<{ agentId?: string }>();
+    const experiments = useSetting('experiments');
+    const expAgentLibrary = useSetting('expAgentLibrary');
+    const agentLibrary = useSetting('agentLibrary');
+    const libraryEnabled = agentLibraryEnabled({ experiments, expAgentLibrary });
+    const savedAgent = agentId ? agentLibrary.find(a => a.id === agentId) : undefined;
+    // Freeze the selected definition for this launch, including while settings sync.
+    const [profile, setProfile] = React.useState<AgentDefinition | null>(null);
+    React.useEffect(() => {
+        if (savedAgent && libraryEnabled) setProfile(previous => previous?.id === savedAgent.id ? previous : JSON.parse(JSON.stringify(savedAgent)));
+        else setProfile(null);
+    }, [savedAgent, libraryEnabled, agentId]);
+    const [createdAgentSession, setCreatedAgentSession] = React.useState<string | null>(null);
+
     // Real data sources
     const allMachines = useAllMachines({ includeOffline: true });
     const sessions = useSessions();
@@ -600,7 +616,7 @@ function NewSessionScreen() {
         setWorktreeKey: s.setWorktreeKey,
     })));
     const hasText = useNewSessionDraft((s) => s.input.trim().length > 0);
-    const selectedAgent = draft.agentType;
+    const selectedAgent = profile?.provider ?? draft.agentType;
     const setSelectedAgent = draft.setAgentType;
     const selectedMachineId = draft.selectedMachineId;
     const setSelectedMachineId = draft.setMachineId;
@@ -774,7 +790,7 @@ function NewSessionScreen() {
     );
 
     const currentModel = modelModes[modelIndex] ?? modelModes[0];
-    const currentModelKey = currentModel?.key ?? 'default';
+    const currentModelKey = profile?.model ?? currentModel?.key ?? 'default';
 
     const effortLevels = React.useMemo<EffortLevel[]>(
         () => getEffortLevelsForModel(
@@ -789,9 +805,9 @@ function NewSessionScreen() {
     ), [agentDefaultOverrides, selectedAgent]);
 
     const supportsWorktree = getSupportsWorktree(selectedAgent);
-    const showModel = modelModes.length > 1;
-    const showEffort = effortLevels.length > 0;
-    const showPermission = permissionModes.length > 1;
+    const showModel = !profile && modelModes.length > 1;
+    const showEffort = !profile && effortLevels.length > 0;
+    const showPermission = !profile && permissionModes.length > 1;
 
     // Reset indices when agent/default settings change.
     React.useEffect(() => {
@@ -847,8 +863,8 @@ function NewSessionScreen() {
 
     const isOffline = selectedMachine ? !isMachineOnline(selectedMachine) : false;
     const agent = availableAgents.find(a => a.key === selectedAgent) ?? ALL_AGENTS[0];
-    const currentPermission = permissionModes[permissionIndex] ?? permissionModes[0];
-    const currentEffort = effortLevels[effortIndex] ?? effortLevels[0];
+    const currentPermission = profile ? { key: profile.permissionMode, name: profile.permissionMode } : permissionModes[permissionIndex] ?? permissionModes[0];
+    const currentEffort = profile ? (profile.effort ? { key: profile.effort, name: profile.effort } : undefined) : effortLevels[effortIndex] ?? effortLevels[0];
     const permissionStyle = currentPermission?.key !== 'default' ? getPermissionStyle(currentPermission.key) : null;
 
     // Display values
@@ -960,6 +976,12 @@ function NewSessionScreen() {
             return;
         }
 
+        if (agentId) {
+            if (!libraryEnabled || !profile) { Modal.alert('Agent unavailable', 'Enable the agent library and select a saved agent.'); return; }
+            const problem = agentLaunchError(profile, liveModels);
+            if (problem) { Modal.alert('Agent cannot start', problem); return; }
+            if (!useNewSessionDraft.getState().input.trim()) { Modal.alert('Add a task', 'Describe what you want this agent to do.'); return; }
+        }
         setIsSpawning(true);
         try {
             const pathToUse = trimPathInput(selectedPath) || '~';
@@ -967,19 +989,19 @@ function NewSessionScreen() {
 
             // Handle worktree selection
             let spawnDirectory = absolutePath;
-            if (worktreeKey === '__new__') {
+            if (!createdAgentSession && worktreeKey === '__new__') {
                 const worktreeResult = await createWorktree(selectedMachineId, absolutePath);
                 if (!worktreeResult.success) {
                     Modal.alert(t('common.error'), worktreeResult.error || 'Failed to create worktree');
                     return;
                 }
                 spawnDirectory = worktreeResult.worktreePath;
-            } else if (worktreeKey !== '__none__') {
+            } else if (!createdAgentSession && worktreeKey !== '__none__') {
                 // Existing worktree — use its path directly
                 spawnDirectory = worktreeKey;
             }
 
-            const result = await machineSpawnNewSession({
+            const result = createdAgentSession && profile ? { type: 'success' as const, sessionId: createdAgentSession } : await machineSpawnNewSession({
                 machineId: selectedMachineId,
                 directory: spawnDirectory,
                 approvedNewDirectoryCreation,
@@ -988,30 +1010,31 @@ function NewSessionScreen() {
 
             switch (result.type) {
                 case 'success':
+                    if (profile) setCreatedAgentSession(result.sessionId);
                     await sync.refreshSessions();
+                    if (profile) await saveSessionAgentProfile(result.sessionId, profile);
 
                     // Store only per-session overrides. Matching the effective
                     // default stays null so future code default changes apply.
-                    const permissionOverride = currentPermission.key === effectiveAgentDefaults.permissionMode
+                    const permissionOverride = !profile && currentPermission.key === effectiveAgentDefaults.permissionMode
                         ? null
                         : currentPermission.key;
-                    const modelOverride = currentModelKey === effectiveAgentDefaults.modelMode
+                    const modelOverride = !profile && currentModelKey === effectiveAgentDefaults.modelMode
                         ? null
                         : currentModelKey;
                     const currentEffortKey = currentEffort?.key ?? null;
-                    const effortOverride = currentEffortKey === effectiveAgentDefaults.effortLevel
+                    const effortOverride = !profile && currentEffortKey === effectiveAgentDefaults.effortLevel
                         ? null
                         : currentEffortKey;
                     storage.getState().updateSessionPermissionMode(result.sessionId, permissionOverride);
                     storage.getState().updateSessionModelMode(result.sessionId, modelOverride);
                     storage.getState().updateSessionEffortLevel(result.sessionId, effortOverride);
 
-                    // Pull live prompt and clear it. We read via getState() so this
+                    // Read the live prompt; clear it only after successful delivery. We read via getState() so this
                     // callback doesn't have to subscribe to `input` (which would
                     // re-render the screen on every keystroke).
                     const draftState = useNewSessionDraft.getState();
                     const trimmedPrompt = draftState.input.trim();
-                    draftState.setInput('');
 
                     // Attachments could only be uploaded once the session exists
                     // (blob key + upload endpoints are session-scoped), so they
@@ -1034,6 +1057,8 @@ function NewSessionScreen() {
                         });
                     }
 
+                    draftState.setInput('');
+                    setCreatedAgentSession(null);
                     router.back();
                     navigateToSession(result.sessionId);
                     break;
@@ -1060,7 +1085,7 @@ function NewSessionScreen() {
         } finally {
             setIsSpawning(false);
         }
-    }, [selectedMachineId, selectedMachine, selectedPath, selectedAgent, router, navigateToSession, currentPermission.key, currentModelKey, currentEffort?.key, effectiveAgentDefaults.permissionMode, effectiveAgentDefaults.modelMode, effectiveAgentDefaults.effortLevel, worktreeKey, expImageUpload, selectedImages, clearImages]);
+    }, [agentId, libraryEnabled, profile, liveModels, createdAgentSession, selectedMachineId, selectedMachine, selectedPath, selectedAgent, router, navigateToSession, currentPermission.key, currentModelKey, currentEffort?.key, effectiveAgentDefaults.permissionMode, effectiveAgentDefaults.modelMode, effectiveAgentDefaults.effortLevel, worktreeKey, expImageUpload, selectedImages, clearImages]);
 
     const canSend = selectedMachineId && selectedMachine && isMachineOnline(selectedMachine) && !isSpawning;
     const sidebarLayout = getNewSessionSidebarLayout({
@@ -1204,6 +1229,7 @@ function NewSessionScreen() {
 
                             <View style={styles.configRow}>
                                 <Pressable
+                                    disabled={Boolean(profile)}
                                     onPress={() => togglePicker('agent')}
                                     style={(p) => [styles.configInlineField, p.pressed && styles.configRowPressed]}
                                 >
@@ -1459,6 +1485,14 @@ function NewSessionScreen() {
             keyboardVerticalOffset={Platform.OS === 'ios' && !sidebarLayout.showSidebar ? Constants.statusBarHeight + headerHeight : 0}
             style={styles.container}
         >
+            {libraryEnabled && !agentId && <Pressable accessibilityRole="button" onPress={() => router.push('/agents' as any)} style={{ padding: 12 }}><Text style={{ color: theme.colors.accent }}>Choose from your agent library</Text></Pressable>}
+            {agentId && <View style={{ padding: 14, backgroundColor: theme.colors.surface, gap: 6 }}>
+                <Text style={{ color: theme.colors.text, fontWeight: '700' }}>{profile ? `${profile.name} · v${profile.revision}` : 'Agent unavailable'}</Text>
+                <Text style={{ color: theme.colors.textSecondary }}>{profile ? `${profile.provider} · ${profile.model} · ${profile.effort ?? 'default'} effort · ${profile.permissionMode}` : 'Enable Agent library in Features and select a saved agent.'}</Text>
+                {profile && <Text style={{ color: theme.colors.textSecondary }}>{agentLaunchError(profile, liveModels) ?? 'Saved configuration will be used for this session.'}</Text>}
+                <Pressable accessibilityRole="button" onPress={() => router.replace('/agents' as any)}><Text style={{ color: theme.colors.accent }}>Back to agent library</Text></Pressable>
+                {createdAgentSession && <Pressable accessibilityRole="button" onPress={() => navigateToSession(createdAgentSession)}><Text style={{ color: theme.colors.accent }}>Open created session</Text></Pressable>}
+            </View>}
             {sidebarLayout.showSidebar ? (
                 <View style={styles.desktopShell}>
                     {Platform.OS === 'web' && activePicker && (

@@ -15,7 +15,7 @@ import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { useConnectTerminal } from '@/hooks/useConnectTerminal';
-import { useEntitlement, useLocalSettingMutable } from '@/sync/storage';
+import { useEntitlement, useLocalSettingMutable, useSetting } from '@/sync/storage';
 import { sync } from '@/sync/sync';
 import { isUsingCustomServer } from '@/sync/serverConfig';
 import { trackPaywallButtonClicked, trackWhatsNewClicked } from '@/track';
@@ -77,6 +77,9 @@ function formatBuildSubtitle(buildConfig: BuildConfig): string | undefined {
 export const SettingsView = React.memo(function SettingsView() {
     const { theme } = useUnistyles();
     const router = useRouter();
+    const experiments = useSetting('experiments');
+    const expAgentLibrary = useSetting('expAgentLibrary');
+    const showAgentLibrary = experiments && expAgentLibrary;
     const appVersion = Constants.expoConfig?.version || '1.0.0';
     const runtimeVersion = typeof Constants.expoConfig?.runtimeVersion === 'string'
         ? Constants.expoConfig.runtimeVersion
@@ -380,6 +383,12 @@ export const SettingsView = React.memo(function SettingsView() {
                     icon={<Ionicons name="mic-outline" size={29} color={theme.colors.accent} />}
                     onPress={() => router.push('/settings/voice')}
                 />
+                {showAgentLibrary && <Item
+                    title="Agent library"
+                    subtitle="Your specialists · Experimental"
+                    icon={<Ionicons name="people-outline" size={29} color={theme.colors.accent} />}
+                    onPress={() => router.push('/agents' as any)}
+                />}
                 <Item
                     title="Agent Defaults"
                     subtitle="Default model, effort, and permissions"
