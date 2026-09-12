@@ -1,3 +1,4 @@
+import type { WorkflowCoordinator } from '@/workflows/coordinator';
 import { normalizeMetadata, toWireMetadata, rpcMethods } from '@ahmadposten/talos-wire';
 /**
  * WebSocket client for machine/daemon communication with Talos server
@@ -92,6 +93,7 @@ interface DaemonToServerEvents {
 }
 
 type MachineRpcHandlers = {
+    workflows?: WorkflowCoordinator;
     spawnSession: (options: SpawnSessionOptions) => Promise<SpawnSessionResult>;
     resumeSession?: (sessionId: string, options?: { model?: string; permissionMode?: string }) => Promise<SpawnSessionResult>;
     stopSession: (sessionId: string) => boolean;
@@ -146,8 +148,17 @@ export class ApiMachineClient {
         stopSession,
         requestShutdown,
         setSessionRecovery,
+        workflows,
     }: MachineRpcHandlers) {
         this.resumeSessionHandler = resumeSession ?? null;
+        if (workflows) {
+            this.rpcHandlerManager.registerHandler('workflow-start-status', (p: { id: string }) => workflows.startStatus(p.id));
+            this.rpcHandlerManager.registerHandler('workflow-list', () => workflows.list());
+            this.rpcHandlerManager.registerHandler('workflow-get', (p: { id: string }) => workflows.view(p.id));
+            this.rpcHandlerManager.registerHandler('workflow-task', (p: { id: string; taskId: string }) => workflows.task(p.id, p.taskId));
+            this.rpcHandlerManager.registerHandler('workflow-start', async p => workflows.view((await workflows.start(p)).id));
+            this.rpcHandlerManager.registerHandler('workflow-action', async p => workflows.view((await workflows.action(p)).id));
+        }
         if (setSessionRecovery) {
             this.rpcHandlerManager.registerHandler('set-session-recovery', async (params: unknown) => {
                 if (!params || typeof params !== 'object' || !('enabled' in params) || typeof params.enabled !== 'boolean') {

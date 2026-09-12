@@ -8,6 +8,7 @@ import { Switch } from '@/components/Switch';
 import { t } from '@/text';
 
 export default function FeaturesSettingsScreen() {
+    const [expWorkflows, setExpWorkflows] = useSettingMutable('expWorkflows');
     const [expAgentLibrary, setExpAgentLibrary] = useSettingMutable('expAgentLibrary');
     const [experiments, setExperiments] = useSettingMutable('experiments');
     const [analyticsOptOut, setAnalyticsOptOut] = useSettingMutable('analyticsOptOut');
@@ -83,6 +84,7 @@ export default function FeaturesSettingsScreen() {
                     }
                     showChevron={false}
                 />
+                {experiments && <Item title="Workflows" subtitle="Experimental: planning consensus, execution, and team review" icon={<Ionicons name="git-network-outline" size={29} color="#5856D6" />} rightElement={<Switch value={expWorkflows} onValueChange={setExpWorkflows} />} showChevron={false} />}
                 {experiments && <Item
                     title="Agent library"
                     subtitle="Experimental: create specialists and start sessions with them"

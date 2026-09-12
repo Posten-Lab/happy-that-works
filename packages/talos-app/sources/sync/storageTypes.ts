@@ -7,6 +7,8 @@ import { AgentDefinitionSchema } from "@/agents/agentDefinition";
 //
 
 export const MetadataSchema = z.preprocess(normalizeMetadata, z.object({
+    workflowRunId: z.string().optional(),
+    workflowManaged: z.boolean().optional(),
     agentProfile: AgentDefinitionSchema.optional(),
     models: z.array(z.object({
         code: z.string(),
@@ -224,6 +226,7 @@ export const MachineMetadataSchema = z.preprocess(normalizeMetadata, z.object({
         detectedAt: z.number(),
     }).optional(),
     providerUsage: z.object({ rpcAvailable: z.boolean() }).optional(),
+    workflows: z.object({ version: z.literal(1) }).optional(),
     resumeSupport: z.object({
         rpcAvailable: z.boolean(),
         requiresSameMachine: z.boolean(),

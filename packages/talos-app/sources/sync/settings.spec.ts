@@ -197,6 +197,8 @@ describe('settings', () => {
                 analyticsOptOut: false,
                 inferenceOpenAIKey: null,
                 experiments: false,
+                expWorkflows: false,
+                workflowLibrary: [],
                 expAgentLibrary: false,
                 agentLibrary: [],
                 alwaysShowContextSize: false,

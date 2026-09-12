@@ -1,3 +1,6 @@
+import { WorkflowCoordinator } from '@/workflows/coordinator';
+import { WorkflowStore } from '@/workflows/store';
+import { workflowRuntime } from '@/workflows/runtime';
 import fs from 'fs/promises';
 import os from 'os';
 import * as tmp from 'tmp';
@@ -58,6 +61,7 @@ export const initialMachineMetadata: MachineMetadata = {
   cliAvailability: detectCLIAvailability(),
   resumeSupport: { ...detectResumeSupport(), rpcAvailable: true },
   providerUsage: { rpcAvailable: true },
+  workflows: { version: 1 },
 };
 
 export async function startDaemon(): Promise<void> {
@@ -923,8 +927,11 @@ export async function startDaemon(): Promise<void> {
       finally { publishingRecovery = false; }
     };
 
+    const workflows = new WorkflowCoordinator(new WorkflowStore(configuration.talosHomeDir, `${configuration.serverUrl}\n${machineId}`, machine.encryptionKey), workflowRuntime(api, configuration.talosHomeDir), machineId);
+
     // Set RPC handlers
     apiMachine.setRPCHandlers({
+      workflows,
       spawnSession,
       resumeSession,
       stopSession,
@@ -991,6 +998,7 @@ export async function startDaemon(): Promise<void> {
         clearInterval(restartOnStaleVersionAndHeartbeat);
         clearInterval(recoveryInterval);
         recovery.stop();
+        await workflows.shutdown();
 
         // Release ownership BEFORE spawning the new daemon. Otherwise the spawned
         // `talos daemon start` reads our still-present daemon.state.json, sees
@@ -1052,6 +1060,7 @@ export async function startDaemon(): Promise<void> {
       logger.debug(`[DAEMON RUN] Starting proper cleanup (source: ${source}, errorMessage: ${errorMessage})...`);
       clearInterval(recoveryInterval);
       recovery.stop();
+      await workflows.shutdown();
 
       // Clear health check interval
       if (restartOnStaleVersionAndHeartbeat) {

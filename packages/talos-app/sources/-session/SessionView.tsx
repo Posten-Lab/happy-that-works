@@ -821,7 +821,14 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
         </CenteredInputWidth>
     ) : null;
 
-    const input = (
+    const input = session.metadata?.workflowManaged ? (
+        <View style={{ padding: 16, gap: 8 }}>
+            <Text style={{ color: theme.colors.textSecondary }}>This participant is managed by a workflow. Review its work here and make decisions in the workflow workspace.</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push(`/workflows/${session.metadata?.workflowRunId}?machineId=${encodeURIComponent(session.metadata?.machineId ?? '')}` as any)}>
+                <Text style={{ color: theme.colors.accent }}>Open workflow</Text>
+            </Pressable>
+        </View>
+    ) : (
         <>
             {inactiveHint}
             {visibleAgentGoal && (
