@@ -140,6 +140,13 @@ export type SpawnSessionResult =
     | { type: 'requestToApproveDirectoryCreation'; directory: string }
     | { type: 'error'; errorMessage: string };
 
+// Daemon handler failures arrive inside the encrypted response body, while
+// transport failures reject the RPC itself. Normalize both for action callers.
+function normalizeSpawnResult(value: SpawnSessionResult | { error: string }): SpawnSessionResult {
+    if ('error' in value) return { type: 'error', errorMessage: value.error };
+    return value;
+}
+
 // Options for spawning a session
 export interface SpawnSessionOptions {
     machineId: string;
@@ -260,7 +267,7 @@ export async function machineSpawnNewSession(options: SpawnSessionOptions): Prom
             rpcMethods.spawnSession,
             { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeClaudeSessionId, resumeCodexThreadId, parentSessionId, forkedFromMessageId }
         );
-        return result;
+        return normalizeSpawnResult(result);
     } catch (error) {
         // Handle RPC errors
         return {
@@ -457,7 +464,7 @@ export async function machineResumeSession(options: ResumeSessionOptions & { mod
             rpcMethods.resumeSession,
             { sessionId, model, permissionMode },
         );
-        return result;
+        return normalizeSpawnResult(result);
     } catch (error) {
         return {
             type: 'error',

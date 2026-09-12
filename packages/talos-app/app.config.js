@@ -151,6 +151,7 @@ export default {
                 }
             ],
             "expo-updates",
+            "expo-background-task",
             "expo-asset",
             "expo-localization",
             "expo-mail-composer",

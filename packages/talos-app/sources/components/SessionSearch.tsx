@@ -41,7 +41,6 @@ export const SessionSearch = React.memo(({ children }: { children: React.ReactNo
     React.useEffect(() => {
         if (!isOpen) return;
         void sessionSearch.start().catch(() => { /* The service publishes the retryable error. */ });
-        return () => sessionSearch.stop();
     }, [isOpen]);
 
     React.useEffect(() => {

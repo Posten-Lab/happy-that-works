@@ -2,17 +2,19 @@ import * as React from 'react';
 import { useTalosAction } from '@/hooks/useTalosAction';
 import { useNavigateToSession } from '@/hooks/useNavigateToSession';
 import { Modal } from '@/modal';
-import { machineResumeSession, sessionArchive, sessionKill, forkAndSpawn, type ForkSource } from '@/sync/ops';
+import { sessionArchive, sessionKill, forkAndSpawn, type ForkSource } from '@/sync/ops';
 import { maybeCleanupWorktree } from '@/hooks/useWorktreeCleanup';
 import { storage, useLocalSetting, useMachine, useSetting } from '@/sync/storage';
-import { Machine, Session } from '@/sync/storageTypes';
+import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { resolveMessageModeMeta } from '@/sync/messageMeta';
 import { t } from '@/text';
 import { TalosError } from '@/utils/errors';
 import { copySessionMetadataToClipboard, copySessionMetadataAndLogsToClipboard } from '@/utils/copySessionMetadataToClipboard';
 import { useSessionStatus } from '@/utils/sessionUtils';
+import { getResumeAvailability } from '@/utils/sessionResumeAvailability';
 import { isMachineOnline } from '@/utils/machineUtils';
+import { resumeArchivedSession } from '@/sync/resumeArchivedSession';
 import { getSessionForkSource } from '@/utils/sessionFork';
 import { useRouter } from 'expo-router';
 import { useSession } from '@/sync/storage';
@@ -31,72 +33,6 @@ interface UseSessionQuickActionsOptions {
     onAfterArchive?: () => void;
     onAfterDelete?: () => void;
     onAfterCopySessionMetadata?: () => void;
-}
-
-type ResumeAvailability = {
-    canResume: boolean;
-    canShowResume: boolean;
-    subtitle: string;
-    message: string;
-};
-
-function getResumeAvailability(session: Session, machine: Machine | null | undefined, isConnected: boolean): ResumeAvailability {
-    if (isConnected) {
-        return {
-            canResume: false,
-            canShowResume: false,
-            subtitle: '',
-            message: '',
-        };
-    }
-
-    const machineId = session.metadata?.machineId;
-    if (!machineId) {
-        const message = t('sessionInfo.resumeSessionMissingMachine');
-        return {
-            canResume: false,
-            canShowResume: true,
-            subtitle: message,
-            message,
-        };
-    }
-
-    const hasBackendResumeId = Boolean(session.metadata?.claudeSessionId || session.metadata?.codexThreadId || session.metadata?.museSessionId);
-    if (!hasBackendResumeId) {
-        const message = t('sessionInfo.resumeSessionMissingBackendId');
-        return {
-            canResume: false,
-            canShowResume: true,
-            subtitle: message,
-            message,
-        };
-    }
-
-    if (!machine) {
-        const message = t('sessionInfo.resumeSessionSameMachineOnly');
-        return {
-            canResume: false,
-            canShowResume: true,
-            subtitle: message,
-            message,
-        };
-    }
-
-    if (!isMachineOnline(machine)) {
-        return {
-            canResume: false,
-            canShowResume: true,
-            subtitle: t('sessionInfo.resumeSessionMachineOffline'),
-            message: t('sessionInfo.resumeSessionMachineOffline'),
-        };
-    }
-
-    return {
-        canResume: true,
-        canShowResume: true,
-        subtitle: t('sessionInfo.resumeSessionSubtitle'),
-        message: t('sessionInfo.resumeSessionSubtitle'),
-    };
 }
 
 export function useSessionQuickActions(
@@ -120,11 +56,9 @@ export function useSessionQuickActions(
     const resumeAvailability = React.useMemo(
         () => {
             if (restoringAutomatically) return { canResume: false, canShowResume: false, subtitle: '', message: t('sessionRecovery.restoring') };
-            return expResumeSession || recovery
-                ? getResumeAvailability(session, machine, sessionStatus.isConnected)
-                : { canResume: false, canShowResume: false, subtitle: '', message: '' };
+            return getResumeAvailability(session, machine, sessionStatus.isConnected);
         },
-        [machine, session, sessionStatus.isConnected, expResumeSession, !!recovery, restoringAutomatically],
+        [machine, session, sessionStatus.isConnected, restoringAutomatically],
     );
 
     // Fork eligibility — separate from resume because fork works on both
@@ -179,17 +113,15 @@ export function useSessionQuickActions(
         }
 
         const modeMeta = resolveMessageModeMeta(session, storage.getState().settings);
-        const result = await machineResumeSession({
-            machineId,
-            sessionId: session.id,
+        const result = await resumeArchivedSession(session, {
             model: modeMeta.model ?? undefined,
             permissionMode: modeMeta.permissionMode,
         });
 
         switch (result.type) {
             case 'success': {
-                // Session reconnects to the same ID, so messages are preserved.
-                // Refresh to pick up the updated session state.
+                // Checkpoint-backed sessions retain their Talos ID; older archives
+                // continue the same provider history in a new Talos session.
                 await sync.refreshSessions();
 
                 if (session.permissionMode) {

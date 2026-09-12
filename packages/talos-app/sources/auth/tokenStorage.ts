@@ -34,7 +34,7 @@ export const TokenStorage = {
         }
         try {
             const json = JSON.stringify(credentials);
-            await SecureStore.setItemAsync(AUTH_KEY, json);
+            await SecureStore.setItemAsync(AUTH_KEY, json, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
             credentialsCache = json; // Update cache
             return true;
         } catch (error) {

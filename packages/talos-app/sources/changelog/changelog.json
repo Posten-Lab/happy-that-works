@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "Resume and background search",
+      "summary": "Resume archived conversations directly from the app. Search indexes automatically as you use Talos and can refresh while the app is in the background.",
+      "markdown": ""
+    },
+    {
       "title": "Search result fixes",
       "summary": "Open archived search results when connected to an older server.",
       "markdown": ""
@@ -26,5 +31,5 @@
       "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
     }
   ],
-  "latestTitle": "Search result fixes"
+  "latestTitle": "Resume and background search"
 }

@@ -501,3 +501,15 @@ describe('incremental encrypted search cache', () => {
         expect([...source.storage.keys()].filter(key => key === 'one' || key.startsWith('one:'))).toEqual([]);
     });
 });
+
+it('finishes a scheduled scan without polling and can continue as foreground indexing', async () => {
+    const source = fixture();
+    const coordinator = create(source.dependencies);
+    await finish(coordinator.start({ refresh: false }));
+    expect(coordinator.search('Request')).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(source.dependencies.listSessions).toHaveBeenCalledOnce();
+    await finish(coordinator.start());
+    expect(vi.getTimerCount()).toBe(1);
+});

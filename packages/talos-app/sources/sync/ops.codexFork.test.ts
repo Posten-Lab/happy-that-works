@@ -167,3 +167,11 @@ it('resumes a restored account session against an earlier daemon', async () => {
         sessionId: 'existing-session', model: undefined, permissionMode: undefined,
     });
 });
+
+it('normalizes an encrypted daemon resume error instead of silently treating it as an unknown result', async () => {
+    machineRPC.mockResolvedValueOnce({ error: 'Session recovery data is unavailable on this machine.' });
+    const { machineResumeSession } = await import('./ops');
+    await expect(machineResumeSession({ machineId: 'machine', sessionId: 'archive' })).resolves.toEqual({
+        type: 'error', errorMessage: 'Session recovery data is unavailable on this machine.',
+    });
+});

@@ -64,6 +64,7 @@ import { readFileBytes } from '@/utils/readFileBytes';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 import { configureSessionSearch, sessionSearch } from './search/sessionSearch';
+import { startSearchIndexing } from './search/backgroundSearch';
 
 type V3GetSessionMessagesResponse = {
     messages: ApiMessage[];
@@ -260,6 +261,7 @@ class Sync {
             applySession: session => this.applySessions([session]),
             loadMessage: (sessionId, seq, signal) => this.loadSearchMessage(sessionId, seq, signal),
         });
+        startSearchIndexing(this.credentials);
 
         // Subscribe to updates
         this.subscribeToUpdates();
