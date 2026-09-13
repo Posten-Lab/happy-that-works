@@ -399,6 +399,7 @@ export async function runCodex(opts: {
     });
     session.onUserMessage(handleUserMessage);
     let thinking = false;
+    let turnFailed = false;
     let currentTurnId: string | null = null;
     let codexStartedSubagents = new Set<string>();
     let codexActiveSubagents = new Set<string>();
@@ -411,6 +412,8 @@ export async function runCodex(opts: {
 
     const sendReady = () => {
         session.sendSessionEvent({ type: 'ready' });
+    };
+    const notifyReady = () => {
         try {
             api.push().sendSessionNotification({
                 kind: 'done',
@@ -758,11 +761,13 @@ export async function runCodex(opts: {
                 'result'
             );
         } else if (msg.type === 'task_started') {
+            turnFailed = false;
             messageBuffer.addMessage('Starting task...', 'status');
         } else if (msg.type === 'task_complete') {
             // Ready is emitted from the main loop's idle check so pushes only fire once
             // after the queue is actually drained.
             const failure = describeCodexFailure(msg);
+            turnFailed = failure !== null;
             if (failure) {
                 messageBuffer.addMessage(`Task failed: ${failure}`, 'status');
                 session.sendSessionEvent({ type: 'message', message: `Codex error: ${failure}` });
@@ -993,6 +998,7 @@ export async function runCodex(opts: {
                     pending,
                     queueSize: () => messageQueue.size(),
                     shouldExit,
+                    completedSuccessfully: false,
                     sendReady,
                 });
                 continue;
@@ -1003,6 +1009,8 @@ export async function runCodex(opts: {
                 messageBuffer.addMessage(message.message, 'user');
             }
 
+            let completedSuccessfully = false;
+            turnFailed = false;
             try {
                 // Map permission mode to approval policy and sandbox.
                 // With app-server, these are per-turn — no restart needed on mode change.
@@ -1075,6 +1083,7 @@ export async function runCodex(opts: {
                     effort: message.mode.effort,
                     extraInputItems: attachmentInputs.inputItems,
                 });
+                completedSuccessfully = !result.aborted && !turnFailed;
                 first = false;
                 if (includeAppendSystemPrompt) {
                     appendSystemPromptInjected = true;
@@ -1101,7 +1110,9 @@ export async function runCodex(opts: {
                     pending,
                     queueSize: () => messageQueue.size(),
                     shouldExit,
+                    completedSuccessfully,
                     sendReady,
+                    notify: notifyReady,
                 });
                 logActiveHandles('after-turn');
             }

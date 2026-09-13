@@ -1,0 +1,64 @@
+[
+  {
+    "check": "real-codex-turn-started"
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 1
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 2
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 3
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 4
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 5
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 6
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 7
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 8
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 9
+  },
+  {
+    "check": "still-working-without-completion-push",
+    "minute": 10
+  },
+  {
+    "check": "past-ten-minute-deadline",
+    "elapsedMs": 605063
+  },
+  {
+    "check": "server-received-notification",
+    "kind": "done",
+    "elapsedMs": 629829
+  },
+  {
+    "check": "long-turn-completed-once",
+    "doneCount": 1,
+    "elapsedMs": 630182
+  },
+  {
+    "check": "server-received-notification",
+    "kind": "done",
+    "elapsedMs": 630730
+  }
+]

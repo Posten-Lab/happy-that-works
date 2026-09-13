@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-12",
+  "timezone": "Europe/London",
+  "cases": [
+    {
+      "turnStarted": "18:26:57.531",
+      "prematurePush": "18:36:57.641",
+      "actualCompletion": "19:31:12.060",
+      "pushAfterSeconds": 600.11,
+      "completionAfterSeconds": 3854.529
+    },
+    {
+      "turnStarted": "20:06:47.582",
+      "prematurePush": "20:16:47.681",
+      "actualCompletion": "20:33:20.323",
+      "pushAfterSeconds": 600.099,
+      "completionAfterSeconds": 1592.741
+    },
+    {
+      "turnStarted": "22:06:10.270",
+      "prematurePush": "22:16:10.370",
+      "actualCompletion": "22:57:52.825",
+      "pushAfterSeconds": 600.1,
+      "completionAfterSeconds": 3102.555
+    }
+  ]
+}

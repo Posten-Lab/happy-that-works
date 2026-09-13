@@ -1,5 +1,6 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SandboxConfig } from '@/persistence';
+import { emitReadyIfIdle } from './emitReadyIfIdle';
 
 const {
     mockExecSync,
@@ -111,6 +112,100 @@ const sandboxConfig: SandboxConfig = {
     deniedDomains: [],
     allowLocalBinding: true,
 };
+
+describe('Codex completion waits', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+    });
+
+    it.each(['raw', 'legacy'])('keeps a %s turn active beyond ten minutes and notifies once at completion', async (protocol) => {
+        const { CodexAppServerClient } = await import('./codexAppServerClient');
+        const client = new CodexAppServerClient();
+        vi.spyOn(client, 'sendTurn').mockResolvedValue();
+        vi.useFakeTimers();
+        const ready = vi.fn();
+        const notify = vi.fn();
+        const wait = client.sendTurnAndWait('long-running work').then(result => {
+            emitReadyIfIdle({ pending: null, queueSize: () => 0, shouldExit: false,
+                completedSuccessfully: !result.aborted, sendReady: ready, notify });
+            return result;
+        });
+        const event = (completed: boolean) => {
+            if (protocol === 'raw') {
+                (client as any).handleNotification(completed ? 'turn/completed' : 'turn/started', {
+                    turn: { id: 'long-turn', status: completed ? 'completed' : 'inProgress' },
+                });
+            } else {
+                (client as any).handleNotification('codex/event', {
+                    msg: { type: completed ? 'task_complete' : 'task_started', turn_id: 'long-turn' },
+                });
+            }
+        };
+        event(false);
+        await vi.advanceTimersByTimeAsync(65 * 60 * 1000);
+        expect(ready).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
+        expect(client.turnId).toBe('long-turn');
+        event(true);
+        await expect(wait).resolves.toEqual({ aborted: false });
+        event(true);
+        expect(ready).toHaveBeenCalledOnce();
+        expect(notify).toHaveBeenCalledOnce();
+    });
+
+    it('preserves an explicit deadline for bounded workflow callers', async () => {
+        const { CodexAppServerClient } = await import('./codexAppServerClient');
+        const client = new CodexAppServerClient();
+        vi.spyOn(client, 'sendTurn').mockResolvedValue();
+        vi.useFakeTimers();
+        const wait = client.sendTurnAndWait('bounded work', { turnTimeoutMs: 1000 });
+        await vi.advanceTimersByTimeAsync(1000);
+        await expect(wait).resolves.toEqual({ aborted: true });
+    });
+
+    it('ignores repeated completions and waits for the interrupted outcome after idle', async () => {
+        const { CodexAppServerClient } = await import('./codexAppServerClient');
+        const client = new CodexAppServerClient();
+        vi.spyOn(client, 'sendTurn').mockResolvedValue();
+        const event = (method: string, params: unknown) => (client as any).handleNotification(method, params);
+        const first = client.sendTurnAndWait('first');
+        event('turn/started', { turn: { id: 'first' } });
+        event('turn/completed', { turn: { id: 'first', status: 'completed' } });
+        await first;
+
+        let settled = false;
+        const second = client.sendTurnAndWait('second').then(result => { settled = true; return result; });
+        // The next turn/start has not returned its ID yet.
+        event('turn/completed', { turn: { id: 'first', status: 'completed' } });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        event('turn/started', { turn: { id: 'second' } });
+        event('turn/completed', { turn: { id: 'first', status: 'completed' } });
+        expect(client.turnId).toBe('second');
+        event('thread/status/changed', { status: { type: 'idle' } });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        event('turn/completed', { turn: { id: 'second', status: 'interrupted' } });
+        await expect(second).resolves.toEqual({ aborted: true });
+    });
+
+    it('still releases an unbounded wait when the provider exits', async () => {
+        mockExecSync.mockReturnValue('codex-cli 0.153.4');
+        const proc = createMockProcess();
+        mockSpawn.mockReturnValue(proc);
+        const { CodexAppServerClient } = await import('./codexAppServerClient');
+        const client = new CodexAppServerClient();
+        await client.connect();
+        vi.spyOn(client, 'sendTurn').mockResolvedValue();
+        const wait = client.sendTurnAndWait('work');
+        proc.emit('exit', 1, null);
+        await expect(wait).resolves.toEqual({ aborted: true });
+        await client.disconnect();
+    });
+});
 
 describe('CodexAppServerClient sandbox integration', () => {
     const originalRustLog = process.env.RUST_LOG;
@@ -1163,6 +1258,10 @@ describe('CodexAppServerClient sandbox integration', () => {
                                 },
                             },
                         });
+                        pushJsonLine(stdout, {
+                            method: 'turn/completed',
+                            params: { turn: { id: 'turn-raw-3', status: 'completed' } },
+                        });
                     }, 0);
                 }
             },
@@ -1298,7 +1397,7 @@ describe('CodexAppServerClient sandbox integration', () => {
         await client.disconnect();
     });
 
-    it('falls back to final answer completion when raw turn/completed is missing', async () => {
+    it('waits for the terminal outcome after final answer and thread idle notifications', async () => {
         const proc = createMockProcess({
             pid: 3002,
             onRequest: (msg, stdout) => {
@@ -1369,7 +1468,14 @@ describe('CodexAppServerClient sandbox integration', () => {
             sandbox: 'danger-full-access',
         });
 
-        await expect(client.sendTurnAndWait('say hi')).resolves.toEqual({ aborted: false });
+        const wait = client.sendTurnAndWait('say hi');
+        await waitFor(() => events.some(event => event.type === 'agent_message'));
+        expect(events.some(event => event.type === 'task_complete')).toBe(false);
+        pushJsonLine(proc.stdout, { method: 'thread/status/changed', params: { status: { type: 'idle' } } });
+        await new Promise(resolve => setTimeout(resolve, 10));
+        expect(events.some(event => event.type === 'task_complete')).toBe(false);
+        pushJsonLine(proc.stdout, { method: 'turn/completed', params: { turn: { id: 'turn-raw-2', status: 'completed' } } });
+        await expect(wait).resolves.toEqual({ aborted: false });
         expect(events).toEqual(expect.arrayContaining([
             expect.objectContaining({ type: 'task_started', turn_id: 'turn-raw-2' }),
             expect.objectContaining({ type: 'agent_message', message: 'still works' }),
