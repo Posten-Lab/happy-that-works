@@ -23,6 +23,9 @@ for (const [path, expected] of [
   ['scripts/release.cjs', 'none'],
   ['scripts/configure-npm-publishing.py', 'none'],
   ['scripts/release-ota.cjs', 'native'],
+  ['scripts/evidence/open-attachments.mts', 'none'],
+  ['scripts/evidence/fixtures/example.json', 'none'],
+  ['scripts/evidence-native.cjs', 'native'],
   ['scripts/verify-release-config.cjs', 'native'],
   ['packages/talos-app/release.cjs', 'native'],
   ['unknown-native-input', 'native'],
@@ -116,6 +119,36 @@ test('npm tooling skips mobile delivery but mixed changes and native-input renam
     assert.equal(run(native, renamed), 'native');
     const unknown = commit('scripts/unknown-release.cjs');
     assert.equal(run(renamed, unknown), 'native');
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('evidence helpers skip delivery while app changes, native inputs and renames retain their release kind', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'talos-evidence-release-test-'));
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const selector = new URL('./release-plan.mjs', import.meta.url).pathname;
+  const run = (base, head) => execFileSync(process.execPath, [selector, base, head, 'auto'],
+    { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const commit = file => {
+    mkdirSync(dirname(join(cwd, file)), { recursive: true });
+    writeFileSync(join(cwd, file), `fixture for ${file}\n`);
+    git('add', '.'); git('commit', '-qm', file); return git('rev-parse', 'HEAD');
+  };
+  try {
+    git('init', '-q'); git('config', 'user.name', 'CI test'); git('config', 'user.email', 'ci@example.invalid');
+    const base = commit('README.md');
+    const evidence = commit('scripts/evidence/open-attachments.mts');
+    assert.equal(run(base, evidence), 'none');
+    const app = commit('packages/talos-app/sources/components/FileView.tsx');
+    assert.equal(run(base, app), 'ota');
+    const native = commit('packages/talos-app/plugins/native.js');
+    assert.equal(run(base, native), 'native');
+    git('mv', 'packages/talos-app/plugins/native.js', 'scripts/evidence/native.js');
+    git('commit', '-qm', 'Move native input into evidence directory');
+    const renamed = git('rev-parse', 'HEAD');
+    assert.equal(run(native, renamed), 'native');
+    git('mv', 'scripts/evidence/native.js', 'packages/talos-app/plugins/native.js');
+    git('commit', '-qm', 'Move evidence helper into native inputs');
+    assert.equal(run(renamed, git('rev-parse', 'HEAD')), 'native');
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
