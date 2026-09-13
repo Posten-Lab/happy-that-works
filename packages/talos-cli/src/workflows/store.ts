@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, readdirSync, writeFileSync, renameSync, openSync, fsyncSync, closeSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, renameSync, openSync, fsyncSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
 import { WorkflowRunSchema, type WorkflowRun } from '@ahmadposten/talos-wire';
 import { decrypt, encrypt } from '@/api/encryption';
@@ -13,20 +13,22 @@ export class WorkflowStore {
     }
     save(run: WorkflowRun) {
         WorkflowRunSchema.parse(run);
-        const target = join(this.directory, `${run.id}.bin`), tmp = `${target}.tmp`;
+        const directory = run.definition.steps ? join(this.directory, 'v2') : this.directory;
+        mkdirSync(directory, { recursive: true, mode: 0o700 });
+        const target = join(directory, `${run.id}.bin`), tmp = `${target}.tmp`;
         const data = encrypt(this.key, 'dataKey', run);
         writeFileSync(tmp, data, { mode: 0o600 });
         const fd = openSync(tmp, 'r'); try { fsyncSync(fd); } finally { closeSync(fd); }
         renameSync(tmp, target);
         // Windows cannot open directories through fs.open; the file was flushed before atomic rename.
         if (process.platform !== 'win32') {
-            const parent = openSync(this.directory, 'r'); try { fsyncSync(parent); } finally { closeSync(parent); }
+            const parent = openSync(directory, 'r'); try { fsyncSync(parent); } finally { closeSync(parent); }
         }
     }
     load(): WorkflowRun[] {
-        return readdirSync(this.directory).filter(f => f.endsWith('.bin')).map(f => {
-            const data = readFileSync(join(this.directory, f));
+        return [this.directory, join(this.directory, 'v2')].filter(existsSync).flatMap(directory => readdirSync(directory).filter(f => f.endsWith('.bin')).map(f => {
+            const data = readFileSync(join(directory, f));
             return WorkflowRunSchema.parse(decrypt(this.key, 'dataKey', data));
-        });
+        }));
     }
 }

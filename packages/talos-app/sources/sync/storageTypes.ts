@@ -226,7 +226,7 @@ export const MachineMetadataSchema = z.preprocess(normalizeMetadata, z.object({
         detectedAt: z.number(),
     }).optional(),
     providerUsage: z.object({ rpcAvailable: z.boolean() }).optional(),
-    workflows: z.object({ version: z.literal(1) }).optional(),
+    workflows: z.object({ version: z.number().int().positive() }).optional(),
     resumeSupport: z.object({
         rpcAvailable: z.boolean(),
         requiresSameMachine: z.boolean(),

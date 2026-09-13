@@ -1,0 +1,55 @@
+{
+  "runId": "57bd8c27-a961-42c7-95e7-097c609ef0ec",
+  "status": "complete",
+  "steps": [
+    {
+      "name": "Plan",
+      "kind": "plan",
+      "agents": [
+        "Aster",
+        "Kepler",
+        "Atlas"
+      ]
+    },
+    {
+      "name": "Build",
+      "kind": "execute",
+      "agents": [
+        "Forge"
+      ]
+    },
+    {
+      "name": "UI review",
+      "kind": "review",
+      "agents": [
+        "Iris",
+        "Sentinel"
+      ]
+    },
+    {
+      "name": "Polish",
+      "kind": "execute",
+      "agents": [
+        "Forge"
+      ]
+    },
+    {
+      "name": "Final review",
+      "kind": "review",
+      "agents": [
+        "Iris",
+        "Sentinel"
+      ]
+    }
+  ],
+  "turns": 13,
+  "completedSteps": 5,
+  "distinctReviewedArtifacts": true,
+  "checks": [
+    {
+      "name": "Final output",
+      "exitCode": 0
+    }
+  ],
+  "sourcePreserved": true
+}

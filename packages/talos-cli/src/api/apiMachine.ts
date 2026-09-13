@@ -1,3 +1,4 @@
+import { registerWorkflowHandlers } from '@/workflows/rpc';
 import type { WorkflowCoordinator } from '@/workflows/coordinator';
 import { normalizeMetadata, toWireMetadata, rpcMethods } from '@ahmadposten/talos-wire';
 /**
@@ -119,6 +120,7 @@ async function withCodexAppServerClient<T>(handler: (client: CodexAppServerClien
 }
 
 export class ApiMachineClient {
+    private workflowVersion: number | undefined;
     private socket!: Socket<ServerToDaemonEvents, DaemonToServerEvents>;
     private keepAliveInterval: NodeJS.Timeout | null = null;
     private lastKnownCLIAvailability: CLIAvailability | null = null;
@@ -151,14 +153,8 @@ export class ApiMachineClient {
         workflows,
     }: MachineRpcHandlers) {
         this.resumeSessionHandler = resumeSession ?? null;
-        if (workflows) {
-            this.rpcHandlerManager.registerHandler('workflow-start-status', (p: { id: string }) => workflows.startStatus(p.id));
-            this.rpcHandlerManager.registerHandler('workflow-list', () => workflows.list());
-            this.rpcHandlerManager.registerHandler('workflow-get', (p: { id: string }) => workflows.view(p.id));
-            this.rpcHandlerManager.registerHandler('workflow-task', (p: { id: string; taskId: string }) => workflows.task(p.id, p.taskId));
-            this.rpcHandlerManager.registerHandler('workflow-start', async p => workflows.view((await workflows.start(p)).id));
-            this.rpcHandlerManager.registerHandler('workflow-action', async p => workflows.view((await workflows.action(p)).id));
-        }
+        this.workflowVersion = workflows ? 2 : undefined;
+        if (workflows) registerWorkflowHandlers(this.rpcHandlerManager, workflows);
         if (setSessionRecovery) {
             this.rpcHandlerManager.registerHandler('set-session-recovery', async (params: unknown) => {
                 if (!params || typeof params !== 'object' || !('enabled' in params) || typeof params.enabled !== 'boolean') {
@@ -522,6 +518,7 @@ export class ApiMachineClient {
                 ...(metadata || this.machine.metadata)!,
                 talosCliVersion: configuration.currentCliVersion,
                 providerUsage: { rpcAvailable: true },
+                workflows: this.workflowVersion ? { version: this.workflowVersion } : undefined,
             })).catch(error => logger.debug('[API MACHINE] Failed to refresh daemon capabilities:', error));
             this.startKeepAlive();
         });

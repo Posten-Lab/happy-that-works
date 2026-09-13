@@ -199,6 +199,7 @@ describe('settings', () => {
                 experiments: false,
                 expWorkflows: false,
                 workflowLibrary: [],
+                workflowLibraryV2: [],
                 expAgentLibrary: false,
                 agentLibrary: [],
                 alwaysShowContextSize: false,

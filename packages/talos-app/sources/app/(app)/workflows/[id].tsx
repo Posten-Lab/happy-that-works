@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, View, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { workflowStageLabel, type WorkflowRun, type WorkflowTask } from '@ahmadposten/talos-wire';
+import { workflowStageLabel, workflowSlots, type WorkflowRun, type WorkflowTask } from '@ahmadposten/talos-wire';
 import { loadWorkflowRun, workflowRPC } from '@/workflows/api';
 import { WorkflowButton as Button, WorkflowInput as Input, useWorkflowStyles } from '@/workflows/ui';
 import { useSetting } from '@/sync/storage';
@@ -31,8 +31,9 @@ export default function WorkflowRunScreen() {
         finally { setBusy(false); }
     };
     const finished = run?.status === 'complete' || run?.status === 'cancelled';
-    const slots = run ? [...run.definition.planners, run.definition.executor, ...run.definition.reviewers] : [];
-    const latestReview = run?.tasks.filter(t => t.stage === 'review' && t.round === run.reviewRound) ?? [];
+    const slots = run ? [...new Map(workflowSlots(run.definition).map(slot => [slot.agent.id, slot])).values()] : [];
+    const currentStep = run?.definition.steps?.[run.stepIndex ?? 0];
+    const latestReview = run?.tasks.filter(t => t.stage === 'review' && t.round === run.reviewRound && (!currentStep || t.stepId === currentStep.id && t.attempt === run.stepAttempt)) ?? [];
     return <ScrollView style={{ flex: 1, backgroundColor: s.colors.surface }} contentContainerStyle={{ padding: 20, paddingBottom: 80, gap: 18, width: '100%', maxWidth: 1000, alignSelf: 'center' }}>
         <Button label="All workflows" onPress={() => router.push('/workflows' as any)} />
         {error !== '' && <Text accessibilityRole="alert" style={{ ...s.text, color: s.colors.warning }}>{error}</Text>}
@@ -41,7 +42,8 @@ export default function WorkflowRunScreen() {
             <Text accessibilityRole="header" style={{ ...s.text, fontSize: 30, lineHeight: 38, fontWeight: '700' }}>{run.definition.name}</Text>
             <Text style={s.text}>{run.task}</Text>
             <View style={s.card}>
-                <Text style={{ ...s.text, fontWeight: '700' }}>Plan → Execute → Review</Text>
+                <Text style={{ ...s.text, fontWeight: '700' }}>{run.definition.steps ? 'Your workflow steps' : 'Plan → Execute → Review'}</Text>
+                {run.definition.steps?.map((step, index) => <View key={step.id} style={{ borderLeftWidth: 3, borderColor: step.id === currentStep?.id && !finished ? s.colors.accent : s.colors.divider, paddingLeft: 12, gap: 4 }}><Text style={{ ...s.text, fontWeight: '600' }}>{run.completedSteps?.includes(step.id) ? '✓' : index === run.stepIndex && !finished ? '→' : '○'} {index + 1}. {step.name}</Text><Text style={s.muted}>{step.agents.map(slot => slot.agent.name).join(' + ')} · {run.completedSteps?.includes(step.id) ? 'Passed' : index === run.stepIndex && !finished ? run.status.replace('_', ' ') : 'Waiting'}</Text></View>)}
                 <Text style={s.text}>{finished ? run.status === 'complete' ? 'Every required approval and check passed' : 'Run cancelled' : workflowStageLabel[run.stage]}</Text>
                 <Text style={s.muted}>Plan v{run.planVersion} · Planning round {run.planningRound}/{run.definition.planningRounds} · Review round {run.reviewRound}/{run.definition.reviewRounds}</Text>
                 <Text style={s.muted}>{run.tasks.length}/{run.definition.maxTurns} agent turns · {run.definition.turnMinutes} minutes per turn maximum</Text>
@@ -51,8 +53,8 @@ export default function WorkflowRunScreen() {
                     <Button disabled={busy} label="Cancel run" onPress={() => void action('cancel')} />
                 </View>}
             </View>
-            <View style={s.card}><Text style={{ ...s.text, fontWeight: '700' }}>Team</Text>{slots.map(slot => {
-                const last = [...run.tasks].reverse().find(t => t.agentId === slot.agent.id);
+            <View style={s.card}><Text style={{ ...s.text, fontWeight: '700' }}>{currentStep ? `${currentStep.name} team` : 'Team'}</Text>{(currentStep?.agents ?? slots).map(slot => {
+                const last = [...run.tasks].reverse().find(t => t.agentId === slot.agent.id && (!currentStep || t.stepId === currentStep.id && t.attempt === run.stepAttempt));
                 return <View key={slot.agent.id} style={{ gap: 4 }}><Text style={s.text}>{slot.agent.name} · {last?.status === 'running' ? 'Working' : last?.result?.decision ?? 'Waiting'}</Text><Text style={s.muted}>{slot.assignment}</Text>{last?.sessionId && <Button label={`Inspect ${slot.agent.name} session`} onPress={() => router.push(`/session/${last.sessionId}` as any)} />}</View>;
             })}</View>
             {!finished && run.status !== 'running' && <View style={s.card}>
@@ -61,16 +63,16 @@ export default function WorkflowRunScreen() {
                 <Text style={s.muted}>Resuming an interrupted step may perform more work in the same worktree. Inspect its session first. A revised plan invalidates earlier approvals. Limits are never waived automatically.</Text>
                 {run.stage === 'plan_vote' && <Button primary disabled={busy} label="Approve agreed plan" onPress={() => void action('approve_plan')} />}
                 <Button disabled={busy || !note.trim()} label="Request revised plan" onPress={() => void action('revise_plan')} />
-                <Button disabled={busy || !note.trim()} label="Verify and review current files" onPress={() => void action('retry_review')} />
+                <Button disabled={busy || !note.trim() || !!currentStep && currentStep.kind !== 'review'} label="Verify and review current files" onPress={() => void action('retry_review')} />
                 <Button disabled={busy} label="Replace a participant" onPress={() => setReplacement(replacement ? null : '')} />
                 {replacement !== null && slots.map(slot => <View key={slot.agent.id} style={{ gap: 6 }}><Button label={`Replace ${slot.agent.name}`} onPress={() => setReplacement(slot.agent.id)} />{replacement === slot.agent.id && agents.filter(a => !slots.some(s => s.agent.id === a.id)).map(a => <Button key={a.id} disabled={busy || !note.trim()} label={`Use ${a.name} instead`} onPress={() => void action('replace_agent', { agentId: slot.agent.id, replacement: a })} />)}</View>)}
             </View>}
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>{['Plan', 'Work', 'Review', 'Activity'].map(t => <Button key={t} primary={tab === t} label={t} onPress={() => setTab(t)} />)}</View>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>{['Plan', 'Work', 'Review', 'Activity'].map(t => <Button key={t} selected={tab === t} label={t} onPress={() => setTab(t)} />)}</View>
             {tab === 'Plan' && <View style={s.card}><Text style={{ ...s.text, fontWeight: '700' }}>Completion criteria</Text><Text selectable style={s.text}>{run.definition.criteria}</Text><Text style={{ ...s.text, fontWeight: '700' }}>Plan v{run.planVersion}</Text><Text selectable style={s.text}>{run.plan || 'Independent proposals are being prepared.'}</Text>{run.tasks.filter(t => t.stage === 'plan_vote' && t.version === `plan:${run.planVersion}`).map(t => <Text key={t.id} style={s.muted}>{t.agentName}: {t.result?.decision ?? t.status} · {t.result?.summary ?? ''}</Text>)}</View>}
             {tab === 'Work' && <View style={s.card}><Text style={{ ...s.text, fontWeight: '700' }}>Preserved workspace</Text><Text selectable style={s.text}>{run.directory}</Text><Text selectable style={s.muted}>Branch: {run.branch}{'\n'}Base: {run.baseCommit}{'\n'}Verified contents: {run.artifactVersion || 'Not verified yet'}</Text><Text style={s.muted}>All work remains here after completion or cancellation. This workflow does not merge, publish, or deploy.</Text>{run.tasks.filter(t => t.stage === 'execute').map(t => <View key={t.id}><Text style={s.text}>Execution round {t.round}: {t.result?.summary ?? t.status}</Text><Text selectable style={s.muted}>{t.result?.document}</Text></View>)}{run.checks.map((c, i) => <View key={i} style={{ gap: 4 }}><Text style={s.text}>{c.name}: {c.exitCode === 0 ? 'Passed' : 'Failed'}</Text><Text selectable style={s.muted}>{c.output || 'No command output'}</Text></View>)}</View>}
             {tab === 'Review' && <View style={{ gap: 12 }}>{latestReview.length === 0 && <Text style={s.muted}>Review begins after execution and completion checks. Every reviewer assesses the same workspace revision independently.</Text>}{latestReview.map(t => <View key={t.id} style={s.card}><Text style={{ ...s.text, fontWeight: '700' }}>{t.agentName}: {t.result?.decision ?? t.status}</Text><Text style={s.text}>{t.result?.summary}</Text><Text selectable style={s.muted}>Revision: {t.version}</Text>{t.result?.findings.map((f, i) => <View key={i} style={{ gap: 5 }}><Text style={{ ...s.text, fontWeight: '700' }}>{f.blocking ? 'Blocking' : 'Suggestion'} · {f.title}</Text><Text selectable style={s.text}>{f.evidence}</Text><Text selectable style={s.muted}>Required correction: {f.correction}</Text></View>)}</View>)}</View>}
             {tab === 'Activity' && <>
-                {[...run.tasks].reverse().map(t => <View key={t.id} style={s.card}><Text style={s.text}>{t.agentName} · {workflowStageLabel[t.stage]} · {t.status}</Text><Text style={s.muted}>{t.result?.summary ?? t.error ?? 'Working on the assigned task.'}</Text><Button label={`Details ${t.agentName} ${t.stage} round ${t.round}`} onPress={async () => { if (expanded === t.id) { setExpanded(null); return; } try { setDetail(await workflowRPC<WorkflowTask>(machine, 'task', { id, taskId: t.id })); setExpanded(t.id); } catch (e) { setError(String(e)); } }} />{expanded === t.id && <><Text selectable style={s.text}>{detail?.id === t.id ? detail.result?.summary : ''}</Text><Text selectable style={s.text}>{detail?.id === t.id ? detail.result?.document : ''}</Text>{detail?.id === t.id && detail.result?.findings.map((f, i) => <Text key={i} selectable style={s.text}>{f.title}{'\n'}{f.evidence}{'\n'}Required correction: {f.correction}</Text>)}<Text selectable style={s.muted}>{detail?.id === t.id ? detail.prompt : ''}</Text>{t.sessionId && <Button label="Open participant session" onPress={() => router.push(`/session/${t.sessionId}` as any)} />}</>}</View>)}
+                {[...run.tasks].reverse().map(t => <View key={t.id} style={s.card}><Text style={s.text}>{run.definition.steps?.find(s => s.id === t.stepId)?.name ?? ''} · {t.agentName} · {workflowStageLabel[t.stage]} · {t.status}</Text><Text style={s.muted}>{t.result?.summary ?? t.error ?? 'Working on the assigned task.'}</Text><Button label={`Details ${t.agentName} ${t.stage} round ${t.round}`} onPress={async () => { if (expanded === t.id) { setExpanded(null); return; } try { setDetail(await workflowRPC<WorkflowTask>(machine, 'task', { id, taskId: t.id })); setExpanded(t.id); } catch (e) { setError(String(e)); } }} />{expanded === t.id && <><Text selectable style={s.text}>{detail?.id === t.id ? detail.result?.summary : ''}</Text><Text selectable style={s.text}>{detail?.id === t.id ? detail.result?.document : ''}</Text>{detail?.id === t.id && detail.result?.findings.map((f, i) => <Text key={i} selectable style={s.text}>{f.title}{'\n'}{f.evidence}{'\n'}Required correction: {f.correction}</Text>)}<Text selectable style={s.muted}>{detail?.id === t.id ? detail.prompt : ''}</Text>{t.sessionId && <Button label="Open participant session" onPress={() => router.push(`/session/${t.sessionId}` as any)} />}</>}</View>)}
                 <View style={s.card}>{[...run.events].reverse().map((e, i) => <Text key={i} style={s.muted}>{new Date(e.at).toLocaleTimeString()} · {e.text}</Text>)}</View>
             </>}
         </>}
