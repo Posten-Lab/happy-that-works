@@ -1,5 +1,12 @@
 # Talos CLI 1.0.10
 
+**Superseded by 1.0.11.** Fresh registry installation exposed missing workflow
+exports in published wire 0.1.1. The local package checks used a newer wire build
+under the same version and did not detect the mismatch. Version 1.0.10 was
+deprecated and `latest` was restored to 1.0.9 before either machine was activated.
+The corrected release publishes wire 0.1.2 first and verifies its actual registry
+artifact with the CLI before publishing CLI 1.0.11.
+
 This patch fixes Codex completion notifications. Long-running turns no longer
 time out after ten minutes and send a premature completion notification.
 Notifications now follow successful terminal completion, after queued work has
