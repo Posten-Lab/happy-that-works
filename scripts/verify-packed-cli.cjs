@@ -12,6 +12,7 @@ const pnpm = process.env.npm_execpath;
 if (!pnpm) throw new Error('Run this check with pnpm verify:packaged.');
 const args = process.argv.slice(2);
 const cliOnly = args.includes('--cli-only');
+const registryWire = args.includes('--registry-wire');
 const artifactsIndex = args.indexOf('--artifacts-dir');
 const suppliedArtifacts = artifactsIndex !== -1 ? args[artifactsIndex + 1] : undefined;
 if (artifactsIndex !== -1) assert.ok(suppliedArtifacts && !suppliedArtifacts.startsWith('--'), 'Missing --artifacts-dir value.');
@@ -31,7 +32,7 @@ function run(args, cwd = root) {
 }
 
 async function main() {
-    console.log(`Talos package verification: ${directory}`);
+    console.log(`Talos package verification: ${directory}${registryWire ? ' (published registry wire dependency)' : ''}`);
     const archives = {};
     const packages = {};
     for (const name of cliOnly ? ['talos-wire', 'talos-cli'] : ['talos-wire', 'talos-cli', 'talos-server', 'talos-agent']) {
@@ -63,7 +64,7 @@ async function verifyInstallation(linker, archives, packages, scenario, onlyCli)
             } : {}),
         },
         pnpm: {
-            overrides: { '@ahmadposten/talos-wire': archives['@ahmadposten/talos-wire'] },
+            ...(registryWire ? {} : { overrides: { '@ahmadposten/talos-wire': archives['@ahmadposten/talos-wire'] } }),
             onlyBuiltDependencies: ['talosapp', '@ahmadposten/talos-server', '@prisma/client', '@prisma/engines', 'prisma', 'sharp', 'esbuild'],
         },
     }, null, 2));

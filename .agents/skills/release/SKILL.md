@@ -53,6 +53,12 @@ For rotation, use `python3 scripts/configure-npm-publishing.py` to enter a repla
 
 After publication, verify registry version/dist-tags and perform a real install into an isolated prefix. Check `talos --version` and `talos-agent --version` against the published versions. Metadata alone does not verify bundle contents. Install the global `talos` command only within the user's requested scope, without restarting existing sessions.
 
+The default package matrix overrides wire with the local build, which can hide
+unpublished wire changes under an existing version. Bump and publish wire when its
+required exports differ from the registry. After wire is available, run
+`pnpm verify:packaged --cli-only --registry-wire` before publishing CLI; this uses
+the candidate CLI tarball and its actual registry wire dependency.
+
 Repository tags and hosted releases are separate actions. Check the destination remote and user authorization before pushing. Do not force-push tags or publish against an inherited upstream remote. Use component tags such as `cli-X.Y.Z`, not a monorepo-wide bare `vX.Y.Z`.
 
 ## Web and API
