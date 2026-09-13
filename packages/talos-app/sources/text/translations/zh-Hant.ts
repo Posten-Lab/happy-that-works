@@ -19,6 +19,7 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 
 export const zhHant: TranslationStructure = {
     sessionSearch: defaultTranslations.sessionSearch,
+    attachments: defaultTranslations.attachments,
     tabs: {
         // Tab navigation labels
         inbox: '收件匣',

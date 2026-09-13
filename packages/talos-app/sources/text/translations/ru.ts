@@ -27,6 +27,7 @@ function plural({ count, one, few, many }: { count: number; one: string; few: st
  */
 export const ru: TranslationStructure = {
     sessionSearch: defaultTranslations.sessionSearch,
+    attachments: defaultTranslations.attachments,
     tabs: {
         // Tab navigation labels
         inbox: 'Входящие',

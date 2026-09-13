@@ -603,6 +603,17 @@ export const en: TranslationStructure = {
         }
     },
 
+    attachments: {
+        previewImage: ({ name }: { name: string }) => `Preview ${name}`,
+        openNamedFile: ({ name }: { name: string }) => `Open ${name}`,
+        openFile: 'Open or save file',
+        closePreview: 'Close image preview',
+        zoomIn: 'Zoom in',
+        zoomOut: 'Zoom out',
+        loadFailed: 'Unable to load image.',
+        openFailed: 'Unable to open file. Tap again to retry.',
+    },
+
     files: {
         changes: 'Changes',
         searchPlaceholder: 'Search files...',

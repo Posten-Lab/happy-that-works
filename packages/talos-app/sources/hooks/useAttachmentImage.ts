@@ -110,7 +110,7 @@ export type AttachmentImageState = {
     error: string | null;
 };
 
-export function useAttachmentImage(sessionId: string, ref: string | undefined): AttachmentImageState {
+export function useAttachmentImage(sessionId: string, ref: string | undefined, retryKey = 0): AttachmentImageState {
     const [state, setState] = React.useState<AttachmentImageState>(() => {
         if (!ref) return { uri: null, loading: false, error: null };
         const cached = cache.get(ref);
@@ -124,6 +124,7 @@ export function useAttachmentImage(sessionId: string, ref: string | undefined): 
             setState({ uri: null, loading: false, error: null });
             return;
         }
+        if (retryKey > 0) cache.delete(ref);
         const cached = cache.get(ref);
         if (cached) {
             cache.delete(ref);
@@ -156,7 +157,7 @@ export function useAttachmentImage(sessionId: string, ref: string | undefined): 
         });
 
         return () => { cancelled = true; };
-    }, [sessionId, ref]);
+    }, [sessionId, ref, retryKey]);
 
     return state;
 }
