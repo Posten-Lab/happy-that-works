@@ -1,6 +1,6 @@
 /**
  * View for 'file' tool calls in the chat transcript. Renders:
- *  - `image/*`: inline picture with thumbhash placeholder (existing behaviour)
+ *  - `image/*`: tappable inline picture with a full-screen viewer
  *  - `video/*`: compact file chip with a video icon (v1 does not embed a
  *    playable video — the CLI-side attachmentRouter already writes videos to
  *    a temp file and routes them via `@<path>` so Claude can act on them)
@@ -12,7 +12,7 @@
  * MIME isn't present.
  */
 import * as React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -20,6 +20,10 @@ import { ToolViewProps } from './_all';
 import { z } from 'zod';
 import { useAttachmentImage } from '@/hooks/useAttachmentImage';
 import { thumbhashToDataUri } from '@/utils/thumbhash';
+import { AttachmentImageViewer } from '@/components/AttachmentImageViewer';
+import { loadAttachment } from '@/sync/loadAttachment';
+import { openAttachment } from '@/utils/openAttachment';
+import { t } from '@/text';
 
 const fileInputSchema = z.object({
     ref: z.string(),
@@ -77,6 +81,7 @@ export const FileView = React.memo<ToolViewProps>(({ tool, sessionId }) => {
     if (isImage) {
         return (
             <InlineImage
+                key={`${sessionId}:${ref}`}
                 name={name}
                 image={image}
                 ref_={ref}
@@ -88,7 +93,10 @@ export const FileView = React.memo<ToolViewProps>(({ tool, sessionId }) => {
 
     return (
         <FileChip
+            key={`${sessionId}:${ref}`}
             name={name}
+            ref_={ref}
+            sessionId={sessionId}
             mimeType={effectiveMime}
             size={size}
             theme={theme}
@@ -115,7 +123,9 @@ function InlineImage({
         return uri ? { uri } : undefined;
     }, [image?.thumbhash]);
 
-    const { uri, error } = useAttachmentImage(sessionId ?? '', sessionId ? ref_ : undefined);
+    const [previewOpen, setPreviewOpen] = React.useState(false);
+    const [retryKey, setRetryKey] = React.useState(0);
+    const { uri, error, loading } = useAttachmentImage(sessionId ?? '', sessionId ? ref_ : undefined, retryKey);
 
     const aspect = image && image.width > 0 && image.height > 0
         ? image.width / image.height
@@ -128,50 +138,81 @@ function InlineImage({
     }
 
     return (
-        <View style={styles.inlineContainer}>
-            <View style={[styles.inlineWrapper, { borderColor: theme.colors.divider }]}>
-                <Image
-                    source={uri ? { uri } : undefined}
-                    placeholder={placeholder}
-                    style={[{ width: displayW, height: displayH }, styles.inlineImage]}
-                    contentFit="cover"
-                    transition={150}
-                />
-                {error && !uri && (
-                    <View style={[styles.errorOverlay, { backgroundColor: theme.colors.surfaceHigh }]}>
-                        <Ionicons name="alert-circle-outline" size={20} color={theme.colors.textSecondary} />
-                    </View>
-                )}
-            </View>
-            <Text style={[styles.filename, { color: theme.colors.textSecondary }]} numberOfLines={1}>{name}</Text>
-        </View>
+        <>
+            <Pressable style={styles.inlineContainer} disabled={!sessionId}
+                accessibilityRole="button" accessibilityLabel={t('attachments.previewImage', { name })}
+                onPress={() => { setPreviewOpen(true); if (error) setRetryKey(value => value + 1); }}>
+                <View style={[styles.inlineWrapper, { borderColor: theme.colors.divider }]}>
+                    <Image
+                        source={uri ? { uri } : undefined}
+                        placeholder={placeholder}
+                        style={[{ width: displayW, height: displayH }, styles.inlineImage]}
+                        contentFit="cover"
+                        transition={150}
+                    />
+                    {error && !uri && (
+                        <View style={[styles.errorOverlay, { backgroundColor: theme.colors.surfaceHigh }]}>
+                            <Ionicons name="alert-circle-outline" size={20} color={theme.colors.textSecondary} />
+                        </View>
+                    )}
+                </View>
+                <Text style={[styles.filename, { color: theme.colors.textSecondary }]} numberOfLines={1}>{name}</Text>
+            </Pressable>
+            {previewOpen && <AttachmentImageViewer name={name} uri={uri} loading={loading} error={error}
+                onRetry={() => setRetryKey(value => value + 1)} onClose={() => setPreviewOpen(false)} />}
+        </>
     );
 }
 
 function FileChip({
     name,
+    ref_,
+    sessionId,
     mimeType,
     size,
     theme,
 }: {
     name: string;
+    ref_: string;
+    sessionId?: string;
     mimeType: string;
     size?: number;
     theme: any;
 }) {
     const sizeLabel = formatSize(size);
+    const [opening, setOpening] = React.useState(false);
+    const [error, setError] = React.useState(false);
+    const openingRef = React.useRef(false);
+    async function open() {
+        if (!sessionId || openingRef.current) return;
+        openingRef.current = true;
+        setOpening(true);
+        setError(false);
+        try {
+            await openAttachment(name, mimeType, () => loadAttachment(sessionId, ref_));
+        } catch {
+            setError(true);
+        } finally {
+            openingRef.current = false;
+            setOpening(false);
+        }
+    }
     return (
-        <View style={styles.inlineContainer}>
+        <Pressable style={styles.inlineContainer} onPress={open} disabled={!sessionId || opening}
+            accessibilityRole="button" accessibilityLabel={t('attachments.openNamedFile', { name })}
+            accessibilityState={{ busy: opening, disabled: !sessionId || opening }}>
             <View style={[styles.chip, { borderColor: theme.colors.divider, backgroundColor: theme.colors.surfaceHigh }]}>
-                <Ionicons name={iconNameForMime(mimeType)} size={22} color={theme.colors.button.secondary.tint} />
+                {opening ? <ActivityIndicator size="small" color={theme.colors.textSecondary} /> : <Ionicons name={iconNameForMime(mimeType)} size={22} color={theme.colors.button.secondary.tint} />}
                 <View style={styles.chipTextGroup}>
                     <Text style={[styles.chipName, { color: theme.colors.text }]} numberOfLines={2}>{name}</Text>
                     {sizeLabel.length > 0 && (
                         <Text style={[styles.chipMeta, { color: theme.colors.textSecondary }]} numberOfLines={1}>{sizeLabel}</Text>
                     )}
                 </View>
+                <Ionicons name="open-outline" size={16} color={theme.colors.textSecondary} />
             </View>
-        </View>
+            {error && <Text accessibilityRole="alert" style={[styles.filename, { color: theme.colors.textDestructive }]}>{t('attachments.openFailed')}</Text>}
+        </Pressable>
     );
 }
 

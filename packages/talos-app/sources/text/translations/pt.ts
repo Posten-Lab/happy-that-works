@@ -16,6 +16,7 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
  */
 export const pt: TranslationStructure = {
     sessionSearch: defaultTranslations.sessionSearch,
+    attachments: defaultTranslations.attachments,
     tabs: {
         // Tab navigation labels
         inbox: 'Caixa de entrada',
