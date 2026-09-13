@@ -10,6 +10,8 @@ export function classifyPath(path) {
       /^(docs|\.agents|\.github|deploy|environments)\//.test(path) ||
       /\.md$/.test(path) ||
       /^Dockerfile\.(server|webapp)$/.test(path) ||
+      // Evidence capture helpers do not ship in the app or affect its native build.
+      /^scripts\/evidence\//.test(path) ||
       // npm publication tooling is not an input to an app bundle or native build.
       /^scripts\/(release\.cjs|configure-npm-publishing\.py)$/.test(path) ||
       /^packages\/(talos-cli|talos-server|talos-agent|talos-app-logs|talos-desktop)\//.test(path) ||

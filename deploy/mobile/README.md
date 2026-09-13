@@ -17,7 +17,9 @@ Auto selection compares against the most recent successful run marked
 - App source and Talos wire source changes: production OTA, subject to compatibility checks.
 - Native inputs, assets, configuration, dependencies, or unfamiliar paths: native
   production build followed by TestFlight submission.
-- Documentation, CI, tests, desktop, or other packages only: no mobile delivery.
+- Documentation, CI, tests, evidence capture helpers under `scripts/evidence/`,
+  desktop, or other packages only: no mobile delivery. Keep that directory limited
+  to evidence tooling; scripts used by the app or its build belong outside it.
 - No recorded baseline (including expired history): bootstrap with a native build.
 
 `MOBILE_RELEASE_MODE=native` forces a binary. `ota` and `none` cannot override
