@@ -67,12 +67,13 @@ const SectionHeader = React.memo(({ session, displayPath }: { session: SessionRo
     const repoDisplayPath = isWorktree
         ? formatPathRelativeToHome(repoPath, session.homeDir ?? undefined)
         : displayPath;
-    const repoFolderName = repoPath.split(/[/\\]/).filter(Boolean).pop() || repoDisplayPath;
+    const repoFolderName = session.workflowManaged ? 'Workflow participants'
+        : repoPath.split(/[/\\]/).filter(Boolean).pop() || repoDisplayPath;
     const worktreeName = isWorktree ? getWorktreeName(sessionPath) : null;
 
     const gitInfo = useSectionGitInfo(session.id);
     const branchName = worktreeName || gitInfo.branch;
-    const hasBranch = !!branchName;
+    const hasBranch = !session.workflowManaged && !!branchName;
 
     const handleAdd = React.useCallback(() => {
         const machineId = session.machineId;

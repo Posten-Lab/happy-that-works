@@ -1,0 +1,112 @@
+{
+  "validatedAt": "2026-09-14T17:33:34.405Z",
+  "route": "/changelog",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "newHeadingVisible": true,
+  "headingBounds": {
+    "x": 16,
+    "y": 72,
+    "width": 358,
+    "height": 28
+  },
+  "allNewBulletsRendered": true,
+  "pageErrors": [],
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "location": "http://localhost:8787/logs"
+    }
+  ],
+  "failedRequests": [
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "path": "http://localhost:8787/logs",
+      "error": "net::ERR_CONNECTION_REFUSED"
+    }
+  ],
+  "uiConsoleErrors": [],
+  "screenshot": "/Users/ahmedposten/work/talos-workflow-wizard/docs/evidence/workflow-experience/66-release-changelog.png",
+  "sha256": "dd6ac4d7aca4d562203a6a1cd7fa99355fc4b493f90440128f582db9db143813",
+  "ownedServicesStopped": {
+    "server": 54910,
+    "web": 54987
+  },
+  "servicePortsClosed": [
+    52386,
+    52387
+  ]
+}

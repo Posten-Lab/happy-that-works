@@ -1,0 +1,53 @@
+{
+  "validatedAt": "2026-09-14T17:01:25.319089+00:00",
+  "device": "iPhone 17 Pro / iOS 26.1",
+  "udid": "94565182-2D79-4D69-AE91-CA54BF0E4DE5",
+  "bundle": "com.ahposten.talos.dev",
+  "viewportPoints": {
+    "width": 402,
+    "height": 874
+  },
+  "commands": [
+    "python3 /tmp/talos-wizard-native.py tap <label> [field]",
+    "idb ui key-sequence (HID79 move to end; HID42 delete) --udid 94565182-2D79-4D69-AE91-CA54BF0E4DE5",
+    "idb ui text \"node --test\" --udid 94565182-2D79-4D69-AE91-CA54BF0E4DE5",
+    "idb ui describe-all --udid 94565182-2D79-4D69-AE91-CA54BF0E4DE5",
+    "xcrun simctl io 94565182-2D79-4D69-AE91-CA54BF0E4DE5 screenshot <path>"
+  ],
+  "results": {
+    "commandExactAXValue": "node --test",
+    "commandFieldBottom": 442.333,
+    "commandFooterTop": 474,
+    "runPromptLastLineAndCaretVisible": true,
+    "runPromptFieldBottom": 408.333,
+    "runFooterTop": 447,
+    "projectFieldBottom": 175.333,
+    "projectUseButtonTop": 390.333,
+    "projectUseButtonBottom": 438.333,
+    "projectKeyboardVisible": true,
+    "selectedTypedPath": "/tmp/talos-readiness-xpwces",
+    "selectedPathExistsAndResolvesSameFileAsFixture": true,
+    "wizardDiscardedThroughConfirmation": true,
+    "noWorkflowSaved": true,
+    "noNativeWorkflowStarted": true,
+    "returnedToLibrary": true,
+    "otherSimulatorsUntouched": true
+  },
+  "notes": [
+    "HID text input produced lower-case text for mixed-case prompt/path. The selected path resolves to the exact fixture on this Mac filesystem. ASCII double hyphens were explicitly asserted unchanged."
+  ],
+  "screenshots": [
+    {
+      "file": "42-native-finish-keyboard.png",
+      "sha256": "006644c821ea5896fafa8433bd2ac08952271bf2293fe39516ba542db1192857"
+    },
+    {
+      "file": "43-native-run-keyboard.png",
+      "sha256": "8e646770a330014774b165d57267c90e9468c98b3010081770ce7bffb97b038c"
+    },
+    {
+      "file": "44-native-project-keyboard.png",
+      "sha256": "99ecaf2ab89339137d4fd6858eb2e1fd1095dab373297e866bc7385529459df4"
+    }
+  ]
+}

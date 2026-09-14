@@ -18,6 +18,7 @@ import { Modal } from '@/modal';
 import { useSessionQuickActions } from '@/hooks/useSessionQuickActions';
 import { invertedSearchOffset, resolveSearchMessageId } from './sessionSearchPresentation';
 import { t } from '@/text';
+import { isWorkflowReminderMarker } from '@/-session/workflowSessionPresentation';
 
 const SCROLL_THRESHOLD = 300;
 
@@ -95,7 +96,10 @@ const ChatListInternal = React.memo((props: {
         () => ({ collapseCurrentTurn }),
         [collapseCurrentTurn],
     );
-    const groupedItems = useGroupedMessages(props.messages, groupToolCalls, groupingOptions);
+    const visibleMessages = React.useMemo(() => props.metadata?.workflowManaged && props.metadata.flavor === 'muse'
+        ? props.messages.filter(message => !isWorkflowReminderMarker(message, props.metadata)) : props.messages,
+    [props.messages, props.metadata?.workflowManaged, props.metadata?.flavor]);
+    const groupedItems = useGroupedMessages(visibleMessages, groupToolCalls, groupingOptions);
     const searchTargetKey = props.searchMessageId ? `${props.searchMessageId}:${props.searchBlockIndex ?? ''}` : undefined;
     const [dismissedSearchId, setDismissedSearchId] = React.useState<string | undefined>();
     const searchTargetId = React.useMemo(() => (

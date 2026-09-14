@@ -12,6 +12,8 @@ export interface WorkflowRuntime {
 }
 export interface RunStore { load(): WorkflowRun[]; save(run: WorkflowRun): void }
 const terminal = (r: WorkflowRun) => r.status === 'complete' || r.status === 'cancelled';
+const agentTurnLimit = 'Agent turn limit reached. Completed work is retained.';
+const workflowContextLimit = 'Workflow context limit reached. Start a new run with a shorter task and instructions.';
 export class WorkflowCoordinator {
     private runs = new Map<string, WorkflowRun>();
     private active = new Map<string, AbortController>();
@@ -141,7 +143,10 @@ export class WorkflowCoordinator {
             if (!a.note) throw new Error('Explain what was corrected before requesting another review.');
             run.reviewRound++; run.stage = 'verify'; run.checks = [];
         } else if (a.action === 'resume') {
-            if (run.reason.includes('limit')) throw new Error('The configured limit was reached. Start a new run with a revised scope or budget.');
+            this.assertResumeBudget(run);
+            if (run.stage === 'execute' && run.planningRound >= run.definition.planningRounds && this.current(run, run.definition.executor)?.result?.decision === 'replan') {
+                throw new Error('Planning round limit reached. Request a revised plan.');
+            }
             if (!a.note && run.status === 'needs_input') throw new Error('Add a response or confirm that interrupted work was inspected.');
             if (run.status === 'needs_input' && run.stage === 'plan_vote' && !this.planApproved(run)) {
                 if (run.planningRound >= run.definition.planningRounds) throw new Error('Planning round limit reached. Request a revised plan.');
@@ -169,6 +174,14 @@ export class WorkflowCoordinator {
         }
         return run.definition.planners.every(s => this.current(run, s, 'plan_vote')?.result?.decision === 'approve' && !this.current(run, s, 'plan_vote')?.result?.findings.some(f => f.blocking)); }
     private block(run: WorkflowRun, reason: string) { if (run.status !== 'running') return; run.status = 'needs_input'; run.reason = reason; this.persist(run, reason); }
+    private assertResumeBudget(run: WorkflowRun) {
+        // Provider diagnostics and participant summaries are free text (for example,
+        // an OS "exec argument limit"). Only actual workflow limits block recovery.
+        if (run.reason === agentTurnLimit && run.tasks.length >= run.definition.maxTurns) throw new Error(agentTurnLimit);
+        // Context size is checked before creating a task, so it has no task counter.
+        // Keep the exact persisted coordinator reason compatible with existing runs.
+        if (run.reason === workflowContextLimit) throw new Error(workflowContextLimit);
+    }
     private kick(run: WorkflowRun) {
         if (this.closed || this.active.has(run.id) || run.status !== 'running') return;
         const abort = new AbortController(); this.active.set(run.id, abort);
@@ -183,9 +196,9 @@ export class WorkflowCoordinator {
     private async perform(run: WorkflowRun, slot: WorkflowSlot, signal: AbortSignal) {
         if (signal.aborted || run.status !== 'running') throw new Error('Workflow is no longer running');
         const done = this.current(run, slot); if (done?.result) return done.result;
-        if (run.tasks.length >= run.definition.maxTurns) throw new Error('Agent turn limit reached. Completed work is retained.');
+        if (run.tasks.length >= run.definition.maxTurns) throw new Error(agentTurnLimit);
         const prompt = this.prompt(run, slot);
-        if (Buffer.byteLength(prompt) > 400000) throw new Error('Workflow context limit reached. Start a new run with a shorter task and instructions.');
+        if (Buffer.byteLength(prompt) > 400000) throw new Error(workflowContextLimit);
         const task: WorkflowTask = { ...(run.definition.steps ? { stepId: run.definition.steps[run.stepIndex ?? 0].id, attempt: run.stepAttempt } : {}), id: randomUUID(), stage: run.stage, round: run.stage === 'execute' || run.stage === 'review' ? run.reviewRound : run.planningRound,
             agentId: slot.agent.id, agentName: slot.agent.name, assignment: slot.assignment, version: run.stage === 'review' ? run.artifactVersion : `plan:${run.planVersion}`,
             status: 'running', startedAt: Date.now(), clarifications: run.notes.length, prompt };
@@ -304,7 +317,7 @@ export class WorkflowCoordinator {
             if (run.reviewRound >= run.definition.reviewRounds) throw new Error('Review round limit reached. Request a revised plan.');
             run.stepRounds = { ...run.stepRounds, [steps[index].id]: run.reviewRound + 1 }; this.enterStep(run, index);
         } else if (a.action === 'resume') {
-            if (run.reason.includes('limit')) throw new Error('The configured limit was reached. Request a revised plan or start a new run.');
+            this.assertResumeBudget(run);
             if (!a.note && run.status === 'needs_input') throw new Error('Add a response or confirm that interrupted work was inspected.');
             if (run.status === 'needs_input' && run.stage === 'plan_vote' && !this.planApproved(run)) {
                 if (run.planningRound >= run.definition.planningRounds) throw new Error('Planning round limit reached. Request a revised plan.');

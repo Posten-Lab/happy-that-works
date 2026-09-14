@@ -185,6 +185,8 @@ const HeaderRight = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => 
         return (
             <Pressable
                 onPress={() => router.navigate('/new')}
+                accessibilityRole="button"
+                accessibilityLabel={t('sidebar.newSession')}
                 hitSlop={15}
                 style={styles.headerButton}
             >
@@ -237,8 +239,11 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
 
     // Tab state management
     // NOTE: Zen tab removed - the feature never got to a useful state
-    const [activeTab, setActiveTab] = React.useState<TabType>('sessions');
-    const { sessionSearch: searchRequest } = useGlobalSearchParams<{ sessionSearch?: string }>();
+    const [activeTab, setActiveTab] = React.useState<ActiveTabType>('sessions');
+    const { sessionSearch: searchRequest, tab: requestedTab } = useGlobalSearchParams<{ sessionSearch?: string; tab?: string }>();
+    React.useEffect(() => {
+        if (requestedTab === 'inbox' || requestedTab === 'sessions' || requestedTab === 'settings') setActiveTab(requestedTab);
+    }, [requestedTab]);
     React.useEffect(() => {
         if (searchRequest) setActiveTab('sessions');
     }, [searchRequest]);
@@ -248,8 +253,13 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     }, [router]);
 
     const handleTabPress = React.useCallback((tab: TabType) => {
+        if (tab === 'workflows') {
+            router.navigate('/workflows');
+            return;
+        }
         setActiveTab(tab);
-    }, []);
+        router.setParams({ tab });
+    }, [router]);
 
     // Regular phone mode with tabs - define this before any conditional returns
     const renderTabContent = React.useCallback(() => {

@@ -1,0 +1,530 @@
+{
+  "generatedAt": "2026-09-14T17:22:13.564622+00:00",
+  "branch": "codex/workflow-wizard",
+  "baseCommit": "ad803dd4d81bb26c43add4492ad739782a0d8b3c",
+  "captureType": "Actual app browser/simulator screenshots, no generated UI or injected workflow run states",
+  "sourceFiles": [
+    {
+      "file": "packages/talos-app/sources/-session/SessionView.tsx",
+      "sha256": "daafad22c20fc40bb50b8b381d9ca5974e06e4010cd624a5f651425e7254a404"
+    },
+    {
+      "file": "packages/talos-app/sources/app/(app)/workflows/[id].tsx",
+      "sha256": "cdc00ffb30841e2e56cc48769c52bc03c320766b2e64769f268463602037e4c6"
+    },
+    {
+      "file": "packages/talos-app/sources/app/(app)/workflows/create.tsx",
+      "sha256": "0860e67a0bf84ad6bc453a962726f4571369bb74aea0e4309da2466f01443170"
+    },
+    {
+      "file": "packages/talos-app/sources/app/(app)/workflows/index.tsx",
+      "sha256": "84cf749ff484a97223660e8101d0189b6d722a1b3ee917abc35eb8a81f2bbbeb"
+    },
+    {
+      "file": "packages/talos-app/sources/app/(app)/workflows/run.tsx",
+      "sha256": "af46123a72fc001f2019a49bb7a0cf4af78e208895deb7dc6df6b5620c35342f"
+    },
+    {
+      "file": "packages/talos-app/sources/components/ActiveSessionsGroupCompact.tsx",
+      "sha256": "b2db5d3f5bde25620da36b97ce15f9a8d9054d2a8013bfdab6f5a85ee94532b6"
+    },
+    {
+      "file": "packages/talos-app/sources/components/ChatList.tsx",
+      "sha256": "8cc7e275e891be9b8208d7d6be9c5618928555947adc0362d1d7f737abdc1940"
+    },
+    {
+      "file": "packages/talos-app/sources/components/MessageView.tsx",
+      "sha256": "b5a82d5bab2391a55bf408efb25f052fab86474bd812b87835f8c0cc0dbb3f72"
+    },
+    {
+      "file": "packages/talos-app/sources/components/SessionsList.tsx",
+      "sha256": "13851450b8e145cc9a3fbd43552828db4c9dea3bd4fe79660cb92abc3eafd560"
+    },
+    {
+      "file": "packages/talos-app/sources/sync/gitStatusSync.ts",
+      "sha256": "a8dd9e35b9062998f8edaed419c90c710b0a75502bccb1b72085bff9d8b5ccd7"
+    },
+    {
+      "file": "packages/talos-app/sources/sync/storage.ts",
+      "sha256": "2270960d2a1dcb080001e9d8cb7b366d0f8a850ea0b2c613343d6b2117db3660"
+    },
+    {
+      "file": "packages/talos-app/sources/utils/sessionUtils.ts",
+      "sha256": "b8efa49ce70f2221581e3822c87e9752b9de9d0729ba3c49f243c2eccd00e939"
+    },
+    {
+      "file": "packages/talos-app/sources/workflows/WorkflowBuilder.tsx",
+      "sha256": "79bd22aa2fd319815f176171e8268f40dcc542744383c329c49df05df27cd1e3"
+    },
+    {
+      "file": "packages/talos-app/sources/workflows/WorkflowScaffold.tsx",
+      "sha256": "3a0da0b6fd07bb91f845d545dbec7326a5745e123cb96ea1ac7f122f374792e0"
+    },
+    {
+      "file": "packages/talos-app/sources/workflows/errors.test.ts",
+      "sha256": "46563514aa77126cc81911f1b54e2bc490bcd32659aded3419224ee6edaec615"
+    },
+    {
+      "file": "packages/talos-app/sources/workflows/errors.ts",
+      "sha256": "0eba3bc18d2d1a8c4f3283af16a753a72fd136b8f29c47d518c220c254b28ce0"
+    },
+    {
+      "file": "packages/talos-app/sources/workflows/ui.tsx",
+      "sha256": "9ae90da8f3c5a8db2c85316f3514dd779ff5dfc60355c11e1c2de65a4164cbb1"
+    },
+    {
+      "file": "packages/talos-cli/src/workflows/coordinator.test.ts",
+      "sha256": "a371262485214aade1ee653f6902da504d549c90a3e7006816f7eea0404b2b6b"
+    },
+    {
+      "file": "packages/talos-cli/src/workflows/coordinator.ts",
+      "sha256": "324408498cf366e789b111b92d18a2477a440ca50c3465b21e6883c2ec2cc507"
+    },
+    {
+      "file": "packages/talos-app/sources/-session/WorkflowAssignmentMessage.tsx",
+      "sha256": "410f52449c058162cbaeb970b1fdfaa3b8fc62a1d6ce5f4dbd2e54447a7b1b8a"
+    },
+    {
+      "file": "packages/talos-app/sources/-session/WorkflowDecisionMessage.test.ts",
+      "sha256": "ace6ba5a4799b633a2551a82e821475d791fcdb90bf95361e79da78b81f34c62"
+    },
+    {
+      "file": "packages/talos-app/sources/-session/WorkflowDecisionMessage.tsx",
+      "sha256": "e9d7bfddfcd24719964f912d5b715effcedf4a20ef4edf78bbb3a5fe5627d4dd"
+    },
+    {
+      "file": "packages/talos-app/sources/-session/WorkflowSessionContext.tsx",
+      "sha256": "5865b3ccbf0677f2880b294f14fee560280063f7b47b19170f61e6960a6aa99f"
+    },
+    {
+      "file": "packages/talos-app/sources/-session/workflowSessionPresentation.test.ts",
+      "sha256": "06ebcf1d3309329de8c4cfac0c3d3285d5e3d89e4b96a036c26047345aecc6df"
+    },
+    {
+      "file": "packages/talos-app/sources/-session/workflowSessionPresentation.ts",
+      "sha256": "3b26ae06328282f44d9609c4fa078bb9a82e0b7c39b1d238736c2971a676c855"
+    },
+    {
+      "file": "packages/talos-app/sources/sync/gitStatusSync.test.ts",
+      "sha256": "d42000fda33fa36b3ec5c8e693647b0b8cec49ab15cbe0829eb741e4aea638ca"
+    },
+    {
+      "file": "packages/talos-app/sources/workflows/runPresentation.test.ts",
+      "sha256": "b515c1509fe81496b21b5d5e1c685fc351fde0c917111cde846234f33f4202fa"
+    },
+    {
+      "file": "packages/talos-app/sources/workflows/runPresentation.ts",
+      "sha256": "db3faa7538c426ae420fa76018fbd6f26c3b89e2b9bde8eeead681cbd4ba6059"
+    },
+    {
+      "file": "packages/talos-cli/package.json",
+      "sha256": "2915b3ca58e703013825e856a207b11cf05dc24fb6932845bf21446a24c8f318"
+    },
+    {
+      "file": "packages/talos-app/CHANGELOG.md",
+      "sha256": "964810be6a9ee36f2619f7cff68b32302efe80125ae7a65f0f1e2e7459869724"
+    },
+    {
+      "file": "packages/talos-app/sources/changelog/changelog.json",
+      "sha256": "c7d6119395709b6850b55578cea48ba15f94d83bd3f3a1c88564854b6bfc8216"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "01-library-empty.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "056fc25048814ce3aa3a7cac033549202071c8fa2d3febfdc71f11309bcda771"
+    },
+    {
+      "file": "02-wizard-basics.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "b5e266036d3b9966b8e6454c47b8f4439b203cbb08636f0508193ff8581362d4"
+    },
+    {
+      "file": "03-wizard-team-empty.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "ababb113b6c4e60c493dc420016ddfbb52e65e97e0df793ae4764e965faf6789"
+    },
+    {
+      "file": "04-agent-picker.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "ff18fefdb3ea88f6c467176b9070b2b8b5eb1ec26ddb8d42a79cbc899223312b"
+    },
+    {
+      "file": "05-provider-selection.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "876016c39b5575317580d3bb68cf4bafa0ef241abafedbd30307f85bf127b8d6"
+    },
+    {
+      "file": "06-model-selection-claude.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "6e1db712574e2c7f458af15519f019fce6093717ad27f385864d7c0e0db2d342"
+    },
+    {
+      "file": "06-model-selection-codex.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "45371493d6f6c0c034ef8f9507d1be682af20c4ba274dfc42e7f5aab6b02e98c"
+    },
+    {
+      "file": "06-model-selection-muse.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "100c6f39ef80f24fe91cb3d708fe6be2200c07624fdc92f88195ddd3cf1b1a96"
+    },
+    {
+      "file": "07-effort-selection.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "b1091734c6be3d7a29d1e9bf623545aaf07e89d0c1bb2081287bf22b0cc070ce"
+    },
+    {
+      "file": "08-agent-configuration-claude.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "28f51b0544f6a7ccd1dcfab0c04f1b4c4c51fee9aaf1c3caf24387c8bfd9e9a0"
+    },
+    {
+      "file": "08-agent-configuration-codex.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "0ff501d03318d97b8867390007e235ea7b9742c3fa43cbc261a34df937ef21fe"
+    },
+    {
+      "file": "08-agent-configuration-muse.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "4ba1a6fbfbb10e55fd5b6d0c97de1e0f0b7a1684a9722f63e7b6386f6a8147ed"
+    },
+    {
+      "file": "09-agent-instructions.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "a14c96a65b1790e48c075e0eeabffaad92c1e0cff20fb9a676ae48f2a6013dda"
+    },
+    {
+      "file": "10-wizard-team.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "0493386814fb2385e995d70456705276767819e36e90b3fa04acc5996e1c8a3b"
+    },
+    {
+      "file": "11-wizard-team-lower.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "9321666516a666584ce05d72a65b742e24d518a8f268495ab425c58088a2339d"
+    },
+    {
+      "file": "12-stage-settings-lower.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "cb0c8ceac9e43754f255e7f852bc301d5068a6b10a50a94e188da401be889cea"
+    },
+    {
+      "file": "12-stage-settings.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "6ef689ff9f50ab53b8db95f25512b024dcf38d5b63d485dc9df60ffb7da3afea"
+    },
+    {
+      "file": "13-wizard-finish.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "6792b4dccb5d67c29110a3a47bf534b497247183025d5ae91a7a75b995955870"
+    },
+    {
+      "file": "14-wizard-finish-lower.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "7db60e5f8203a8fe7590f56c188d865a9cafbe481301a64d01cd6ca0867b2836"
+    },
+    {
+      "file": "15-wizard-review.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "c7961835959c1f0b274e5df7aa3650b9b443c75c49867a602988b4489127b902"
+    },
+    {
+      "file": "16-wizard-review-lower.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "c6e792698f5512d269b6614a12a18706d36922e6be07ce5fbf54cd10e2849ddd"
+    },
+    {
+      "file": "17-library-saved.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "393bb858ee11e74553de19da1fc628553887a542e57a72962b221141e1408a76"
+    },
+    {
+      "file": "18-library-desktop.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "7f1a67580dab8fa2f1a60ea505f4eeb977cc723b496f83bf5efe44f704b8354f"
+    },
+    {
+      "file": "19-launch-machine-picker.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "d7fec8ad69924b13b74cecdbe9fafa51878be9e1864e065a65d4cdc25c40e3b2"
+    },
+    {
+      "file": "20-launch-project-picker.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "c47ce4d50603dd66047855c576a373470d75d444e1f199e71652dad1c80930ce"
+    },
+    {
+      "file": "21-launch.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "b2fbb6126d05382f4b0ec74e45f2d080b0542572493a3af770ec0a095a3afc05"
+    },
+    {
+      "file": "22-launch-team.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "0bdb7da8d11c6bb7da6e1d49feab93662f0337116036ba49719f7238a2c8dd7d"
+    },
+    {
+      "file": "23-launch-desktop.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "ab2a6da42b5d47446bc8403d81d4f8fda41848ec96079640cbc6bf65f9d9edc5"
+    },
+    {
+      "file": "24-run-planning.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "b1ae34585fd62e38c7ce10a1c937fca369150c7da7228d57fda2e4757eb526af"
+    },
+    {
+      "file": "25-planner-session.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "ed9ef2152f068ea07de9d134f0a80df6408ac8cd3d9df0b070261cccd6c1cee2"
+    },
+    {
+      "file": "27-agreed-plan.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "f86e584cf24248fd0e76aedbe2a26465d94ea384a986b952a1f1a8b4b7bd50ea"
+    },
+    {
+      "file": "29-executor-session.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "d04fe0940bab103ea4cbff04b28611690825b85dbb76c8db238a9a55210ab29b"
+    },
+    {
+      "file": "30-run-completed.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "6f065513a1af7dc372c8d835b329ca7badd3f1d540ea5224bc7de22f84ed042c"
+    },
+    {
+      "file": "31-completed-work.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "29b60013f5d0b2563e98c004d25b1000d00111a8fea0a7fb4ae3244ccb1c5b2c"
+    },
+    {
+      "file": "32-completed-activity.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "327636b75850cb8887895010db52581b0ebce39549c51f6619febc3fb3f74126"
+    },
+    {
+      "file": "32-completed-plan.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "82b9b869f079553f80a3e4138cf49cea7d8aa076a2c60228741703cbe6286e2a"
+    },
+    {
+      "file": "32-completed-review.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "f27ebda5beef3ff1a5182dc1af5897e6cbc933542732052dc6fbc019ebfc7d1c"
+    },
+    {
+      "file": "33-completed-activity-lower.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "5f3805d6c78995536f7ab5a38c81be38c9ba8c993e3ebbc5bd2813bff9eadacb"
+    },
+    {
+      "file": "33-completed-plan-lower.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "f86e584cf24248fd0e76aedbe2a26465d94ea384a986b952a1f1a8b4b7bd50ea"
+    },
+    {
+      "file": "33-completed-review-lower.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "765b1efe3dc0a03fd091c7d6fb2e2a22d22232ec4b75e92a9ad201a4d9504543"
+    },
+    {
+      "file": "34-completed-desktop.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "c1903c2bd5271091aa5933f3e04675166fde624deafe2a34a67d865de60a4580"
+    },
+    {
+      "file": "40-native-basics-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "67cc10c55bb026ccb2c90e1a0de4283b0fffd12f1935354c44625c91323a514c"
+    },
+    {
+      "file": "41-native-agent-reference-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "71d1619e29375125124f044ddd13db19acfb3989eaabad1230251ee2596a36c8"
+    },
+    {
+      "file": "42-native-finish-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "006644c821ea5896fafa8433bd2ac08952271bf2293fe39516ba542db1192857"
+    },
+    {
+      "file": "43-native-run-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "8e646770a330014774b165d57267c90e9468c98b3010081770ce7bffb97b038c"
+    },
+    {
+      "file": "44-native-project-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "99ecaf2ab89339137d4fd6858eb2e1fd1095dab373297e866bc7385529459df4"
+    },
+    {
+      "file": "45-wizard-three-planners-lower.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "67993549c932679236b169c167834e0327c36e23b87e9bf9a3904f3b948062e7"
+    },
+    {
+      "file": "45-wizard-three-planners.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "8d726da15c35c6ca93bdeb2fd03edbe2f70cff761cd0d241ef4b985070e2ca3e"
+    },
+    {
+      "file": "48-library-narrow.png",
+      "width": 320,
+      "height": 720,
+      "sha256": "e488a1f4e4dcdd5e098d5c73f9a85ac8b6d8434d91a9d1e666b7c7d03118be04"
+    },
+    {
+      "file": "49-launch-project-error.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "c140ba5dc5e3e171a9001ec668e4ce24905585c3684001f905b68584085009b1"
+    },
+    {
+      "file": "50-library-light.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "eedb41c30f6c62675364855c5af65bbb32818fb0be6a1a9bf829d57260a83664"
+    },
+    {
+      "file": "51-launch-light.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "660a0ae593bd73333fa9a8e786e8508409cc9a3b849d07626ed38ce559b3a4c1"
+    },
+    {
+      "file": "52-review-interrupted.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "cb10dd56fc6c7ed52894704516f5fce2dedf70875a3146c715fd7df5a1b5f5f1"
+    },
+    {
+      "file": "53-review-interrupted-session.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "7373e5c85288dc80cdd45daa64bac33435ea3988207b505fe2dc2a6ccaa43fbc"
+    },
+    {
+      "file": "54-plan-approval-final.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "6a0e305d13eb6ed479accd66810c70f2a5708ec2001c9d2cfeafea55d729206f"
+    },
+    {
+      "file": "55-plan-anchor.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "c7f2dc87f76d43c2c5cf32363857801c1c42d76331669d2d0635667669c46b0c"
+    },
+    {
+      "file": "56-plan-gate-cancelled.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "d0f21d1f7f3a13aa7ff87d6410d6dd268ca94d50b1900877a51932e4c33b8314"
+    },
+    {
+      "file": "56-regular-session-picker.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "9e0ffec8db986e919c754b1923a5f628f185624df16a220e70d7ab6b0e07d9fb"
+    },
+    {
+      "file": "57-executor-assignment.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "e146ef7b862e02c90c823ab14a89bedab571782d0dff4186d7f45b88033f9e3d"
+    },
+    {
+      "file": "recovery-checks-output.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "c5cbc10db610118e1a32212446d1536914c4561476c12f36ee35591926667cf3"
+    },
+    {
+      "file": "recovery-complete.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "d45dcf0d2537926a8ea8d71b17a88b1ea56bfb5bdb75f5adae15b1192e24b722"
+    },
+    {
+      "file": "recovery-executing.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "79ec10992051ccaebed2faab65724709c9a53317e39576fdbfdb58ef30a0f6ca"
+    },
+    {
+      "file": "recovery-executor-session.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "529243453e3199e50713e9604120bc62ed95c3913db2bb7e4dd164498cc52605"
+    },
+    {
+      "file": "recovery-fresh-plan-approval.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "3c2857ca36aa4602427c79a6347b746d14675da0bd9cea14eb45b8e0540ed049"
+    },
+    {
+      "file": "recovery-review-detail.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "d7187aaf966ab2a7988ebdbdec783a6676bfa71d71d3888c2c73a15a26ea1445"
+    },
+    {
+      "file": "66-release-changelog.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "dd6ac4d7aca4d562203a6a1cd7fa99355fc4b493f90440128f582db9db143813"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "testedAt": "2026-09-14T15:38:37.768Z",
+  "command": "WORKFLOW_E2E_ENV=<isolated environment> node scripts/evidence/workflow-navigation.cjs",
+  "viewportPhone": "390x844",
+  "viewportDesktop": "1440x1000",
+  "passed": true,
+  "results": [
+    "Phone library shows a neutral Create workflow action and selected Workflows tab, no creation form.",
+    "All phone tabs round-trip from the workflow library to their correct home destination.",
+    "New session remains reachable from the phone header.",
+    "Workflow tab is hidden when its feature flag is off.",
+    "Workflow tab is hidden when global experiments is off, even if Workflows was enabled.",
+    "Desktop exposes Workflows beneath New session and keeps the selected destination visible while viewing its library.",
+    "Desktop New session still navigates normally."
+  ]
+}

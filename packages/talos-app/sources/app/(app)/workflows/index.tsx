@@ -1,113 +1,137 @@
 import React from 'react';
-import { agentLibrarySettings, allSavedAgents } from '@/agents/agentDefinition';
-import { ScrollView, View, Text, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
-import { randomUUID } from 'expo-crypto';
-import { workflowEnabled, workflowStageLabel, workflowNeedsProviders, type WorkflowDefinition } from '@ahmadposten/talos-wire';
+import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { workflowEnabled, workflowStageLabel, type WorkflowDefinition } from '@ahmadposten/talos-wire';
 import { useSetting, useAllMachines, storage } from '@/sync/storage';
 import { sync } from '@/sync/sync';
-import { loadPendingWorkflowStart, savePendingWorkflowStart } from '@/sync/persistence';
+import { loadPendingWorkflowStart } from '@/sync/persistence';
 import { Modal } from '@/modal';
 import { isMachineOnline } from '@/utils/machineUtils';
-import { WorkflowButton as Button, WorkflowInput as Input, useWorkflowStyles } from '@/workflows/ui';
+import { Typography } from '@/constants/Typography';
+import { HomeTabBar } from '@/components/HomeTabBar';
+import { WorkflowButton as Button, WorkflowAvatar, WorkflowStatusChip, useWorkflowStyles } from '@/workflows/ui';
+import { WorkflowScaffold, WorkflowPageHeading, WorkflowNotice } from '@/workflows/WorkflowScaffold';
 import { workflowRPC, type RunSummary } from '@/workflows/api';
-import type { AgentDefinition } from '@/agents/agentDefinition';
-import { WorkflowBuilder } from '@/workflows/WorkflowBuilder';
-import { editableWorkflow } from '@/workflows/builder';
-import { workflowSave, workflowLibrarySettings } from '@/workflows/setup';
+import { workflowLibrarySettings } from '@/workflows/setup';
+import { workflowErrorMessage } from '@/workflows/errors';
+import { agentLibraryEnabled } from '@/agents/agentDefinition';
 
 export default function WorkflowsScreen() {
-    const router = useRouter(), styles = useWorkflowStyles();
+    const router = useRouter(), s = useWorkflowStyles(), window = useWindowDimensions();
+    const params = useLocalSearchParams<{ saved?: string }>();
     const experiments = useSetting('experiments'), expWorkflows = useSetting('expWorkflows');
-    const legacyLibrary = useSetting('workflowLibrary'), editableLibrary = useSetting('workflowLibraryV2'), agentLibrary = useSetting('agentLibrary');
-    const providerLibrary = useSetting('workflowLibraryV3'), providerAgents = useSetting('agentLibraryV2');
-    const library = [...legacyLibrary, ...editableLibrary, ...providerLibrary];
-    const allAgents = [...agentLibrary, ...providerAgents];
+    const expAgentLibrary = useSetting('expAgentLibrary');
+    const legacy = useSetting('workflowLibrary'), editable = useSetting('workflowLibraryV2'), providers = useSetting('workflowLibraryV3');
+    const library = [...legacy, ...editable, ...providers].sort((a, b) => b.updatedAt - a.updatedAt);
     const machines = useAllMachines({ includeOffline: true });
-    const [machineId, setMachineId] = React.useState('');
-    const machine = machineId ? machines.find(m => m.id === machineId) : machines.find(m => isMachineOnline(m) && (m.metadata?.workflows?.version ?? 0) >= 1) ?? machines[0];
-    const [draft, setDraft] = React.useState<WorkflowDefinition | null>(null);
-    const [starterAgents, setStarterAgents] = React.useState<AgentDefinition[]>([]);
-    const scroll = React.useRef<ScrollView>(null);
-    const content = React.useRef<View>(null!);
-    const [original, setOriginal] = React.useState<string | null>(null);
+    const [tab, setTab] = React.useState<'library' | 'runs'>('library');
+    const [runs, setRuns] = React.useState<RunSummary[]>([]);
+    const [failures, setFailures] = React.useState<string[]>([]);
+    const [loading, setLoading] = React.useState(false), [retry, setRetry] = React.useState(0);
     const [error, setError] = React.useState('');
-    const [launch, setLaunch] = React.useState<WorkflowDefinition | null>(null), [task, setTask] = React.useState(''), [directory, setDirectory] = React.useState('');
-    const [runs, setRuns] = React.useState<RunSummary[]>([]), [busy, setBusy] = React.useState(false);
-    const pending = React.useRef<{ id: string; definition: WorkflowDefinition; task: string; directory: string; machineId: string } | null>(null);
-    const [recoveredStart, setRecoveredStart] = React.useState(loadPendingWorkflowStart);
-    const retainStart = (value: { id: string; machineId: string } | null) => { savePendingWorkflowStart(value); setRecoveredStart(value); };
     const enabled = workflowEnabled({ experiments, expWorkflows });
+    const pending = loadPendingWorkflowStart();
+    const saved = library.find(w => w.id === params.saved);
+    // History is independent of designing and launching saved workflows. One offline
+    // machine must not hide another machine's runs or flood the library with errors.
+    const machineKey = machines.map(m => `${m.id}:${isMachineOnline(m)}:${m.metadata?.workflows?.version ?? 0}`).sort().join('|');
     React.useEffect(() => {
-        let live = true, loading = false; setRuns([]);
-        if (!machine || !isMachineOnline(machine) || !machine.metadata?.workflows) return;
-        const refresh = async () => { if (loading) return; loading = true; try { const r = await workflowRPC<RunSummary[]>(machine.id, 'list', {}); if (live) setRuns(r); } catch (e) { if (live) setError(String(e)); } finally { loading = false; } };
-        void refresh(); const timer = setInterval(refresh, 5000); return () => { live = false; clearInterval(timer); };
-    }, [machine?.id, machine?.active]);
-    React.useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [!!draft, launch?.id, error]);
-    const startDraft = (existing?: WorkflowDefinition) => {
-        if (recoveredStart || pending.current) { setError('Check the earlier start request before creating or editing a workflow.'); return; }
-        setOriginal(existing ? JSON.stringify(existing) : null);
-        setStarterAgents([]); setLaunch(null);
-        setDraft(editableWorkflow(existing));
-        setError('');
-    };
-    const save = () => {
+        if (!enabled || tab !== 'runs') return;
+        let live = true;
+        const refreshing = new Set<string>();
+        const available = machines.filter(m => isMachineOnline(m) && m.metadata?.workflows);
+        const received = new Map<string, RunSummary[]>();
+        const failed = new Set<string>();
+        const refresh = async () => {
+            await Promise.allSettled(available.map(async machine => {
+                if (refreshing.has(machine.id)) return;
+                refreshing.add(machine.id);
+                try {
+                    const latest = await workflowRPC<RunSummary[]>(machine.id, 'list', {});
+                    if (!live) return;
+                    received.set(machine.id, latest); failed.delete(machine.id);
+                } catch {
+                    if (!live) return;
+                    failed.add(machine.id);
+                } finally { refreshing.delete(machine.id); }
+                if (live) {
+                    // Publish each machine immediately; a slow peer cannot hide a healthy machine.
+                    setRuns([...received.values()].flat().sort((a, b) => b.updatedAt - a.updatedAt));
+                    setFailures(available.filter(item => failed.has(item.id)).map(item => item.metadata?.displayName || item.metadata?.host || 'A machine'));
+                    setLoading(false);
+                }
+            }));
+            if (live) setLoading(false);
+        };
+        setRuns([]);
+        setLoading(true); setFailures([]); void refresh();
+        const timer = setInterval(refresh, 5000);
+        return () => { live = false; clearInterval(timer); };
+    }, [enabled, tab, machineKey, retry]);
+    const remove = async (workflow: WorkflowDefinition) => {
+        if (!await Modal.confirm(`Delete ${workflow.name}?`, 'Past and active runs keep their configuration and work.')) return;
         try {
-            if (!workflowEnabled(storage.getState().settings)) throw new Error('Enable Workflows before saving.');
-            const settings = storage.getState().settings;
-            const current = [...settings.workflowLibrary, ...settings.workflowLibraryV2, ...settings.workflowLibraryV3];
-            if (original && JSON.stringify(current.find(d => d.id === draft!.id)) !== original) throw new Error('This workflow changed elsewhere. Reopen it before editing.');
-            const saved = workflowSave({ ...draft!, revision: draft!.revision + (original ? 1 : 0), updatedAt: Date.now() }, starterAgents, allSavedAgents(storage.getState().settings), current);
-            sync.applySettings({ ...workflowLibrarySettings(saved.workflowLibrary), ...(starterAgents.length ? { ...agentLibrarySettings(saved.agentLibrary), expAgentLibrary: true } : {}) });
-            setDraft(null); setStarterAgents([]); setLaunch(saved.workflow); setError('');
-        } catch (e) { setError(e instanceof Error ? e.message : 'Could not save workflow'); }
+            const current = storage.getState().settings;
+            sync.applySettings(workflowLibrarySettings([...current.workflowLibrary, ...current.workflowLibraryV2, ...current.workflowLibraryV3].filter(w => w.id !== workflow.id)));
+        } catch (e) { setError(workflowErrorMessage(e, 'The workflow could not be deleted. Try again.')); }
     };
-    const beginRun = async () => {
-        if (busy || !machine || !launch) return;
-        if (recoveredStart && !pending.current) { setError('Check the earlier start request before starting another run.'); return; }
-        setBusy(true); setError('');
-        try {
-            if (!workflowEnabled(storage.getState().settings)) throw new Error('Enable Workflows before starting.');
-            if (!isMachineOnline(machine) || !machine.metadata?.workflows) throw new Error('Connect a machine with workflow support.');
-            if (workflowNeedsProviders(launch) && (machine.metadata?.workflows?.version ?? 0) < 3) throw new Error('Update the coordinator CLI to run multi-provider workflows.');
-            if (launch.steps && (machine.metadata?.workflows?.version ?? 0) < 2) throw new Error('Update the coordinator CLI to run editable stages.');
-            if (!task.trim() || !directory.trim()) throw new Error('Enter a task and an absolute project path.');
-            pending.current ??= { id: randomUUID(), definition: launch, task: task.trim(), directory: directory.trim(), machineId: machine.id };
-            const request = pending.current;
-            retainStart(request);
-            const run = await workflowRPC<{ id: string }>(request.machineId, request.definition.steps ? 'start-v2' : 'start', request);
-            await sync.refreshSessions(); pending.current = null; retainStart(null);
-            router.push(`/workflows/${run.id}?machineId=${encodeURIComponent(request.machineId)}` as any);
-        } catch (e) { setError(e instanceof Error ? e.message : 'Could not start. Retry uses the same run ID.'); }
-        finally { setBusy(false); }
-    };
-    const reconcileStart = async () => {
-        const request = pending.current ?? recoveredStart; if (!request || busy) return;
-        setBusy(true);
-        try {
-            const result = await workflowRPC<{ state: string; id?: string }>(request.machineId, 'start-status', { id: request.id });
-            if (result.state === 'created') { pending.current = null; retainStart(null); router.push(`/workflows/${request.id}?machineId=${encodeURIComponent(request.machineId)}` as any); }
-            else if (result.state === 'absent') { pending.current = null; retainStart(null); setError('No run was created. You can correct the request and start again.'); }
-            else setError('The original request is still starting. Check again shortly.');
-        } catch (e) { setError(String(e)); } finally { setBusy(false); }
-    };
-    return <ScrollView ref={scroll} innerViewRef={Platform.OS === 'web' ? undefined : content} keyboardShouldPersistTaps="handled" style={{ flex: 1, backgroundColor: styles.colors.surface }} contentContainerStyle={{ padding: 20, gap: 18, width: '100%', maxWidth: 960, alignSelf: 'center', paddingBottom: 70 }}>
-        <Text style={{ ...styles.muted, color: styles.colors.accent }}>TALOS LABS · EXPERIMENTAL</Text>
-        <Text accessibilityRole="header" style={{ ...styles.text, fontSize: 30, lineHeight: 38, fontWeight: '700' }}>A team with a shared finish line</Text>
-        <Text style={styles.muted}>Build a sequence of planning, execution, and review steps. Choose the agents and the finish line.</Text>
-        {error !== '' && <Text accessibilityRole="alert" style={{ ...styles.text, color: styles.colors.warning }}>{error}</Text>}
-        {recoveredStart && !pending.current && <View style={styles.card}><Text style={styles.text}>An earlier start request needs reconciliation. Check its original machine before starting another run.</Text><Button label="Check earlier start request" disabled={busy} onPress={() => void reconcileStart()} /></View>}
-        {!enabled ? <View style={styles.card}><Text style={styles.text}>Workflows are experimental</Text><Text style={styles.muted}>Enable Experimental Features and Workflows in Settings → Features. Existing runs continue on their coordinator machine.</Text><Button label="Open Features" onPress={() => router.push('/settings/features')} /></View> : draft ? <WorkflowBuilder onReveal={node => { const container = content.current ?? scroll.current?.getInnerViewNode(); if (node && container) node.measureLayout(container, (_x, y) => scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: false })); }} draft={draft} onChange={setDraft} candidates={starterAgents} onCandidates={setStarterAgents} agents={allAgents} machine={machine} machines={machines} onMachine={setMachineId} onSave={save} onCancel={() => { setDraft(null); setStarterAgents([]); setError(''); }} /> : launch ? <View style={styles.card}><Text style={{ ...styles.text, fontWeight: '700' }}>Run {launch.name}</Text><Text style={styles.muted}>Choose where to run, then enter the task and project. Nothing starts until you press Start workflow.</Text>
-                <Text style={{ ...styles.text, fontWeight: '700' }}>Coordinator machine</Text>
-                {machines.map(m => <Button key={m.id} selected={m.id === machine?.id} disabled={!!pending.current || busy} label={`${m.metadata?.displayName || m.metadata?.host || m.id}${!isMachineOnline(m) ? ' · offline' : (m.metadata?.workflows?.version ?? 0) < (launch && workflowNeedsProviders(launch) ? 3 : launch?.steps ? 2 : 1) ? ' · CLI update required' : ''}`} onPress={() => { setMachineId(m.id); setError(''); }} />)}
-                {!machine ? <Text accessibilityRole="alert" style={styles.text}>Connect a machine using the Talos CLI.</Text> : !isMachineOnline(machine) ? <Text accessibilityRole="alert" style={styles.text}>This machine is offline. Start its Talos daemon or select an online machine.</Text> : (machine.metadata?.workflows?.version ?? 0) < (launch && workflowNeedsProviders(launch) ? 3 : launch?.steps ? 2 : 1) ? <Text accessibilityRole="alert" style={styles.text}>Update this machine’s Talos CLI and restart its daemon to enable workflows.</Text> : <Text style={styles.muted}>Selected: {machine.metadata?.displayName || machine.metadata?.host || machine.id}. Keep this machine online while the workflow runs.</Text>}
-                <Input label="Task" value={pending.current?.task ?? task} onChange={v => { if (!pending.current) setTask(v); }} multiline /><Input label="Absolute project path" value={pending.current?.directory ?? directory} onChange={v => { if (!pending.current) setDirectory(v); }} max={4000} /><Text style={styles.muted}>Starts from committed files in a new Git worktree. Your working directory is preserved. {launch.checks.length} authorized completion check(s) will run.</Text>{pending.current && <><Text style={styles.muted}>Start request retained. Retry checks the same run on the original machine.</Text><Button label="Check start status or unlock form" disabled={busy} onPress={() => void reconcileStart()} /></>}<Button primary disabled={busy || !machine || !isMachineOnline(machine) || (machine.metadata?.workflows?.version ?? 0) < (launch && workflowNeedsProviders(launch) ? 3 : launch?.steps ? 2 : 1) || !!recoveredStart && !pending.current} label={busy ? 'Starting…' : pending.current ? 'Retry start' : 'Start workflow'} onPress={() => void beginRun()} /><Button label="Back to workflows" disabled={busy || !!recoveredStart} onPress={() => { setLaunch(null); setError(''); }} /></View> : <>
-            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}><Button primary label="Create workflow" onPress={() => startDraft()} /><Button label="Manage agents" onPress={() => router.push('/agents' as any)} /></View>
-            {library.map(w => <View key={w.id} style={styles.card}><Text style={{ ...styles.text, fontSize: 21, fontWeight: '700' }}>{w.name}</Text><Text style={styles.muted}>{w.description}</Text><Text style={styles.muted}>{w.steps ? w.steps.map(s => `${s.name} (${s.agents.length})`).join(' → ') : `${w.planners.length} planners → ${w.executor.agent.name} → ${w.reviewers.length} reviewers`}</Text><View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><Button primary label={`Run ${w.name}`} onPress={() => { if (recoveredStart || pending.current) { setError('Resolve the pending start request before starting another workflow.'); return; } setLaunch(structuredClone(w)); setError(''); }} /><Button label={`Edit ${w.name}`} onPress={() => startDraft(w)} /><Button label={`Delete ${w.name}`} onPress={async () => { if (await Modal.confirm('Delete workflow?', 'Existing runs keep their frozen configuration.')) sync.applySettings(workflowLibrarySettings([...storage.getState().settings.workflowLibrary, ...storage.getState().settings.workflowLibraryV2, ...storage.getState().settings.workflowLibraryV3].filter(d => d.id !== w.id))); }} /></View></View>)}
-            <View style={styles.card}><Text style={{ ...styles.text, fontWeight: '700' }}>View runs on</Text><Text style={styles.muted}>Select a machine to see its run history. To start a new run, choose a saved workflow above.</Text>{machines.map(m => <Button key={m.id} selected={m.id === machine?.id} disabled={!!pending.current} label={`${m.metadata?.displayName || m.metadata?.host || m.id}${!isMachineOnline(m) ? ' · offline' : !m.metadata?.workflows ? ' · CLI update required' : ''}`} onPress={() => setMachineId(m.id)} />)}{!machines.length && <Text style={styles.muted}>Connect a machine to start a workflow.</Text>}</View>
+    const online = machines.filter(m => isMachineOnline(m) && m.metadata?.workflows);
+    return <View style={{ flex: 1 }}>
+        <WorkflowScaffold>
+            <View style={{ gap: 12 }}><WorkflowStatusChip label="Experimental" /><WorkflowPageHeading title="Workflows" description="Your teams for planning, building and review." /></View>
+            {!enabled ? <WorkflowNotice title="Try Workflows" message="Enable Experimental Features and Workflows in Settings to build a team that plans, executes, and reviews together." action="Open Features" onAction={() => router.push('/settings/features')} /> : <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Create workflow" onPress={() => router.push('/workflows/create')}
+                        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: s.colors.divider, backgroundColor: pressed ? s.colors.surfacePressed : s.colors.surface })}>
+                        <Ionicons name="add" size={20} color={s.colors.accent} /><Text style={{ ...s.text, ...Typography.header(), fontSize: 15 }}>Create workflow</Text>
+                    </Pressable>
+                    {agentLibraryEnabled({ experiments, expAgentLibrary }) && <Pressable accessibilityRole="button" accessibilityLabel="Manage agents" onPress={() => router.push('/agents')} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 }}><Text style={{ ...s.muted, ...Typography.header() }}>Agent library</Text></Pressable>}
+                </View>
+                {!!error && <WorkflowNotice title="Couldn't update workflows" message={error} action="Dismiss" onAction={() => setError('')} />}
+                {pending && <WorkflowNotice title="Check your last run" message="A start request is waiting for confirmation. Check its status before starting another run." action="Check start status" onAction={() => router.push('/workflows/run')} />}
+                {saved && tab === 'library' && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Ionicons name="checkmark-circle" size={18} color={s.colors.success} /><Text accessibilityLiveRegion="polite" style={s.muted}>{saved.name} is saved and ready to run.</Text></View>}
+                <View accessibilityRole="tablist" style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: s.colors.divider }}>
+                    {([{ id: 'library', label: 'My workflows' }, { id: 'runs', label: 'Recent runs' }] as const).map(item => <Pressable key={item.id} accessibilityRole="tab" aria-selected={tab === item.id} accessibilityState={{ selected: tab === item.id }} accessibilityLabel={item.label} onPress={() => setTab(item.id)} style={{ minHeight: 46, paddingHorizontal: 16, paddingBottom: 12, justifyContent: 'center', borderBottomWidth: 2, borderColor: tab === item.id ? s.colors.accent : 'transparent' }}><Text style={{ ...s.text, ...Typography.header(), fontSize: 14, color: tab === item.id ? s.colors.text : s.colors.textSecondary }}>{item.label}{item.id === 'library' && library.length ? ` · ${library.length}` : ''}</Text></Pressable>)}
+                </View>
+                {tab === 'library' ? <>
+                    {!library.length && <View style={{ ...s.card, paddingVertical: 30, gap: 22 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>{(['compass-outline', 'code-slash-outline', 'checkmark-done-outline'] as const).map((icon, index) => <React.Fragment key={icon}>{index > 0 && <View style={{ height: 1, width: 18, backgroundColor: s.colors.divider }} />}<View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: s.colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}><Ionicons name={icon} size={24} color={s.colors.accent} /></View></React.Fragment>)}</View>
+                        <View style={{ gap: 8 }}><Text accessibilityRole="header" style={{ ...s.text, ...Typography.header(), fontSize: 21, textAlign: 'center' }}>Your team, ready for repeat work</Text><Text style={{ ...s.muted, textAlign: 'center' }}>Planners agree on a plan. An executor builds it. Reviewers check the result.</Text></View>
+                        <Text style={{ ...s.muted, textAlign: 'center', fontSize: 12 }}>Choose Create workflow to set up your first team in four steps.</Text>
+                    </View>}
+                    <View style={{ flexDirection: window.width >= 1000 ? 'row' : 'column', flexWrap: 'wrap', gap: 16 }}>{library.map(w => <View key={w.id} style={{ width: window.width >= 1000 ? '48.8%' : '100%' }}><WorkflowCard workflow={w} onRun={() => router.push({ pathname: '/workflows/run', params: { workflowId: w.id } })} onEdit={() => router.push({ pathname: '/workflows/create', params: { id: w.id } })} onDelete={() => void remove(w)} /></View>)}</View>
+                </> : <>
+                    {loading && <ActivityIndicator accessibilityLabel="Loading workflow runs" color={s.colors.accent} />}
+                    {failures.length > 0 && <WorkflowNotice title="Some runs couldn't be loaded" message={`Reconnect ${failures.join(', ')} to see its latest runs. Runs on other machines are shown below.`} action="Try again" onAction={() => setRetry(v => v + 1)} />}
+                    {!online.length && <WorkflowNotice title="Connect a machine to see runs" message="Run history stays on the machine that started it. Bring that machine online, then check here again." action="View machines" onAction={() => router.push('/settings')} />}
+                    {!loading && online.length > 0 && !runs.length && !failures.length && <View style={s.card}><Text style={{ ...s.text, ...Typography.header() }}>No runs yet</Text><Text style={s.muted}>Choose a saved workflow from My workflows, add a task and a project, then start.</Text><Button label="Choose a workflow" onPress={() => setTab('library')} /></View>}
+                    {runs.map(r => <Pressable key={r.id} accessibilityRole="button" accessibilityLabel={`Open run ${r.name}`} onPress={() => router.push({ pathname: '/workflows/[id]', params: { id: r.id, machineId: r.machineId } })} style={({ pressed }) => ({ ...s.card, backgroundColor: pressed ? s.colors.surfacePressed : s.colors.surface })}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><View style={{ flex: 1, gap: 5 }}><Text style={{ ...s.text, ...Typography.header() }}>{r.name}</Text><Text style={s.muted} numberOfLines={2}>{r.task}</Text></View><Ionicons name="chevron-forward" size={18} color={s.colors.textSecondary} /></View>
+                        <Text style={{ ...s.muted, fontSize: 12 }}>{r.status.replaceAll('_', ' ')} · {workflowStageLabel[r.stage]} · {machines.find(m => m.id === r.machineId)?.metadata?.displayName || machines.find(m => m.id === r.machineId)?.metadata?.host || 'Machine'}</Text>
+                    </Pressable>)}
+                </>}
+            </>}
+        </WorkflowScaffold>
+        <HomeTabBar activeTab="workflows" />
+    </View>;
+}
 
-        </>}
-        {!draft && !launch && <View style={{ gap: 12 }}><Text style={{ ...styles.text, fontSize: 22, fontWeight: '700' }}>Runs on {machine?.metadata?.host ?? 'your machine'}</Text>{runs.map(r => <View key={r.id} style={styles.card}><Text style={styles.text}>{r.name}</Text><Text style={styles.muted}>{r.task}</Text><Text style={styles.muted}>{r.status.replace('_', ' ')} · {workflowStageLabel[r.stage]}</Text><Button label={`Open run ${r.name}`} onPress={() => router.push(`/workflows/${r.id}?machineId=${encodeURIComponent(r.machineId)}` as any)} /></View>)}</View>}
-    </ScrollView>;
+function WorkflowCard({ workflow: w, onRun, onEdit, onDelete }: { workflow: WorkflowDefinition; onRun: () => void; onEdit: () => void; onDelete: () => void }) {
+    const s = useWorkflowStyles();
+    const [menu, setMenu] = React.useState(false);
+    const steps = w.steps ?? [{ name: 'Plan', kind: 'plan', agents: w.planners }, { name: 'Build', kind: 'execute', agents: [w.executor] }, { name: 'Review', kind: 'review', agents: w.reviewers }];
+    const agents = [...new Map(steps.flatMap(step => step.agents.map(slot => [slot.agent.id, slot.agent] as const))).values()];
+    return <View style={{ ...s.card, borderRadius: 16, gap: 20, padding: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <View style={{ flex: 1, gap: 6 }}><Text accessibilityRole="header" style={{ ...s.text, ...Typography.header(), fontSize: 21, lineHeight: 27, letterSpacing: -0.3 }}>{w.name}</Text>{!!w.description && <Text numberOfLines={2} style={s.muted}>{w.description}</Text>}</View>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Options for ${w.name}`} accessibilityState={{ expanded: menu }} onPress={() => setMenu(!menu)} style={{ minHeight: 44, minWidth: 44, marginTop: -8, marginRight: -10, justifyContent: 'center', alignItems: 'center' }}><Ionicons name="ellipsis-horizontal" size={20} color={s.colors.textSecondary} /></Pressable>
+        </View>
+        {menu && <View style={{ flexDirection: 'row', gap: 8 }}><Button variant="ghost" icon="create-outline" label="Edit workflow" accessibilityLabel={`Edit ${w.name}`} onPress={onEdit} /><Button variant="danger" icon="trash-outline" label="Delete" accessibilityLabel={`Delete ${w.name}`} onPress={onDelete} /></View>}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>{steps.map((step, i) => <React.Fragment key={i}>{i > 0 && <Ionicons name="chevron-forward" size={11} color={s.colors.textSecondary} />}<View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Ionicons name={step.kind === 'plan' ? 'compass-outline' : step.kind === 'execute' ? 'code-slash-outline' : 'checkmark-done-outline'} size={14} color={s.colors.accent} /><Text style={{ ...s.muted, fontSize: 12 }}>{step.name}</Text></View></React.Fragment>)}</View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center', borderTopWidth: 1, borderColor: s.colors.divider, paddingTop: 16 }}>
+            <View style={{ flex: 1, minWidth: agents.length > 4 ? 168 : Math.max(100, agents.length * 32 - 4), gap: 7 }}><View style={{ flexDirection: 'row', gap: 4 }}>{agents.slice(0, 4).map(agent => <WorkflowAvatar key={agent.id} name={agent.name} provider={agent.provider} size={28} />)}{agents.length > 4 && <Text style={s.muted}>+{agents.length - 4}</Text>}</View><Text style={{ ...s.muted, fontSize: 12, lineHeight: 17 }} numberOfLines={1}>{agents.map(a => a.name).join(', ')}</Text></View>
+            <View style={{ marginLeft: 'auto' }}><Button primary compact icon="play" label="Run workflow" accessibilityLabel={`Run ${w.name}`} onPress={onRun} /></View>
+        </View>
+    </View>;
 }

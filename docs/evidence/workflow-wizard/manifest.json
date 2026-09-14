@@ -1,0 +1,146 @@
+{
+  "baseCommit": "ad803dd4d81bb26c43add4492ad739782a0d8b3c",
+  "capturedAt": "2026-09-14",
+  "web": "Chrome; 390x844 / 1440x1000",
+  "native": "iPhone 17 Pro simulator; iOS 26.1; software keyboard",
+  "screenshots": [
+    {
+      "file": "agent-provider-model-effort.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "e265f018db1e15872606e4c0dd37d656fce861d79c74d1fe1acdb21c731c822d"
+    },
+    {
+      "file": "launch-complete.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "076fb654f917c50deee0b0b503f624b2c8e36b0773032bcf4424f939bdd7e888"
+    },
+    {
+      "file": "launch-path-error.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "f7ae1653cb3c85140af0b2b5d67ac48fc835ba4a77d569709334285c6d0604c5"
+    },
+    {
+      "file": "launch-project-picker.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "9e74ba6a0e26a7253b08da9db4d4077fcd9e2cb4f2e3cd46a278ffeffe918109"
+    },
+    {
+      "file": "launch-ready.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "a70cbd4fe3089b95583e228c35853f8527bd98294823346aa1bd0091bed893ed"
+    },
+    {
+      "file": "library-saved.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "71f064cd5f4b7472d3742fc8aeeb7debed453989098c7607f6e79981422ac19c"
+    },
+    {
+      "file": "native-agent-reference-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "15c453b372fb4594e407718a7310e35adb71f1bfad832f4cbf167a9dd45cfc16"
+    },
+    {
+      "file": "native-basics-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "0e193094ccffbfd4489925b20ce05df2f6e69f961f333d384729044f2493d54c"
+    },
+    {
+      "file": "native-finish-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "5ac0b8690a45f23ccf0da6ef9e8ef6290d27a197df5ee0c70ee3fa1f2d09d665"
+    },
+    {
+      "file": "native-project-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "e7a2e37a6f61383acdc75169cef8af9213c395dfbe781d5ed3f387c70a780306"
+    },
+    {
+      "file": "native-run-keyboard.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "7a3da83a489f73f4851013b52dd6a4fad27f3e4a61092cf6db2fccafbbcc79a3"
+    },
+    {
+      "file": "nav-desktop-library.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "09aefd25b6124594ef007830217fef449d8609b9dd7b1952c46137b71753408e"
+    },
+    {
+      "file": "nav-phone-home.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "0b53906c2e98b9a3377249db42a40cdc083ca173b03acd79f36903ff718c77a9"
+    },
+    {
+      "file": "nav-phone-library.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "ceb646af901867af9a017a696ac44da22cb040d0e161e80c14d4c2dab330887d"
+    },
+    {
+      "file": "review-round1-launch.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "1b2b4c576bdad4c74be81029aef817eadbe4c5260e97d2a6d1385ae4e266d5c3"
+    },
+    {
+      "file": "review-round1-summary.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "4529abb33d0f7cf363e132248c1d04a870aae1ca3331e5153020db63b1937eb2"
+    },
+    {
+      "file": "review-round1-team.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "cae9a4c10445eea0afc50f750ff72bd00d93dd6cb7924169172853b0933fd5ff"
+    },
+    {
+      "file": "review-round2-launch.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "66533799e371b4a603c640aa9adacb335f9bfed171fa737d56e71b57e1e0980d"
+    },
+    {
+      "file": "shared-regular-session-picker.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "3ab98d71c0aad09fcbb442d65a410ee4ef39df0fe739f12556a95d223d9fd061"
+    },
+    {
+      "file": "wizard-basics.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "b69478ecc19bf1a52f1926aedd396331d7ef20c12d3aa42f7778e3fbf82218d4"
+    },
+    {
+      "file": "wizard-finish.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "4478fa7f9cf41dd0e8c8972cbacb45656b61c863c62291141a592e6daec32e5f"
+    },
+    {
+      "file": "wizard-review.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "a0f199f2558947df30092731a471d7226e3356d518994fd66e2d8433d53f81bf"
+    },
+    {
+      "file": "wizard-team-top.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "bd37a6925cb3b5bcd8697996ca63fa61b3a6e1466d56858030a93be5c3c3e3fc"
+    }
+  ]
+}

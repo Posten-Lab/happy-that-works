@@ -26,7 +26,7 @@ export class GitStatusSync {
      */
     private getProjectKeyForSession(sessionId: string): string | null {
         const session = storage.getState().sessions[sessionId];
-        if (!session?.metadata?.machineId || !session?.metadata?.path) {
+        if (!session?.metadata?.machineId || !session?.metadata?.path || session.metadata.workflowManaged) {
             return null;
         }
         return `${session.metadata.machineId}:${session.metadata.path}`;
@@ -38,6 +38,11 @@ export class GitStatusSync {
     getSync(sessionId: string): InvalidateSync {
         const projectKey = this.getProjectKeyForSession(sessionId);
         if (!projectKey) {
+            // Workflow participants close their session RPC connection when a turn ends.
+            // Their transcripts remain viewable, but cannot own a persistent project poll.
+            if (storage.getState().sessions[sessionId]?.metadata?.workflowManaged) {
+                this.stop(sessionId);
+            }
             // Return a no-op sync if no valid project
             return new InvalidateSync(async () => {});
         }
@@ -127,7 +132,7 @@ export class GitStatusSync {
         try {
             // Check if we have a session with valid metadata
             const session = storage.getState().sessions[sessionId];
-            if (!session?.metadata?.path) {
+            if (!session?.metadata?.path || session.metadata.workflowManaged) {
                 return;
             }
 

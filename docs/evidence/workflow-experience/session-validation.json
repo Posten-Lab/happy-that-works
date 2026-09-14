@@ -1,0 +1,11 @@
+{
+  "runId": "5cff4cb7-b420-46f0-a217-8fa1ee70850f",
+  "openedActualExecutorTranscript": true,
+  "readableStructuredResponse": true,
+  "noSynthesizedNeedsInformationStatus": true,
+  "returnedToWorkflow": true,
+  "noClosedParticipantGitPollingErrorAfter35Seconds": true,
+  "pageErrors": [],
+  "capturedAt": "2026-09-14T17:20:12.111Z",
+  "note": "This transcript was reopened after the execution step. The separate recovery-executor-session frame was captured while its replacement executor was active."
+}

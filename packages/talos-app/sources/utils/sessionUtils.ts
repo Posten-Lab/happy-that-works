@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Session } from '@/sync/storageTypes';
 import { t } from '@/text';
 import { buildResumeCommand, buildResumeCommandBlock, ResumeCommandBlock } from './resumeCommand';
+import { workflowParticipantName } from '@/-session/workflowSessionPresentation';
 
 export type SessionState = 'disconnected' | 'thinking' | 'waiting' | 'permission_required';
 
@@ -78,6 +79,8 @@ export function useSessionStatus(session: Session, forceDisconnected = false): S
  * Returns the last segment of the path, or 'unknown' if no path is available.
  */
 export function getSessionName(session: Session): string {
+    const workflowName = workflowParticipantName(session.metadata);
+    if (workflowName) return workflowName;
     if (session.metadata?.summary) {
         return session.metadata.summary.text;
     }
@@ -142,6 +145,7 @@ export function formatPathRelativeToHome(path: string, homeDir?: string): string
  * Returns the session path for the subtitle.
  */
 export function getSessionSubtitle(session: Session): string {
+    if (session.metadata?.workflowManaged) return 'Workflow participant';
     if (session.metadata) {
         return formatPathRelativeToHome(session.metadata.path, session.metadata.homeDir);
     }

@@ -76,6 +76,7 @@ interface SessionMessages {
 
 // Display-only row data — all primitives, cheap to deep-equal
 export interface SessionRowData {
+    workflowManaged?: boolean;
     id: string;
     name: string;
     subtitle: string;
@@ -114,6 +115,7 @@ function buildSessionRowData(session: Session, unreadSessionIds?: Set<string>): 
     return {
         id: session.id,
         name: getSessionName(session),
+        ...(session.metadata?.workflowManaged ? { workflowManaged: true } : {}),
         subtitle: getSessionSubtitle(session),
         avatarId: getSessionAvatarId(session),
         flavor: session.metadata?.flavor ?? null,
