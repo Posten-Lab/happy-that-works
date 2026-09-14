@@ -115,6 +115,18 @@
     {
       "file": "packages/talos-app/sources/workflows/runPresentation.ts",
       "sha256": "db3faa7538c426ae420fa76018fbd6f26c3b89e2b9bde8eeead681cbd4ba6059"
+    },
+    {
+      "file": "packages/talos-cli/package.json",
+      "sha256": "2915b3ca58e703013825e856a207b11cf05dc24fb6932845bf21446a24c8f318"
+    },
+    {
+      "file": "packages/talos-app/CHANGELOG.md",
+      "sha256": "964810be6a9ee36f2619f7cff68b32302efe80125ae7a65f0f1e2e7459869724"
+    },
+    {
+      "file": "packages/talos-app/sources/changelog/changelog.json",
+      "sha256": "c7d6119395709b6850b55578cea48ba15f94d83bd3f3a1c88564854b6bfc8216"
     }
   ],
   "screenshots": [
@@ -507,6 +519,12 @@
       "width": 390,
       "height": 844,
       "sha256": "d7187aaf966ab2a7988ebdbdec783a6676bfa71d71d3888c2c73a15a26ea1445"
+    },
+    {
+      "file": "66-release-changelog.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "dd6ac4d7aca4d562203a6a1cd7fa99355fc4b493f90440128f582db9db143813"
     }
   ]
 }

@@ -209,3 +209,9 @@ Every top/lower pair is a different scroll position. The approval-anchor check a
 | Project input and selection action |
 | --- |
 | <a href="44-native-project-keyboard.png"><img src="44-native-project-keyboard.png" width="320" alt="Project input and selection action" /></a> |
+
+### Release changelog
+
+The release entry was exercised at 390 × 844 after deployment was authorized. [Validation](release-changelog-validation.json).
+
+<img src="66-release-changelog.png" width="320" alt="User-facing workflow release notes" />

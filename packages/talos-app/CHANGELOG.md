@@ -1,3 +1,14 @@
+# A clearer way to run workflows
+
+Create reusable agent teams and follow their work from planning through review. Enable Workflows in Experimental Features to try it.
+
+- Find saved workflows and recent runs in a dedicated Workflows library.
+- Create a workflow in four focused steps: Basics, Team, Finish, and Review.
+- Add and reorder stages, with up to three planners or reviewers per stage. Choose each agent's provider, model, effort, and instructions.
+- Run a saved workflow with a prompt, a machine, and the familiar project picker.
+- Read the agreed plan, follow agent progress, and inspect reviews and completion checks. Clear recovery actions help you continue when a run needs attention.
+- Keep fields and actions within reach while typing on your phone.
+
 # Your agents, working together
 
 Build experimental workflows with Codex, Claude, and Muse Code agents.

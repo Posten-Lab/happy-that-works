@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "A clearer way to run workflows",
+      "summary": "Create reusable agent teams and follow their work from planning through review. Enable Workflows in Experimental Features to try it.",
+      "markdown": "- Find saved workflows and recent runs in a dedicated Workflows library.\n- Create a workflow in four focused steps: Basics, Team, Finish, and Review.\n- Add and reorder stages, with up to three planners or reviewers per stage. Choose each agent's provider, model, effort, and instructions.\n- Run a saved workflow with a prompt, a machine, and the familiar project picker.\n- Read the agreed plan, follow agent progress, and inspect reviews and completion checks. Clear recovery actions help you continue when a run needs attention.\n- Keep fields and actions within reach while typing on your phone."
+    },
+    {
       "title": "Your agents, working together",
       "summary": "Build experimental workflows with Codex, Claude, and Muse Code agents.",
       "markdown": "- Choose a provider, model, and effort for each agent.\n- Edit agents in a focused panel while keeping your stages easy to scan.\n- Mix planners, executors, and reviewers across providers.\n- Update your machine CLI to use multi-provider workflows."
@@ -46,5 +51,5 @@
       "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
     }
   ],
-  "latestTitle": "Your agents, working together"
+  "latestTitle": "A clearer way to run workflows"
 }
