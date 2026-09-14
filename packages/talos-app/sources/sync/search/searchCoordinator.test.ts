@@ -86,6 +86,67 @@ afterEach(() => {
 });
 
 describe('session search indexing lifecycle', () => {
+    it('makes progress across 226 sessions while the first request is stalled, with bounded concurrency', async () => {
+        const source = fixture(Array.from({ length: 226 }, (_, index) => descriptor(`conversation-${index}`)));
+        const stalled = deferred<void>();
+        const read = vi.mocked(source.dependencies.readMessages).getMockImplementation()!;
+        let active = 0;
+        let maximum = 0;
+        vi.mocked(source.dependencies.readMessages).mockImplementation(async (...args) => {
+            maximum = Math.max(maximum, ++active);
+            if (args[0].id === 'conversation-0') await stalled.promise;
+            else await new Promise(resolve => setTimeout(resolve, 100));
+            try { return await read(...args); } finally { active--; }
+        });
+        const coordinator = create(source.dependencies);
+        const job = coordinator.start({ refresh: false });
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(coordinator.getSnapshot()).toMatchObject({ indexedSessions: 225, totalSessions: 226, isIndexing: true });
+        expect(coordinator.search('conversation-225')).toHaveLength(1);
+        expect(maximum).toBeGreaterThan(1);
+        expect(maximum).toBeLessThanOrEqual(6);
+        stalled.resolve();
+        await finish(job);
+        expect(coordinator.getSnapshot()).toMatchObject({ indexedSessions: 226, error: null });
+    });
+
+    it('visits later conversations before fetching second pages of long histories', async () => {
+        const source = fixture(Array.from({ length: 12 }, (_, index) => descriptor(`conversation-${index}`, { seq: 3 })));
+        for (const item of source.state.sessions) source.history.set(item.id, [message('first', 1), message('second', 2), message('third', 3)]);
+        const coordinator = create(source.dependencies);
+        await finish(coordinator.start());
+        const calls = vi.mocked(source.dependencies.readMessages).mock.calls;
+        expect(calls.slice(0, 12).map(call => call[0].id)).toEqual(source.state.sessions.map(item => item.id));
+        expect(calls.slice(0, 12).every(call => call[1] === 0)).toBe(true);
+        expect(coordinator.getSnapshot()).toMatchObject({ indexedSessions: 12, error: null });
+    });
+
+    it('preserves completed progress and skips unchanged titles/messages throughout refresh', async () => {
+        const source = fixture([descriptor('one'), descriptor('two')]);
+        const coordinator = create(source.dependencies);
+        await finish(coordinator.start());
+        vi.mocked(source.dependencies.decryptSession).mockClear();
+        vi.mocked(source.dependencies.readMessages).mockClear();
+        const counts: number[] = [];
+        const unsubscribe = coordinator.subscribe(() => counts.push(coordinator.getSnapshot().indexedSessions));
+        await finish(coordinator.start());
+        unsubscribe();
+        expect(counts.length).toBeGreaterThan(0);
+        expect(counts.every(count => count === 2)).toBe(true);
+        expect(source.dependencies.decryptSession).not.toHaveBeenCalled();
+        expect(source.dependencies.readMessages).not.toHaveBeenCalled();
+    });
+
+    it('updates progress when a known session is deleted without subtracting unrelated deletions', async () => {
+        const source = fixture([descriptor('one'), descriptor('two')]);
+        const coordinator = create(source.dependencies);
+        await finish(coordinator.start());
+        coordinator.removeSession('outside-search-window');
+        expect(coordinator.getSnapshot()).toMatchObject({ indexedSessions: 2, totalSessions: 2 });
+        coordinator.removeSession('one');
+        expect(coordinator.getSnapshot()).toMatchObject({ indexedSessions: 1, totalSessions: 1 });
+    });
+
     it('indexes every page beyond 150 sessions and never opens conversations while indexing', async () => {
         const source = fixture(Array.from({ length: 205 }, (_, index) => descriptor(`conversation-${index}`)));
         source.history.set('conversation-204', [message('Distinctive archived request')]);
@@ -416,6 +477,39 @@ describe('search cancellation and account privacy', () => {
 });
 
 describe('incremental encrypted search cache', () => {
+    it('restores healthy caches despite a corrupt session and does not download them again', async () => {
+        const source = fixture([descriptor('broken'), descriptor('healthy')]);
+        const coordinator = create(source.dependencies);
+        await finish(coordinator.start());
+        coordinator.stop();
+        source.storage.set('broken', 'corrupt-ciphertext');
+        vi.mocked(source.dependencies.readMessages).mockClear();
+        const restored = create(source.dependencies);
+        await finish(restored.start());
+        expect(vi.mocked(source.dependencies.readMessages).mock.calls.map(call => call[0].id)).toEqual(['broken']);
+        expect(restored.getSnapshot()).toMatchObject({ indexedSessions: 2, error: null });
+    });
+
+    it('restores other sessions while one cache read is stalled', async () => {
+        const source = fixture([descriptor('slow'), descriptor('healthy')]);
+        const coordinator = create(source.dependencies);
+        await finish(coordinator.start());
+        coordinator.stop();
+        const pending = deferred<void>();
+        source.cache.get.mockImplementation(async key => {
+            if (key === 'slow') await pending.promise;
+            return source.storage.get(key) ?? null;
+        });
+        const restored = create(source.dependencies);
+        const job = restored.start();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(restored.search('healthy')).toHaveLength(1);
+        expect(restored.getSnapshot().indexedSessions).toBe(1);
+        pending.resolve();
+        await finish(job);
+        expect(restored.getSnapshot()).toMatchObject({ indexedSessions: 2, error: null });
+    });
+
     it('persists each message only once across pages and restores the full conversation without re-fetching', async () => {
         const source = fixture([descriptor('one', { seq: 5 })]);
         source.history.set('one', Array.from({ length: 5 }, (_, index) => message(`message-${index} daisy`, index + 1)));
