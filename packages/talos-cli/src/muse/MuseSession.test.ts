@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mock = vi.hoisted(() => ({ connect: vi.fn() }));
 vi.mock('./museClient', () => ({ connectMuse: mock.connect, museExecutable: () => 'muse' }));
-vi.mock('./museSessionBridge', () => ({ ensureMuseSessionPlugin: vi.fn(), registerMuseSessionBridge: vi.fn(async () => vi.fn()), museSessionInstructions: () => 'Use the Talos session tools.' }));
+vi.mock('./museSessionBridge', () => ({ ensureMuseSessionPlugin: vi.fn(async () => true), registerMuseSessionBridge: vi.fn(async () => vi.fn()), museSessionInstructions: vi.fn(() => 'Use the Talos session tools.') }));
 import { MuseSession } from './MuseSession';
+import { ensureMuseSessionPlugin, registerMuseSessionBridge, museSessionInstructions } from './museSessionBridge';
 
 function fixture(sessionToolsUrl?: string) {
     let notify: (method: string, params: any) => void = () => {};
@@ -16,6 +17,21 @@ function fixture(sessionToolsUrl?: string) {
 }
 beforeEach(() => vi.clearAllMocks());
 describe('MuseSession lifecycle', () => {
+    it.each([undefined, 'native-id'])('starts and exposes session tools without plugins for resume=%s', async resumeId => {
+        vi.mocked(ensureMuseSessionPlugin).mockResolvedValueOnce(false);
+        const f = fixture('http://127.0.0.1:1234');
+        await f.session.start(resumeId);
+        expect(registerMuseSessionBridge).toHaveBeenCalledWith('http://127.0.0.1:1234');
+        expect(f.callbacks.metadata).toHaveBeenCalledWith({ museSessionId: 'native-id' });
+        f.command.mockImplementation(async method => {
+            if (method === 'turn/start') f.notify('turn/completed', { turnId: 'turn-1' });
+            return { turnId: 'turn-1' } as any;
+        });
+        await f.session.prompt('Hello');
+        expect(museSessionInstructions).toHaveBeenCalledWith(false);
+        expect(f.command).toHaveBeenLastCalledWith('turn/start', expect.objectContaining({ displayText: 'Hello' }), expect.anything());
+        await f.session.dispose();
+    });
     it('introduces session tools once while preserving the displayed user prompt', async () => {
         const f = fixture('http://127.0.0.1:1234'); await f.session.start();
         f.command.mockImplementation(async method => {
