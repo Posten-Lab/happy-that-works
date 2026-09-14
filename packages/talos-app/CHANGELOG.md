@@ -1,3 +1,11 @@
+# Faster session search
+
+Find conversations sooner after signing in or adding a device.
+
+- Search results appear while large conversation histories continue indexing.
+- Completed search progress stays in place during background refreshes.
+- Reopening the app reuses your encrypted search history.
+
 # Run workflows in your project folder
 
 Start workflows in ordinary folders, including workspaces containing several repositories.

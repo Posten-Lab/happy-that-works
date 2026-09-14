@@ -35,6 +35,7 @@ message sequence, and highlighted text. An additional browser inspection found
 - [Completed search](after-complete.png)
 - [Search at phone width during cache restoration](after-mobile-width.png)
 - [Opened matching message at phone width](after-opened-message.png)
+- [Release note displayed in the real browser](release-notes.png)
 - [Focused test output](tests.txt) and [typecheck output](typecheck.txt)
 
 ## Reproduce
@@ -83,3 +84,5 @@ concurrent cache restoration, isolated cache corruption, cancellation/logout,
 deletions, failed durable writes, unreadable ciphertext, and pagination recovery.
 The existing real-service `session-search.mts verify` also passed archive-window,
 latest-message timestamps, and message/session pagination checks.
+
+Before release, the generated changelog was refreshed with `pnpm --filter talos-app exec tsx sources/scripts/parseChangelog.ts`. The `/changelog` screen was opened in Chrome and its new entry verified. The 71 focused tests and app typecheck passed again after this addition.
