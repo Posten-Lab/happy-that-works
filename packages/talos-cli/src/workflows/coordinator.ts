@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, workflowSlots, workflowProjection, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
+import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, workflowSlots, workflowProjection, workflowRecoverableExecutor, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
 
 type Start = ReturnType<typeof WorkflowStartSchema.parse>;
 export interface WorkflowRuntime {
@@ -146,6 +146,30 @@ export class WorkflowCoordinator {
         }
         if (run.status === 'running' || this.active.has(run.id)) throw new Error('Wait for the current step to stop before changing the run.');
         if (run.notes.length >= 30 && a.note) throw new Error('Clarification limit reached. Start a new run with the refined task.');
+        if (a.action === 'change_model') {
+            this.assertResumeBudget(run);
+            const slot = workflowRecoverableExecutor(run);
+            if (!slot || !a.model) throw new Error('Only an interrupted executor without completed contributions can switch model. Use participant replacement to replan other changes.');
+            if (run.approvedPlanVersion !== run.planVersion || !this.planApproved(run)) throw new Error('Current plan approvals are missing. Request a revised plan.');
+            const agent = { ...slot.agent, revision: slot.agent.revision + 1, model: a.model, modelLabel: a.model, effort: a.effort ?? null };
+            if (agent.model === slot.agent.model && agent.effort === slot.agent.effort) throw new Error('Choose a different model or resume with the current model.');
+            const definition = structuredClone(run.definition);
+            for (const match of workflowSlots(definition).filter(item => item.agent.id === agent.id)) match.agent = agent;
+            if (definition.steps) Object.assign(definition, workflowProjection(definition.steps));
+            const validated = WorkflowDefinitionSchema.parse(definition);
+            await this.runtime.validate([{ ...slot, agent }]);
+            // Another device may act while model discovery is in progress.
+            if (run.revision !== a.expectedRevision || this.active.has(run.id) || this.closed) throw new Error('This run changed. Refresh before applying your decision.');
+            for (const task of run.tasks.filter(task => task.agentId === agent.id)) {
+                task.provider ??= slot.agent.provider; task.model ??= slot.agent.model;
+                if (task.effort === undefined) task.effort = slot.agent.effort;
+            }
+            run.definition = validated;
+            if (a.note) run.notes.push(a.note);
+            run.status = 'running'; run.reason = '';
+            this.persist(run, `${slot.agent.name}: switched model from ${slot.agent.model} to ${agent.model}. Resuming execution with plan v${run.planVersion} and completed approvals retained.${a.note ? ` — ${a.note}` : ''}`);
+            this.kick(run); return this.get(run.id);
+        }
         if (run.definition.steps) return this.stepAction(run, a);
         if (a.action === 'approve_plan') {
             if (run.stage !== 'plan_vote' || !this.planApproved(run)) throw new Error('Every planner must approve the current plan first.');
@@ -233,17 +257,21 @@ export class WorkflowCoordinator {
         if (Buffer.byteLength(prompt) > 400000) throw new Error(workflowContextLimit);
         const task: WorkflowTask = { ...(run.definition.steps ? { stepId: run.definition.steps[run.stepIndex ?? 0].id, attempt: run.stepAttempt } : {}), id: randomUUID(), stage: run.stage, round: run.stage === 'execute' || run.stage === 'review' ? run.reviewRound : run.planningRound,
             agentId: slot.agent.id, agentName: slot.agent.name, assignment: slot.assignment, version: run.stage === 'review' ? run.artifactVersion : `plan:${run.planVersion}`,
-            status: 'running', startedAt: Date.now(), clarifications: run.notes.length, prompt };
+            status: 'running', startedAt: Date.now(), clarifications: run.notes.length, prompt,
+            provider: slot.agent.provider, model: slot.agent.model, effort: slot.agent.effort };
         run.tasks.push(task); this.persist(run, `${slot.agent.name}: ${run.stage} started.`);
         try {
             const result = await this.runtime.turn(run, task, slot, signal, () => this.persist(run));
             if (signal.aborted) throw new Error('Step interrupted. Inspect its work before resuming.');
             task.result = result; task.status = 'done'; task.completedAt = Date.now(); this.persist(run, `${slot.agent.name}: ${result.decision} — ${result.summary}`); return result;
-        } catch (e) { task.status = 'interrupted'; task.error = e instanceof Error ? e.message : 'Step interrupted'; this.persist(run); throw e; }
+        } catch (e) { task.status = 'interrupted'; task.completedAt = Date.now(); task.error = e instanceof Error ? e.message : 'Step interrupted'; this.persist(run); throw e; }
     }
     private prompt(run: WorkflowRun, slot: WorkflowSlot) {
         const stage = run.stage;
         const step = run.definition.steps?.[run.stepIndex ?? 0];
+        const interrupted = run.tasks.filter(task => task.status === 'interrupted' && task.stage === stage
+            && task.version === `plan:${run.planVersion}` && (!step || task.stepId === step.id && task.attempt === run.stepAttempt)).slice(-3);
+        const recovery = interrupted.length ? `\nRECOVERY: Earlier attempts of this step were interrupted. Inspect the existing files and partial edits before continuing; preserve completed work and repair incomplete changes. The approved plan still applies.\n${JSON.stringify(interrupted.map(task => ({ agent: task.agentName, model: task.model, sessionId: task.sessionId, threadId: task.threadId, error: task.error })))}` : '';
         const context = stage === 'propose' ? '' : stage === 'consolidate'
             ? JSON.stringify(run.tasks.filter(t => t.status === 'done' && (t.stage === 'propose' && t.version === `plan:${run.planVersion}` || t.stage === 'plan_vote' && t.round === run.planningRound - 1)).map(t => ({ agent: t.agentName, version: t.version, result: t.result })))
             : stage === 'execute' ? JSON.stringify({ checks: run.checks, findings: run.tasks.filter(t => t.stage === 'review' && t.status === 'done' && t.round === run.reviewRound - 1).map(t => ({ agent: t.agentName, revision: t.version, result: t.result })) })
@@ -256,7 +284,7 @@ export class WorkflowCoordinator {
             review: 'Independently inspect the exact workspace revision and completion evidence. Verify every acceptance criterion and earlier fixes. Do not edit files. Approve only with no unresolved blocking findings. Supply evidence and actionable correction for each finding.',
             verify: '',
         }[stage];
-        return `You are ${slot.agent.name}. ${slot.agent.description}\n${slot.agent.instructions}\n${slot.agent.documents.map(d => `${d.name}:\n${d.content}`).join('\n')}\n\nWORKFLOW STEP: ${step ? `${(run.stepIndex ?? 0) + 1}. ${step.name} (${step.kind})` : stage}\nSTEP CRITERIA: ${step?.criteria || 'Follow this step’s assignment.'}\n${step ? 'Execute and assess only the current step’s scope. Later steps remain responsible for their assignments. Intermediate reviewers gate this step; final reviewers must also verify all workflow acceptance criteria and completion checks.' : ''}\nSTEP SEQUENCE: ${run.definition.steps?.map(s => s.name).join(' → ') ?? 'Plan → Execute → Review'}\nWORKFLOW ASSIGNMENT: ${slot.assignment}\nTASK: ${run.task}\nACCEPTANCE CRITERIA: ${run.definition.criteria}\nREQUIRED COMPLETION CHECKS: ${JSON.stringify(run.definition.checks)}\nSTEP CHECKS: ${JSON.stringify(step?.checks ?? [])}\nSTAGE: ${stage}\nROUND: ${stage === 'execute' || stage === 'review' ? run.reviewRound : run.planningRound}\n${instruction}\nPLAN VERSION: ${run.planVersion}\n${stage === 'propose' ? '' : run.plan}\nWORKSPACE REVISION: ${run.artifactVersion}\nUSER CLARIFICATIONS: ${JSON.stringify(run.notes)}\nEARLIER STEP RESULTS: ${step && stage !== 'propose' ? JSON.stringify(run.tasks.filter(t => t.status === 'done' && t.stepId !== step.id).slice(-16).map(t => ({ step: t.stepId, agent: t.agentName, summary: t.result?.summary, findings: t.result?.findings }))) : ''}\nEVIDENCE AND DISCUSSION: ${context}\nDo not invoke subagents or external actions outside this assignment. Never merge, publish, deploy, or send messages to others. The controller handles advancement. Return only the required structured result. Explain conclusions and evidence, not private reasoning.`;
+        return `You are ${slot.agent.name}. ${slot.agent.description}\n${slot.agent.instructions}\n${slot.agent.documents.map(d => `${d.name}:\n${d.content}`).join('\n')}\n\nWORKFLOW STEP: ${step ? `${(run.stepIndex ?? 0) + 1}. ${step.name} (${step.kind})` : stage}\nSTEP CRITERIA: ${step?.criteria || 'Follow this step’s assignment.'}\n${step ? 'Execute and assess only the current step’s scope. Later steps remain responsible for their assignments. Intermediate reviewers gate this step; final reviewers must also verify all workflow acceptance criteria and completion checks.' : ''}\nSTEP SEQUENCE: ${run.definition.steps?.map(s => s.name).join(' → ') ?? 'Plan → Execute → Review'}\nWORKFLOW ASSIGNMENT: ${slot.assignment}\nTASK: ${run.task}\nACCEPTANCE CRITERIA: ${run.definition.criteria}\nREQUIRED COMPLETION CHECKS: ${JSON.stringify(run.definition.checks)}\nSTEP CHECKS: ${JSON.stringify(step?.checks ?? [])}\nSTAGE: ${stage}\nROUND: ${stage === 'execute' || stage === 'review' ? run.reviewRound : run.planningRound}\n${instruction}\nPLAN VERSION: ${run.planVersion}\n${stage === 'propose' ? '' : run.plan}\nWORKSPACE REVISION: ${run.artifactVersion}\nUSER CLARIFICATIONS: ${JSON.stringify(run.notes)}\nEARLIER STEP RESULTS: ${step && stage !== 'propose' ? JSON.stringify(run.tasks.filter(t => t.status === 'done' && t.stepId !== step.id).slice(-16).map(t => ({ step: t.stepId, agent: t.agentName, summary: t.result?.summary, findings: t.result?.findings }))) : ''}\nEVIDENCE AND DISCUSSION: ${context}${recovery}\nDo not invoke subagents or external actions outside this assignment. Never merge, publish, deploy, or send messages to others. The controller handles advancement. Return only the required structured result. Explain conclusions and evidence, not private reasoning.`;
     }
     private async drive(run: WorkflowRun, signal: AbortSignal) {
         await this.runtime.validate(workflowSlots(run.definition));

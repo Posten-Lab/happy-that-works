@@ -1,0 +1,15 @@
+{
+  "validatedAt": "2026-09-14T21:36:43.473Z",
+  "runId": "7036b04f-3bd1-4187-99bd-5f271b0d1bc7",
+  "actualSparkUsageLimit": true,
+  "encryptedRPC": true,
+  "daemonRestartPreservedState": true,
+  "fullStepSequenceVisible": true,
+  "switchedThroughUI": true,
+  "completed": true,
+  "planningTasksPreserved": 3,
+  "planningReplayed": false,
+  "outputVerified": true,
+  "checksPassed": true,
+  "pageErrors": []
+}

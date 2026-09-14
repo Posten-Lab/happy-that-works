@@ -3,6 +3,7 @@ import { t } from '@/text';
 
 export function workflowErrorMessage(error: unknown, fallback = 'Something went wrong. Try again. If it continues, reconnect this machine in Settings.'): string {
     const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+    if (/usage.?limit|rate.?limit|quota.*(?:exceeded|exhausted)/i.test(message)) return `${message.trim()}\nWait for the provider allowance to reset, or switch the interrupted builder’s model to continue. The approved plan and existing files are retained.`;
     if (/E2BIG|argument list too long|exec argument limit/i.test(message)) return 'The agent’s command runner could not start on this machine. Open its session for details, then give the team guidance or replace the agent to continue. Completed files are preserved.';
     if (/Unexpected .*JSON|JSON.*(?:at position|line \d+ column)|Unexpected end of JSON input/i.test(message)
         || /"code"\s*:\s*"invalid_(?:type|value)"/.test(message) && /"path"\s*:\s*\[\s*"(?:decision|summary|document|findings)"/.test(message)) return 'The agent returned a response Talos could not read. Add guidance asking for a new response, then resume. Completed work is preserved.';
@@ -37,6 +38,7 @@ export function workflowErrorMessage(error: unknown, fallback = 'Something went 
 /** Agent requests and normal coordinator decisions remain intact; runtime diagnostics get recovery copy. */
 export function workflowRunMessage(reason: string, tasks: { error?: string; result?: { summary: string } }[]): string {
     if (!reason) return '';
+    if (/usage.?limit|rate.?limit|quota.*(?:exceeded|exhausted)/i.test(reason)) return workflowErrorMessage(reason);
     if (/E2BIG|argument list too long|exec argument limit/i.test(reason)) return workflowErrorMessage(reason);
     if (/^(Coordinator (restarted|stopped)|Paused by you|Cancelled by you|Planners need|Planning round limit|Every planner approved|All planners approved|Reviewers need|Review round limit|Completion checks changed|Workspace changed|Current plan approvals)/.test(reason)) return reason;
     if (tasks.some(task => task.error === reason)) return workflowErrorMessage(reason, 'An agent could not finish this step. Open its session to inspect the work, then resume the run when the issue is resolved.');

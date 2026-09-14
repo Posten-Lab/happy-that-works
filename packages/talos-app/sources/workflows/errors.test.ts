@@ -37,6 +37,14 @@ describe('workflow failure explanations', () => {
 
 
 describe('workflowRunMessage', () => {
+    it('retains the model and reset time from a provider usage limit', () => {
+        const raw = "You've hit your usage limit for GPT-5.3-Codex-Spark. Switch to another model now, or try again at Sep 15th, 2026 3:05 AM.";
+        const friendly = workflowRunMessage(raw, [{ error: raw }]);
+        expect(friendly).toContain('GPT-5.3-Codex-Spark');
+        expect(friendly).toContain('3:05 AM');
+        expect(friendly).toContain('switch the interrupted builder');
+        expect(friendly).not.toContain('configured limits');
+    });
     it('maps provider failures while retaining diagnostics separately', () => {
         const raw = 'spawn muse ENOENT';
         expect(workflowRunMessage(raw, [{ error: raw }])).toContain('Muse Code is not installed');
