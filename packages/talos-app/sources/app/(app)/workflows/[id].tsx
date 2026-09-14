@@ -1,30 +1,33 @@
+import { WorkflowTeam, type TeamSelection } from '@/workflows/WorkflowTeam';
+import { WorkflowDiscussion } from '@/workflows/WorkflowDiscussion';
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { workflowStageLabel, workflowSlots, workflowRecoverableExecutor, type WorkflowRun, type WorkflowTask } from '@ahmadposten/talos-wire';
 import { loadWorkflowRun, workflowRPC } from '@/workflows/api';
-import { WorkflowButton as Button, WorkflowInput as Input, WorkflowAvatar, WorkflowStatusChip, WorkflowSectionHeader, useWorkflowStyles } from '@/workflows/ui';
+import { WorkflowButton as Button, WorkflowInput as Input, WorkflowStatusChip, WorkflowSectionHeader, useWorkflowStyles } from '@/workflows/ui';
 import { useSetting } from '@/sync/storage';
 import { Modal } from '@/modal';
 import { Typography } from '@/constants/Typography';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { WorkflowScaffold, WorkflowNotice } from '@/workflows/WorkflowScaffold';
 import { workflowErrorMessage, workflowRunMessage } from '@/workflows/errors';
-import { workflowCurrentParticipants, workflowDefaultPane, workflowParticipantState, workflowRunSteps, type WorkflowPane } from '@/workflows/runPresentation';
+import { workflowDefaultPane, workflowParticipantState, workflowRunSteps, type WorkflowPane } from '@/workflows/runPresentation';
 import { t } from '@/text';
 import { WorkflowModelRecovery } from '@/workflows/WorkflowModelRecovery';
 
-const providers = { codex: 'Codex', claude: 'Claude', muse: 'Muse Code' };
 const statusLabels = { running: 'Running', paused: 'Paused', needs_input: 'Needs you', complete: 'Complete', cancelled: 'Cancelled' };
-const panes: WorkflowPane[] = ['Plan', 'Work', 'Review', 'Activity'];
+const panes: WorkflowPane[] = ['Team', 'Work', 'Review', 'Activity'];
 
 export default function WorkflowRunScreen() {
-    const params = useLocalSearchParams<{ id: string; machineId: string }>();
+    const params = useLocalSearchParams<{ id: string; machineId: string; teamStep?: string; teamAgent?: string; historyRequest?: string }>();
     const id = typeof params.id === 'string' ? params.id : '', machine = typeof params.machineId === 'string' ? params.machineId : '';
     const router = useRouter(), s = useWorkflowStyles(), window = useWindowDimensions();
     const legacyAgents = useSetting('agentLibrary'), providerAgents = useSetting('agentLibraryV2'), extendedAgents = useSetting('agentLibraryV3');
     const agents = [...legacyAgents, ...providerAgents, ...extendedAgents];
+    const [teamSelection, setTeamSelection] = React.useState<TeamSelection | null>(null);
+    const [planRequest, setPlanRequest] = React.useState(0);
     const [run, setRun] = React.useState<WorkflowRun | null>(null), [error, setError] = React.useState(''), [note, setNote] = React.useState('');
     const [busy, setBusy] = React.useState(false), [chosenPane, setChosenPane] = React.useState<WorkflowPane | null>(null);
     const [replacement, setReplacement] = React.useState<string | null>(null), [controls, setControls] = React.useState(false);
@@ -41,7 +44,7 @@ export default function WorkflowRunScreen() {
     const routeKey = `${machine}:${id}`, route = React.useRef(routeKey); route.current = routeKey;
     React.useEffect(() => {
         let live = true, loading = false;
-        setRun(null); setChosenPane(null); setError(''); setConnectionError(''); setNote(''); setExpanded(null); setDetail(null); setReplacement(null); setControls(false); setPromptExpanded(false); setActivityLimit(6); setDiagnostics(false); setRequestChanges(false);
+        setRun(null); setTeamSelection(null); setChosenPane(null); setError(''); setConnectionError(''); setNote(''); setExpanded(null); setDetail(null); setReplacement(null); setControls(false); setPromptExpanded(false); setActivityLimit(6); setDiagnostics(false); setRequestChanges(false);
         const refresh = async () => {
             if (loading) return; loading = true;
             try { const value = await loadWorkflowRun(machine, id); if (live) { setRun(current => current?.id === value.id && current.revision > value.revision ? current : value); setConnectionError(''); } }
@@ -50,6 +53,18 @@ export default function WorkflowRunScreen() {
         };
         void refresh(); const timer = setInterval(refresh, 4000); return () => { live = false; clearInterval(timer); };
     }, [machine, id]);
+    React.useEffect(() => {
+        if (!run) return;
+        setChosenPane(current => current ?? workflowDefaultPane(run));
+        const initial = workflowRunSteps(run);
+        setTeamSelection(current => current ?? { stepId: initial.steps[initial.currentIndex].id, agentId: null });
+    }, [run?.id]);
+    React.useEffect(() => {
+        if (typeof params.teamStep === 'string') {
+            setTeamSelection({ stepId: params.teamStep, agentId: typeof params.teamAgent === 'string' ? params.teamAgent : null });
+            setChosenPane('Team');
+        }
+    }, [params.teamStep, params.teamAgent, params.historyRequest]);
     React.useEffect(() => { if (error) scroll.current?.scrollTo({ y: 0, animated: true }); }, [error]);
     const currentIndex = run ? workflowRunSteps(run).currentIndex : 0;
     const action = async (name: string, extra: object = {}) => {
@@ -75,15 +90,23 @@ export default function WorkflowRunScreen() {
     };
     const openSession = (sessionId: string) => router.push(`/session/${sessionId}` as any);
     const readPlan = () => {
-        setChosenPane('Plan');
+        setChosenPane('Team');
+        const planStep = run && workflowRunSteps(run).steps.slice(0, workflowRunSteps(run).currentIndex + 1).filter(step => step.kind === 'plan').at(-1);
+        if (planStep) setTeamSelection({ stepId: planStep.id, agentId: null });
+        setPlanRequest(n => n + 1);
         requestAnimationFrame(() => scroll.current?.scrollTo({ y: Math.max(0, runTop.current + paneTop.current - 12), animated: true }));
     };
     const finished = run?.status === 'complete' || run?.status === 'cancelled';
     const slots = run ? [...new Map(workflowSlots(run.definition).map(slot => [slot.agent.id, slot])).values()] : [];
     const presentation = run ? workflowRunSteps(run) : null;
     const currentStep = run?.definition.steps?.[run.stepIndex ?? 0];
-    const participants = run ? workflowCurrentParticipants(run) : [];
-    const pane = chosenPane ?? (run ? workflowDefaultPane(run) : 'Plan');
+    const selection = teamSelection ?? { stepId: presentation?.steps[presentation.currentIndex]?.id ?? 'plan', agentId: null };
+    const selectTeam = (value: TeamSelection) => {
+        setTeamSelection(value); setChosenPane('Team');
+        if (wide) return;
+        requestAnimationFrame(() => scroll.current?.scrollTo({ y: Math.max(0, runTop.current + paneTop.current - 12), animated: true }));
+    };
+    const pane = chosenPane ?? (run ? workflowDefaultPane(run) : 'Team');
     const currentPlanStep = run?.definition.steps?.slice(0, (run.stepIndex ?? 0) + 1).reverse().find(step => step.kind === 'plan');
     const votes = run?.tasks.filter(task => task.stage === 'plan_vote' && task.version === `plan:${run.planVersion}` && task.round === run.planningRound && (!currentPlanStep || task.stepId === currentPlanStep.id && (currentStep?.kind !== 'plan' || task.attempt === run.stepAttempt))) ?? [];
     const canApprove = !!run && run.stage === 'plan_vote' && (currentPlanStep?.agents ?? run.definition.planners).every(slot => { const vote = [...votes].reverse().find(task => task.agentId === slot.agent.id); return vote?.status === 'done' && vote.result?.decision === 'approve' && !vote.result.findings.some(finding => finding.blocking); });
@@ -100,7 +123,7 @@ export default function WorkflowRunScreen() {
         {connectionError !== '' && <WorkflowNotice title="Machine disconnected" message={connectionError} />}
         {error !== '' && <WorkflowNotice title="The run needs attention" message={error} action="Dismiss" onAction={() => setError('')} />}
         {!run ? <View style={{ gap: 16, paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={s.colors.accent} /><Text style={s.muted}>Connecting to your workflow…</Text><Button label="Back to workflows" variant="ghost" compact onPress={() => router.push('/workflows' as any)} /></View> : <View onLayout={event => { setContentWidth(event.nativeEvent.layout.width); runTop.current = event.nativeEvent.layout.y; }} style={{ width: '100%', flexDirection: wide ? 'row' : 'column', alignItems: 'flex-start', gap: wide ? 36 : 24 }}>
-            <View style={{ width: wide ? 320 : '100%', flexShrink: 0, gap: 16 }}>
+            <View style={{ width: wide ? 320 : '100%', flexShrink: 0, gap: 16, ...(wide && Platform.OS === 'web' ? { position: 'sticky' as any, top: 16, alignSelf: 'flex-start' as const } : {}) }}>
             <View style={{ gap: 14 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     <Text style={{ ...s.muted, fontSize: 11, letterSpacing: 1.5 }}>WORKFLOW RUN</Text>
@@ -112,7 +135,7 @@ export default function WorkflowRunScreen() {
             </View>
 
             <View accessibilityLabel="Workflow progress" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {presentation!.steps.map((step, index) => <Pressable key={step.id} accessibilityRole="button" accessibilityLabel={`Step ${index + 1}, ${step.name}, ${step.state}`} onPress={() => setChosenPane(step.kind === 'plan' ? 'Plan' : step.kind === 'execute' ? 'Work' : 'Review')} style={{ flexGrow: 1, flexBasis: 90, maxWidth: 180, gap: 6 }}>
+                {presentation!.steps.map((step, index) => <Pressable key={step.id} accessibilityRole="button" accessibilityLabel={`Step ${index + 1}, ${step.name}, ${step.state}`} onPress={() => selectTeam({ stepId: step.id, agentId: null })} style={{ flexGrow: 1, flexBasis: 90, maxWidth: 180, gap: 6 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: step.state === 'current' ? 0 : 1, borderColor: s.colors.divider, backgroundColor: step.state === 'current' ? s.colors.accent : s.colors.surface }}>
                         {step.state === 'passed' ? <Ionicons name="checkmark" size={17} color={s.colors.success} /> : <Text style={{ ...s.muted, fontSize: 12, fontWeight: '600', color: step.state === 'current' ? s.colors.button.primary.tint : s.colors.textSecondary }}>{index + 1}</Text>}</View>{index < presentation!.steps.length - 1 && <View style={{ flex: 1, height: 1, backgroundColor: s.colors.divider }} />}</View>
                     <Text style={{ ...s.muted, fontSize: 12, lineHeight: 17, color: step.state === 'current' ? s.colors.text : s.colors.textSecondary, fontWeight: step.state === 'current' ? '600' : '400' }} numberOfLines={2}>{step.name}</Text>
@@ -129,11 +152,7 @@ export default function WorkflowRunScreen() {
                     {run.status === 'running' && <Button label="Pause" accessibilityLabel="Pause run" variant="ghost" compact disabled={busy} onPress={() => void action('pause')} />}
                 </View>
                 {!!recoverableExecutor && <Text style={s.muted}>{recoverableExecutor.agent.modelLabel || recoverableExecutor.agent.model}</Text>}
-                {participants.map(({ slot, task }) => <View key={slot.agent.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, borderTopWidth: 1, borderColor: s.colors.divider }}>
-                    <WorkflowAvatar name={slot.agent.name} provider={slot.agent.provider} size={40} />
-                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}><Text style={{ ...s.text, ...Typography.header(), fontSize: 15 }} numberOfLines={1}>{slot.agent.name}</Text><Text style={{ ...s.muted, fontSize: 12 }} numberOfLines={1}>{providers[slot.agent.provider]} · {workflowParticipantState(run, task)}</Text></View>
-                    {task?.sessionId ? <Button label="Open session" accessibilityLabel={`Open ${slot.agent.name} session`} variant="ghost" compact onPress={() => openSession(task.sessionId!)} /> : <Text style={{ ...s.muted, fontSize: 12 }}>Preparing</Text>}
-                </View>)}
+                <WorkflowTeam run={run} selection={selection} onSelect={selectTeam} />
             </View>
 
             {run.status === 'needs_input' || run.status === 'paused' ? <View style={{ gap: 12 }}>
@@ -177,11 +196,7 @@ export default function WorkflowRunScreen() {
                 {panes.map(label => <Pressable key={label} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: pane === label }} aria-selected={pane === label} onPress={() => setChosenPane(label)} style={({ pressed }) => ({ flex: 1, alignItems: 'center', paddingVertical: 13, borderBottomWidth: 2, borderColor: pane === label ? s.colors.accent : 'transparent', opacity: pressed ? 0.6 : 1 })}><Text style={{ ...s.text, fontSize: 14, fontWeight: pane === label ? '600' : '400', color: pane === label ? s.colors.text : s.colors.textSecondary }}>{label}</Text></Pressable>)}
             </View>
             <View accessibilityLabel={`${pane} panel`} style={{ gap: 24 }}>
-                {pane === 'Plan' && <>
-                    <View style={{ gap: 10 }}><WorkflowSectionHeader title={run.plan ? `Plan · v${run.planVersion}` : 'Planning together'} />{run.plan ? <MarkdownView markdown={run.plan} /> : <EmptyState icon="git-compare-outline" title="Your planners are getting started" message="Their proposals and agreed plan appear here. Open the active session above to follow their work." />}</View>
-                    {votes.length > 0 && <View style={{ gap: 12 }}><WorkflowSectionHeader title="Planning consensus" />{votes.map(task => <View key={task.id} style={{ gap: 5, paddingVertical: 10, borderBottomWidth: 1, borderColor: s.colors.divider }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}><Text style={{ ...s.text, ...Typography.header(), fontWeight: '600' }}>{task.agentName}</Text><WorkflowStatusChip label={task.result?.decision === 'approve' ? 'Approved' : workflowParticipantState(run, task)} tone={task.result?.decision === 'approve' ? 'success' : 'neutral'} /></View>{!!task.result?.summary && <Text style={s.muted}>{task.result.summary}</Text>}</View>)}</View>}
-                    <View style={{ gap: 8 }}><WorkflowSectionHeader title="What success looks like" /><Text selectable style={s.muted}>{run.definition.criteria}</Text></View>
-                </>}
+                {pane === 'Team' && <WorkflowDiscussion key={params.historyRequest ?? 'discussion'} run={run} selection={selection} onSelect={setTeamSelection} onSession={openSession} planRequest={planRequest} onLatest={() => scroll.current?.scrollToEnd({ animated: true })} />}
                 {pane === 'Work' && <>
                     <View style={{ gap: 12 }}><WorkflowSectionHeader title={run.status === 'complete' ? 'Delivered work' : 'Execution'} />{executions.length ? executions.map((task, index) => <View key={task.id} style={{ gap: 10, paddingBottom: 18, borderBottomWidth: 1, borderColor: s.colors.divider }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}><Text style={{ ...s.text, ...Typography.header(), fontWeight: '600', flex: 1 }}>{run.definition.steps?.find(step => step.id === task.stepId)?.name ?? `Execution round ${task.round}`}</Text>{task.sessionId && <Button label="Open session" accessibilityLabel={`Open execution session round ${task.round}`} variant="ghost" compact onPress={() => openSession(task.sessionId!)} />}</View><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}><Text style={{ ...s.muted, fontSize: 12, flex: 1 }}>{index === 0 ? 'Latest execution' : 'Earlier execution'} · {task.agentName}</Text><WorkflowStatusChip label={task.status === 'interrupted' ? 'Interrupted' : task.status === 'done' ? 'Finished' : workflowParticipantState(run, task)} tone={task.status === 'interrupted' ? 'warning' : 'neutral'} /></View><Text style={s.text}>{task.result?.summary ?? (task.status === 'running' ? 'Your executor is working on this step.' : workflowParticipantState(run, task))}</Text>{!!task.result?.document && <MarkdownView markdown={task.result.document} />}</View>) : <EmptyState icon="hammer-outline" title="Execution is up next" message="Once the planning step passes, the executor’s work and results appear here." />}</View>
                     <Checks run={run} expanded={checkExpanded} onExpand={index => setCheckExpanded(checkExpanded === index ? null : index)} />

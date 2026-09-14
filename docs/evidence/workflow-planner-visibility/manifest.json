@@ -1,0 +1,58 @@
+{
+  "images": [
+    {
+      "file": "01-all-planners-live.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "d2ac0cf715339d73a063a4444263468612688dc0d2b1d4ba78178a17cd026aae"
+    },
+    {
+      "file": "02-original-objection.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "090c9e3bca607469f2524c08a1d5d71db52eee3d321d8af2b83a5cedda2bd09c"
+    },
+    {
+      "file": "03-source-transcript.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "00f19bcb9b2b9dc10ffe3b74f9e199f10fbd944216fd8195998ee032b6c7de55"
+    },
+    {
+      "file": "04-resolution-history.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "a770c05f33ab46e9d15483607d95339fbdfca409f0b6c82eaf7ceacd450dd8c8"
+    },
+    {
+      "file": "05-plan-comparison.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "1d5d50be9806c976b8e268f98fd5df0d201d22a4e0278129aa561db18ac79ada"
+    },
+    {
+      "file": "06-desktop-evidence.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "62262fbc7b138f380c452c137255bcbb69c5d507555558cba56c6f6311eade7f"
+    },
+    {
+      "file": "07-history-after-completion.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "81e0768cb0d6c3bb3108cff47e66387b6169921e14f367e6d1a0599843a727f6"
+    },
+    {
+      "file": "08-verified-objection.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "037e39bf969bd4e9de0b3ae498b6c907548f3261108cd7cc397cfd1cf340ae6a"
+    },
+    {
+      "file": "09-desktop-history.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "2f2ed9d155bf6682f255c6541f38aff29223db85fbc1d5de44496af5314fac7b"
+    }
+  ]
+}

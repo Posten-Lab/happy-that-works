@@ -1,6 +1,6 @@
 import type { WorkflowRun, WorkflowSlot, WorkflowStage, WorkflowTask } from '@ahmadposten/talos-wire';
 
-export type WorkflowPane = 'Plan' | 'Work' | 'Review' | 'Activity';
+export type WorkflowPane = 'Team' | 'Work' | 'Review' | 'Activity';
 export type RunStep = { id: string; name: string; kind: 'plan' | 'execute' | 'review'; agents: WorkflowSlot[]; state: 'passed' | 'current' | 'waiting' | 'stopped' };
 
 export function workflowRunSteps(run: WorkflowRun): { steps: RunStep[]; currentIndex: number } {
@@ -16,7 +16,7 @@ export function workflowRunSteps(run: WorkflowRun): { steps: RunStep[]; currentI
 
 export function workflowDefaultPane(run: WorkflowRun): WorkflowPane {
     if (run.status === 'complete') return 'Work';
-    return run.stage === 'execute' ? 'Work' : run.stage === 'review' || run.stage === 'verify' ? 'Review' : 'Plan';
+    return run.stage === 'execute' ? 'Work' : run.stage === 'review' || run.stage === 'verify' ? 'Review' : 'Team';
 }
 
 export function workflowCurrentParticipants(run: WorkflowRun): { slot: WorkflowSlot; task?: WorkflowTask }[] {
@@ -25,17 +25,16 @@ export function workflowCurrentParticipants(run: WorkflowRun): { slot: WorkflowS
     if (!current) return [];
     const tasks = run.tasks.filter(task => current.agents.some(slot => slot.agent.id === task.agentId)
         && (!run.definition.steps || task.stepId === current.id && task.attempt === run.stepAttempt));
-    const active = run.status === 'running' ? tasks.filter(task => task.status === 'running' && task.stage === run.stage) : [];
-    const selected = active.length ? current.agents.filter(slot => active.some(task => task.agentId === slot.agent.id)) : current.agents;
-    return selected.map(slot => ({ slot, task: [...tasks].reverse().find(task => task.agentId === slot.agent.id) }));
+    return current.agents.map(slot => ({ slot, task: [...tasks].reverse().find(task => task.agentId === slot.agent.id) }));
 }
 
 const doneLabels: Record<WorkflowStage, string> = { propose: 'Proposed', consolidate: 'Plan ready', plan_vote: 'Approved', execute: 'Finished', verify: 'Checked', review: 'Approved' };
 export function workflowParticipantState(run: WorkflowRun, task?: WorkflowTask): string {
-    if (run.status === 'cancelled') return 'Stopped';
-    if (run.status === 'paused') return 'Paused';
+    if (task?.status !== 'done' && run.status === 'cancelled') return 'Stopped';
+    if (task?.status !== 'done' && run.status === 'paused') return 'Paused';
     if (task?.status === 'interrupted') return 'Interrupted';
     if (task?.status === 'running') return run.status === 'running' ? 'Working' : 'Waiting for you';
+    if (task?.result?.decision === 'approve' && task.result.findings.some(f => f.blocking)) return 'Blocking findings';
     if (task?.result?.decision === 'changes') return 'Changes requested';
     if (task?.result?.decision === 'information') return 'Needs your input';
     if (task?.result?.decision === 'replan') return 'Replan requested';

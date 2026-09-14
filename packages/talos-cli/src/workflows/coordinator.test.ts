@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { WorkflowCoordinator, type WorkflowRuntime } from './coordinator';
-import { WorkflowDefinitionSchema, workflowProjection, type WorkflowDefinition, type WorkflowRun, type WorkflowDecision } from '@ahmadposten/talos-wire';
+import { WorkflowRunSchema, WorkflowDefinitionSchema, workflowProjection, type WorkflowDefinition, type WorkflowRun, type WorkflowDecision } from '@ahmadposten/talos-wire';
 import { definition } from './testFixture';
 
 const approve: WorkflowDecision = { decision: 'approve', summary: 'Verified.', document: 'Implement the requested result.', findings: [] };
@@ -78,6 +78,38 @@ describe('workflow consensus and delivery', () => {
         await expect(c.action({ id: run.id, expectedRevision: failed.revision, action: 'change_model', model: 'replacement' })).rejects.toThrow('Only an interrupted executor');
         expect(c.get(run.id)).toEqual(failed);
     });
+    it('records exact handoffs, retains planning objections, and persists explicit resolution evidence', async () => {
+        const { coordinator: c, start } = setup({ turn: async (run, task) => {
+            if (task.stage === 'propose') {
+                expect(task.inputs).toEqual([]);
+                return approve;
+            }
+            if (task.stage === 'plan_vote' && task.round === 1 && task.agentId === 'planner-b') return {
+                ...approve, decision: 'changes', findings: [{ title: 'Retry behavior', evidence: 'No idempotency', correction: 'Require a key', blocking: true }],
+            };
+            const source = run.tasks.find(t => t.agentId === 'planner-b' && t.stage === 'plan_vote' && t.round === 1);
+            if (source && task.round === 2 && ['consolidate', 'plan_vote'].includes(task.stage)) {
+                expect(task.inputs?.some(input => input.taskId === source.id)).toBe(true);
+                expect(task.prompt).toContain(`${source.id}:0`);
+                if (task.stage === 'consolidate' || task.agentId === 'planner-b') return { ...approve,
+                    findingResponses: [{ findingId: `${source.id}:0`, status: task.stage === 'consolidate' ? 'addressed' : 'verified', evidence: 'Idempotency added to v2.' }] };
+            }
+            return approve;
+        } });
+        const d = definition(); d.approvePlan = true;
+        const started = await start(d), run = await until(c, started.id, stopped);
+        expect(run.planVersion).toBe(2);
+        expect(run.historyVersion).toBe(1);
+        const consolidation = run.tasks.find(t => t.stage === 'consolidate' && t.round === 1)!;
+        expect(consolidation.inputs).toHaveLength(2);
+        expect(consolidation.participants?.map(agent => agent.id)).toEqual(['planner-a', 'planner-b']);
+        const summary = WorkflowRunSchema.parse(c.view(run.id));
+        expect(summary.tasks.find(t => t.agentId === 'planner-b' && t.stage === 'plan_vote' && t.round === 1)?.result?.findings[0].title).toBe('Retry behavior');
+        expect(summary.tasks.find(t => t.agentId === 'planner-b' && t.stage === 'plan_vote' && t.round === 2)?.result?.findingResponses?.[0].status).toBe('verified');
+        expect(summary.tasks.every(t => t.prompt === '' && !t.result?.document)).toBe(true);
+        await c.shutdown();
+    });
+
     it.each(['/project', '/project/child', '/'])('rejects overlapping direct starts at %s and retains paused claims', async directory => {
         const { coordinator: c } = setup({ prepare: async i => ({ sourceDirectory: i.directory, directory: i.directory, branch: '', baseCommit: '' }) });
         const d = definition(); d.approvePlan = true;

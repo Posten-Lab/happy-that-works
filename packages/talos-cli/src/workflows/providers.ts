@@ -3,7 +3,7 @@ import { homedir, hostname } from 'node:os';
 import { realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { query, type Options } from '@anthropic-ai/claude-agent-sdk';
-import { WorkflowDecisionSchema } from '@ahmadposten/talos-wire';
+import { WorkflowDecisionOutputSchema, WorkflowDecisionSchema } from '@ahmadposten/talos-wire';
 import type { WorkflowRuntime } from './coordinator';
 import type { ApiClient } from '@/api/api';
 import type { RawJSONLines } from '@/claude/types';
@@ -80,7 +80,7 @@ export function providerWorkflowTurn(api: ApiClient, home: string): WorkflowRunt
                 const client = query({ prompt: task.prompt, options: {
                     ...claudeWorkflowOptions(run.directory, task.stage === 'execute'), cwd: run.directory,
                     env, model: slot.agent.model, effort: (slot.agent.effort ?? undefined) as Options['effort'],
-                    abortController: abort, maxTurns: 40, outputFormat: { type: 'json_schema', schema: z.toJSONSchema(WorkflowDecisionSchema, { target: 'draft-7' }) },
+                    abortController: abort, maxTurns: 40, outputFormat: { type: 'json_schema', schema: z.toJSONSchema(WorkflowDecisionOutputSchema, { target: 'draft-7' }) },
                 } });
                 close = () => client.close();
                 let result: unknown;
@@ -121,7 +121,7 @@ export function providerWorkflowTurn(api: ApiClient, home: string): WorkflowRunt
                 await client.start();
                 task.threadId = client.sessionId; checkpoint();
                 if (abort.signal.aborted) throw new Error('Step cancelled');
-                await client.prompt(`${task.prompt}\nReturn one JSON object matching this schema, with no Markdown fences or other text:\n${JSON.stringify(z.toJSONSchema(WorkflowDecisionSchema))}`,
+                await client.prompt(`${task.prompt}\nReturn one JSON object matching this schema, with no Markdown fences or other text:\n${JSON.stringify(z.toJSONSchema(WorkflowDecisionOutputSchema))}`,
                     { model: slot.agent.model, effort: slot.agent.effort ?? undefined, permissionMode: 'never' });
                 if (abort.signal.aborted || providerError) throw providerError ?? new Error(timedOut ? 'Step time limit reached.' : 'Step cancelled');
                 if (answer.length > 64000) throw new Error('Agent result exceeded the workflow limit.');

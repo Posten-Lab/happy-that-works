@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, workflowSlots, workflowProjection, workflowRecoverableExecutor, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
+import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, workflowSlots, workflowProjection, workflowFindingId, validWorkflowResponses, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
 
 type Start = ReturnType<typeof WorkflowStartSchema.parse>;
 export interface WorkflowRuntime {
@@ -69,7 +69,7 @@ export class WorkflowCoordinator {
         const run = this.get(id);
         const clip = (value: string, length: number) => value.length > length ? value.slice(0, length) + '\n[Preview shortened. Open task details for full evidence.]' : value;
         run.tasks = run.tasks.map(t => ({ ...t, assignment: '', prompt: '', result: t.result ? { ...t.result, document: '',
-            findings: t.stage === 'review' && t.round === run.reviewRound && (!run.definition.steps || t.stepId === run.definition.steps[run.stepIndex ?? 0]?.id && t.attempt === run.stepAttempt) ? t.result.findings : [] } : undefined }));
+            findings: t.stage === 'review' && t.round === run.reviewRound && (!run.definition.steps || t.stepId === run.definition.steps[run.stepIndex ?? 0]?.id && t.attempt === run.stepAttempt) ? t.result.findings : t.result.findings.map(f => ({ ...f, evidence: clip(f.evidence, 300), correction: clip(f.correction, 300) })) } : undefined }));
         run.events = run.events.slice(-100);
         run.notes = run.notes.slice(-5);
         for (const length of [2000, 500, 100]) {
@@ -77,6 +77,7 @@ export class WorkflowCoordinator {
                 if (t.error) t.error = clip(t.error, length);
                 if (!t.result) continue;
                 t.result.summary = clip(t.result.summary, length);
+                t.result.findingResponses = t.result.findingResponses?.map(response => ({ ...response, evidence: clip(response.evidence, length) }));
                 t.result.findings = t.result.findings.map(f => ({ ...f, evidence: clip(f.evidence, length), correction: clip(f.correction, length) }));
             }
             run.events = run.events.map(e => ({ ...e, text: clip(e.text, length) }));
@@ -130,7 +131,7 @@ export class WorkflowCoordinator {
         const run = WorkflowRunSchema.parse({ id: input.id, revision: 0, definition: input.definition, machineId: this.machineId, task: input.task, requestedDirectory: input.directory, ...workspace,
             ...(input.definition.steps ? { stepIndex: 0, stepAttempt: 1, completedSteps: [], stepRounds: {} } : {}),
             status: 'running', stage: 'propose', planningRound: 1, reviewRound: 1, planVersion: 1, plan: '', artifactVersion: '', reason: '',
-            tasks: [], checks: [], events: [], notes: [], approvedPlanVersion: null, createdAt: now, updatedAt: now });
+            historyVersion: 1, tasks: [], checks: [], events: [], notes: [], approvedPlanVersion: null, createdAt: now, updatedAt: now });
         this.persist(run, `${direct ? 'Run created in the selected project folder.' : 'Run created in an isolated worktree.'} All required participants must approve.`);
         this.runs.set(run.id, run); this.kick(run); return this.get(run.id);
     }
@@ -253,29 +254,57 @@ export class WorkflowCoordinator {
         if (signal.aborted || run.status !== 'running') throw new Error('Workflow is no longer running');
         const done = this.current(run, slot); if (done?.result) return done.result;
         if (run.tasks.length >= run.definition.maxTurns) throw new Error(agentTurnLimit);
-        const prompt = this.prompt(run, slot);
+        const inputs = this.inputs(run);
+        const prompt = this.prompt(run, slot, inputs);
         if (Buffer.byteLength(prompt) > 400000) throw new Error(workflowContextLimit);
         const task: WorkflowTask = { ...(run.definition.steps ? { stepId: run.definition.steps[run.stepIndex ?? 0].id, attempt: run.stepAttempt } : {}), id: randomUUID(), stage: run.stage, round: run.stage === 'execute' || run.stage === 'review' ? run.reviewRound : run.planningRound,
             agentId: slot.agent.id, agentName: slot.agent.name, assignment: slot.assignment, version: run.stage === 'review' ? run.artifactVersion : `plan:${run.planVersion}`,
-            status: 'running', startedAt: Date.now(), clarifications: run.notes.length, prompt,
-            provider: slot.agent.provider, model: slot.agent.model, effort: slot.agent.effort };
+            status: 'running', startedAt: Date.now(), clarifications: run.notes.length, inputs,
+            participants: (run.definition.steps?.[run.stepIndex ?? 0]?.agents ?? (run.stage === 'review' ? run.definition.reviewers : run.stage === 'execute' ? [run.definition.executor] : run.definition.planners)).map(s => ({ id: s.agent.id, name: s.agent.name })), prompt };
         run.tasks.push(task); this.persist(run, `${slot.agent.name}: ${run.stage} started.`);
         try {
             const result = await this.runtime.turn(run, task, slot, signal, () => this.persist(run));
             if (signal.aborted) throw new Error('Step interrupted. Inspect its work before resuming.');
+            if (result.findingResponses) result.findingResponses = validWorkflowResponses(run.tasks, task, result);
             task.result = result; task.status = 'done'; task.completedAt = Date.now(); this.persist(run, `${slot.agent.name}: ${result.decision} — ${result.summary}`); return result;
         } catch (e) { task.status = 'interrupted'; task.completedAt = Date.now(); task.error = e instanceof Error ? e.message : 'Step interrupted'; this.persist(run); throw e; }
     }
-    private prompt(run: WorkflowRun, slot: WorkflowSlot) {
+    private inputs(run: WorkflowRun): NonNullable<WorkflowTask['inputs']> {
+        if (run.stage === 'propose') return [];
+        const step = run.definition.steps?.[run.stepIndex ?? 0];
+        const completed = run.tasks.filter(t => t.status === 'done');
+        const local = completed.filter(t => !step || t.stepId === step.id && t.attempt === run.stepAttempt);
+        const inputs: NonNullable<WorkflowTask['inputs']> = [];
+        const add = (tasks: WorkflowTask[], content: NonNullable<WorkflowTask['inputs']>[number]['content']) => {
+            for (const task of tasks) if (!inputs.some(i => i.taskId === task.id)) inputs.push({ taskId: task.id, content });
+        };
+        if (run.stage === 'consolidate') add(local.filter(t => t.stage === 'propose' || t.stage === 'plan_vote' && t.round < run.planningRound), 'result');
+        if (run.stage === 'plan_vote') add(local.filter(t => t.stage === 'plan_vote' && t.round < run.planningRound || ['propose', 'consolidate'].includes(t.stage) && !!t.result?.findings.some(f => f.blocking)), 'findings');
+        if (run.stage === 'execute') add(completed.filter(t => t.stage === 'review' && t.round === run.reviewRound - 1), 'result');
+        if (run.stage === 'review') {
+            add(local.filter(t => t.stage === 'review' && t.round < run.reviewRound), 'findings');
+            add(completed.filter(t => t.stage === 'execute').slice(-1), 'result');
+        }
+        const plan = completed.filter(t => t.stage === 'consolidate' && t.version === `plan:${run.planVersion}`).slice(-1);
+        add(plan, 'plan');
+        if (step) add(completed.filter(t => t.stepId !== step.id).slice(-16), 'summary');
+        return inputs;
+    }
+    private prompt(run: WorkflowRun, slot: WorkflowSlot, inputs: NonNullable<WorkflowTask['inputs']>) {
         const stage = run.stage;
         const step = run.definition.steps?.[run.stepIndex ?? 0];
         const interrupted = run.tasks.filter(task => task.status === 'interrupted' && task.stage === stage
             && task.version === `plan:${run.planVersion}` && (!step || task.stepId === step.id && task.attempt === run.stepAttempt)).slice(-3);
         const recovery = interrupted.length ? `\nRECOVERY: Earlier attempts of this step were interrupted. Inspect the existing files and partial edits before continuing; preserve completed work and repair incomplete changes. The approved plan still applies.\n${JSON.stringify(interrupted.map(task => ({ agent: task.agentName, model: task.model, sessionId: task.sessionId, threadId: task.threadId, error: task.error })))}` : '';
-        const context = stage === 'propose' ? '' : stage === 'consolidate'
-            ? JSON.stringify(run.tasks.filter(t => t.status === 'done' && (t.stage === 'propose' && t.version === `plan:${run.planVersion}` || t.stage === 'plan_vote' && t.round === run.planningRound - 1)).map(t => ({ agent: t.agentName, version: t.version, result: t.result })))
-            : stage === 'execute' ? JSON.stringify({ checks: run.checks, findings: run.tasks.filter(t => t.stage === 'review' && t.status === 'done' && t.round === run.reviewRound - 1).map(t => ({ agent: t.agentName, revision: t.version, result: t.result })) })
-            : stage === 'review' ? JSON.stringify({ priorFindings: run.tasks.filter(t => t.stage === 'review' && t.status === 'done' && t.round === run.reviewRound - 1).map(t => ({ agent: t.agentName, version: t.version, findings: t.result?.findings })), checks: run.checks, execution: [...run.tasks].reverse().find(t => t.stage === 'execute' && t.status === 'done')?.result }) : '';
+        const shared = inputs.map(input => {
+            const task = run.tasks.find(t => t.id === input.taskId)!;
+            const findings = task.result?.findings.map((finding, index) => ({ id: workflowFindingId(task, index), ...finding }));
+            return { taskId: task.id, agent: task.agentName, version: task.version, content: input.content,
+                ...(input.content === 'plan' ? { document: task.result?.document }
+                    : input.content === 'findings' ? { findings }
+                    : input.content === 'summary' ? { summary: task.result?.summary, findings }
+                    : { result: { ...task.result, findings } }) };
+        });
         const instruction = {
             propose: 'Independently propose an approach. Do not seek other participants\' proposals. Put your proposal in document.',
             consolidate: 'Consolidate the proposals and objections into ONE implementable plan. Put the complete plan in document. Address every unresolved objection. You cannot override votes.',
@@ -284,7 +313,7 @@ export class WorkflowCoordinator {
             review: 'Independently inspect the exact workspace revision and completion evidence. Verify every acceptance criterion and earlier fixes. Do not edit files. Approve only with no unresolved blocking findings. Supply evidence and actionable correction for each finding.',
             verify: '',
         }[stage];
-        return `You are ${slot.agent.name}. ${slot.agent.description}\n${slot.agent.instructions}\n${slot.agent.documents.map(d => `${d.name}:\n${d.content}`).join('\n')}\n\nWORKFLOW STEP: ${step ? `${(run.stepIndex ?? 0) + 1}. ${step.name} (${step.kind})` : stage}\nSTEP CRITERIA: ${step?.criteria || 'Follow this step’s assignment.'}\n${step ? 'Execute and assess only the current step’s scope. Later steps remain responsible for their assignments. Intermediate reviewers gate this step; final reviewers must also verify all workflow acceptance criteria and completion checks.' : ''}\nSTEP SEQUENCE: ${run.definition.steps?.map(s => s.name).join(' → ') ?? 'Plan → Execute → Review'}\nWORKFLOW ASSIGNMENT: ${slot.assignment}\nTASK: ${run.task}\nACCEPTANCE CRITERIA: ${run.definition.criteria}\nREQUIRED COMPLETION CHECKS: ${JSON.stringify(run.definition.checks)}\nSTEP CHECKS: ${JSON.stringify(step?.checks ?? [])}\nSTAGE: ${stage}\nROUND: ${stage === 'execute' || stage === 'review' ? run.reviewRound : run.planningRound}\n${instruction}\nPLAN VERSION: ${run.planVersion}\n${stage === 'propose' ? '' : run.plan}\nWORKSPACE REVISION: ${run.artifactVersion}\nUSER CLARIFICATIONS: ${JSON.stringify(run.notes)}\nEARLIER STEP RESULTS: ${step && stage !== 'propose' ? JSON.stringify(run.tasks.filter(t => t.status === 'done' && t.stepId !== step.id).slice(-16).map(t => ({ step: t.stepId, agent: t.agentName, summary: t.result?.summary, findings: t.result?.findings }))) : ''}\nEVIDENCE AND DISCUSSION: ${context}${recovery}\nDo not invoke subagents or external actions outside this assignment. Never merge, publish, deploy, or send messages to others. The controller handles advancement. Return only the required structured result. Explain conclusions and evidence, not private reasoning.`;
+        return `You are ${slot.agent.name}. ${slot.agent.description}\n${slot.agent.instructions}\n${slot.agent.documents.map(d => `${d.name}:\n${d.content}`).join('\n')}\n\nWORKFLOW STEP: ${step ? `${(run.stepIndex ?? 0) + 1}. ${step.name} (${step.kind})` : stage}\nSTEP CRITERIA: ${step?.criteria || 'Follow this step’s assignment.'}\n${step ? 'Execute and assess only the current step’s scope. Later steps remain responsible for their assignments. Intermediate reviewers gate this step; final reviewers must also verify all workflow acceptance criteria and completion checks.' : ''}\nSTEP SEQUENCE: ${run.definition.steps?.map(s => s.name).join(' → ') ?? 'Plan → Execute → Review'}\nWORKFLOW ASSIGNMENT: ${slot.assignment}\nTASK: ${run.task}\nACCEPTANCE CRITERIA: ${run.definition.criteria}\nREQUIRED COMPLETION CHECKS: ${JSON.stringify(run.definition.checks)}\nSTEP CHECKS: ${JSON.stringify(step?.checks ?? [])}\nSTAGE: ${stage}\nROUND: ${stage === 'execute' || stage === 'review' ? run.reviewRound : run.planningRound}\n${instruction}\nPLAN VERSION: ${run.planVersion}\n${stage === 'propose' ? '' : run.plan}\nWORKSPACE REVISION: ${run.artifactVersion}\nUSER CLARIFICATIONS: ${JSON.stringify(run.notes)}\nCOMPLETION EVIDENCE: ${stage === 'execute' || stage === 'review' ? JSON.stringify(run.checks) : ''}\nSHARED INPUTS: ${JSON.stringify(shared)}${recovery}\nFor every blocking finding in SHARED INPUTS that you assess, include a findingResponses entry with its exact findingId and concrete evidence. Consolidation/execution may mark addressed; only the original assessor may mark verified during a later clean approval, or open if unresolved. Do not claim verification on behalf of another agent. An empty array is appropriate when no prior finding applies.\nDo not invoke subagents or external actions outside this assignment. Never merge, publish, deploy, or send messages to others. The controller handles advancement. Return only the required structured result. Explain conclusions and evidence, not private reasoning.`;
     }
     private async drive(run: WorkflowRun, signal: AbortSignal) {
         await this.runtime.validate(workflowSlots(run.definition));

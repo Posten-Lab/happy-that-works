@@ -6,3 +6,5 @@ export * from './compatibility';
 export * from './providerUsage';
 
 export * from './workflows';
+
+export * from './workflowHistory';
