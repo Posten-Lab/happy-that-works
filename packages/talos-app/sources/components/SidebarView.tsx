@@ -1,16 +1,17 @@
 import * as React from 'react';
 import { Text, View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useHeaderHeight } from '@/utils/responsive';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
-import { useRealtimeStatus } from '@/sync/storage';
+import { useRealtimeStatus, useSetting } from '@/sync/storage';
 import { MainView } from './MainView';
 import { StyleSheet } from 'react-native-unistyles';
 import { t } from '@/text';
 import { Ionicons } from '@expo/vector-icons';
 import { TalosBrand } from './TalosBrand';
 import { Typography } from '@/constants/Typography';
+import { workflowEnabled } from '@ahmadposten/talos-wire';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -31,7 +32,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 10,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: theme.colors.divider,
-        backgroundColor: theme.colors.accentSoft,
+        backgroundColor: theme.colors.surface,
         gap: 8,
     },
     newSessionButtonPressed: {
@@ -42,6 +43,29 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontWeight: '500',
         color: theme.colors.text,
         ...Typography.default('semiBold'),
+    },
+    destination: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 16,
+        marginTop: 4,
+        marginBottom: 12,
+        paddingHorizontal: 14,
+        minHeight: 44,
+        borderRadius: 10,
+        gap: 8,
+    },
+    destinationActive: {
+        backgroundColor: theme.colors.accentSoft,
+    },
+    destinationText: {
+        flex: 1,
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        ...Typography.default('semiBold'),
+    },
+    destinationTextActive: {
+        color: theme.colors.accent,
     },
     settingsRow: {
         flexDirection: 'row',
@@ -66,6 +90,11 @@ export const SidebarView = React.memo(() => {
     const router = useRouter();
     const headerHeight = useHeaderHeight();
     const realtimeStatus = useRealtimeStatus();
+    const pathname = usePathname();
+    const experiments = useSetting('experiments');
+    const expWorkflows = useSetting('expWorkflows');
+    const showWorkflows = workflowEnabled({ experiments, expWorkflows });
+    const workflowsSelected = pathname === '/workflows' || pathname.startsWith('/workflows/');
 
     const handleNewSession = React.useCallback(() => {
         router.navigate('/new');
@@ -77,6 +106,7 @@ export const SidebarView = React.memo(() => {
             {/* New Session button */}
             <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={t('sidebar.newSession')}
                 onPress={handleNewSession}
                 style={({ pressed }) => [
                     styles.newSessionButton,
@@ -86,6 +116,18 @@ export const SidebarView = React.memo(() => {
                 <Ionicons name="create-outline" size={16} color={stylesheet.newSessionText.color} />
                 <Text style={styles.newSessionText}>{t('sidebar.newSession')}</Text>
             </Pressable>
+
+            {showWorkflows && <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Workflows"
+                accessibilityState={{ selected: workflowsSelected }}
+                onPress={() => router.navigate('/workflows')}
+                style={({ pressed }) => [styles.destination, workflowsSelected && styles.destinationActive, pressed && styles.newSessionButtonPressed]}
+            >
+                <Ionicons name="git-network-outline" size={18} color={workflowsSelected ? styles.destinationTextActive.color : styles.destinationText.color} />
+                <Text style={[styles.destinationText, workflowsSelected && styles.destinationTextActive]}>Workflows</Text>
+                <Ionicons name="chevron-forward" size={14} color={workflowsSelected ? styles.destinationTextActive.color : styles.destinationText.color} />
+            </Pressable>}
 
             {realtimeStatus !== 'disconnected' && (
                 <VoiceAssistantStatusBar variant="sidebar" />

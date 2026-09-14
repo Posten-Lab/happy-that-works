@@ -1,4 +1,5 @@
 import React from 'react';
+import { workflowErrorMessage } from '@/workflows/errors';
 import { Text, View } from 'react-native';
 import { agentProviders, type AgentDefinition } from './agentDefinition';
 import { useMachineModelCatalog } from '@/hooks/useMachineModelCatalog';
@@ -24,7 +25,7 @@ export function AgentRuntimePicker({ agent, machineId, onChange, catalog: suppli
                 disabled={!model || !efforts.length} options={[{ value: '', label: 'Provider default' }, ...efforts.map(e => ({ value: e.code, label: e.value }))]}
                 onSelect={value => onChange({ effort: (value || null) as AgentDefinition['effort'] })} />
         </View>
-        {catalog.status !== 'ready' && <Text accessibilityLiveRegion="polite" style={s.muted}>{catalog.status === 'loading' ? `Loading ${provider.name} models…` : catalog.status === 'error' ? catalog.error : `Connect an online machine to discover ${provider.name} models.`}</Text>}
+        {catalog.status !== 'ready' && <Text accessibilityLiveRegion="polite" style={s.muted}>{catalog.status === 'loading' ? `Loading ${provider.name} models…` : catalog.status === 'error' ? workflowErrorMessage(catalog.error, `Couldn't load ${provider.name} models. Check its installation and sign-in on this machine, then retry.`) : `Connect an online machine to discover ${provider.name} models.`}</Text>}
         {catalog.status === 'error' && <Button label={`Retry ${provider.name} model discovery`} onPress={catalog.retry} />}
         {catalog.status === 'ready' && !catalog.models.length && <Text style={s.muted}>No models are available for this provider on this machine.</Text>}
         {catalog.status === 'ready' && !!agent.model && !model && <Text accessibilityRole="alert" style={s.muted}>Choose a model available on this machine.</Text>}

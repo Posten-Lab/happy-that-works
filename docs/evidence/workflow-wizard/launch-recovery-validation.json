@@ -1,0 +1,8 @@
+{
+  "actualCreatedReceiptRecovered": true,
+  "actualAbsentReceiptUnlocked": true,
+  "storageFailurePreventedRPC": true,
+  "restoredStorageSentExactlyOneRequest": true,
+  "invalidDirectoryExplainedAndUnlocked": true,
+  "additionalProviderTurns": 0
+}

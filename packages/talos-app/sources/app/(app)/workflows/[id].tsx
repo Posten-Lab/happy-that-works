@@ -1,11 +1,13 @@
 import React from 'react';
-import { ScrollView, View, Text } from 'react-native';
+import { View, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { workflowStageLabel, workflowSlots, type WorkflowRun, type WorkflowTask } from '@ahmadposten/talos-wire';
 import { loadWorkflowRun, workflowRPC } from '@/workflows/api';
 import { WorkflowButton as Button, WorkflowInput as Input, useWorkflowStyles } from '@/workflows/ui';
 import { useSetting } from '@/sync/storage';
 import { Modal } from '@/modal';
+import { WorkflowScaffold, WorkflowNotice } from '@/workflows/WorkflowScaffold';
+import { workflowErrorMessage, workflowRunMessage } from '@/workflows/errors';
 
 export default function WorkflowRunScreen() {
     const params = useLocalSearchParams<{ id: string; machineId: string }>();
@@ -16,11 +18,13 @@ export default function WorkflowRunScreen() {
     const [run, setRun] = React.useState<WorkflowRun | null>(null), [error, setError] = React.useState(''), [note, setNote] = React.useState('');
     const [busy, setBusy] = React.useState(false), [tab, setTab] = React.useState('Plan'), [replacement, setReplacement] = React.useState<string | null>(null);
     const [detail, setDetail] = React.useState<WorkflowTask | null>(null);
+    const [connectionError, setConnectionError] = React.useState('');
+    const [diagnostics, setDiagnostics] = React.useState(false);
     const [expanded, setExpanded] = React.useState<string | null>(null);
     React.useEffect(() => {
         let live = true, loading = false;
         setRun(null);
-        const refresh = async () => { if (loading) return; loading = true; try { const value = await loadWorkflowRun(machine, id); if (live) { setRun(value); setError(''); } } catch { if (live) setError('Coordinator unavailable. Showing the last received state. Reconnect the original machine to continue.'); } finally { loading = false; } };
+        const refresh = async () => { if (loading) return; loading = true; try { const value = await loadWorkflowRun(machine, id); if (live) { setRun(value); setConnectionError(''); } } catch { if (live) setConnectionError('Coordinator unavailable. Showing the last received state. Reconnect the original machine to continue.'); } finally { loading = false; } };
         void refresh(); const timer = setInterval(refresh, 4000); return () => { live = false; clearInterval(timer); };
     }, [machine, id]);
     const action = async (name: string, extra: object = {}) => {
@@ -28,16 +32,17 @@ export default function WorkflowRunScreen() {
         if (name === 'cancel' && !(await Modal.confirm('Cancel this run?', 'Active work will stop. The worktree, decisions, and evidence are retained.'))) return;
         setBusy(true);
         try { await workflowRPC(machine, 'action', { id, expectedRevision: run.revision, action: name, note, ...extra }); setRun(await loadWorkflowRun(machine, id)); setNote(''); setReplacement(null); setError(''); }
-        catch (e) { setError(e instanceof Error ? e.message : 'Action failed'); }
+        catch (e) { setError(workflowErrorMessage(e, 'The action could not be completed. Check the latest run state and try again.')); }
         finally { setBusy(false); }
     };
     const finished = run?.status === 'complete' || run?.status === 'cancelled';
     const slots = run ? [...new Map(workflowSlots(run.definition).map(slot => [slot.agent.id, slot])).values()] : [];
     const currentStep = run?.definition.steps?.[run.stepIndex ?? 0];
     const latestReview = run?.tasks.filter(t => t.stage === 'review' && t.round === run.reviewRound && (!currentStep || t.stepId === currentStep.id && t.attempt === run.stepAttempt)) ?? [];
-    return <ScrollView style={{ flex: 1, backgroundColor: s.colors.surface }} contentContainerStyle={{ padding: 20, paddingBottom: 80, gap: 18, width: '100%', maxWidth: 1000, alignSelf: 'center' }}>
+    return <WorkflowScaffold>
         <Button label="All workflows" onPress={() => router.push('/workflows' as any)} />
-        {error !== '' && <Text accessibilityRole="alert" style={{ ...s.text, color: s.colors.warning }}>{error}</Text>}
+        {connectionError !== '' && <WorkflowNotice title="Machine disconnected" message={connectionError} />}
+        {error !== '' && <WorkflowNotice title="The run needs attention" message={error} action="Dismiss" onAction={() => setError('')} />}
         {!run ? <Text style={s.text}>Connecting to the workflow coordinator…</Text> : <>
             <Text style={{ ...s.muted, color: s.colors.accent }}>WORKFLOW RUN · {run.status.replace('_', ' ').toUpperCase()}</Text>
             <Text accessibilityRole="header" style={{ ...s.text, fontSize: 30, lineHeight: 38, fontWeight: '700' }}>{run.definition.name}</Text>
@@ -48,7 +53,7 @@ export default function WorkflowRunScreen() {
                 <Text style={s.text}>{finished ? run.status === 'complete' ? 'Every required approval and check passed' : 'Run cancelled' : workflowStageLabel[run.stage]}</Text>
                 <Text style={s.muted}>Plan v{run.planVersion} · Planning round {run.planningRound}/{run.definition.planningRounds} · Review round {run.reviewRound}/{run.definition.reviewRounds}</Text>
                 <Text style={s.muted}>{run.tasks.length}/{run.definition.maxTurns} agent turns · {run.definition.turnMinutes} minutes per turn maximum</Text>
-                {run.reason !== '' && <Text style={s.text}>{run.reason}</Text>}
+                {run.reason !== '' && <View style={{ gap: 8 }}><Text style={s.text}>{workflowRunMessage(run.reason, run.tasks)}</Text>{workflowRunMessage(run.reason, run.tasks) !== run.reason && <><Button label={diagnostics ? 'Hide technical details' : 'Show technical details'} onPress={() => setDiagnostics(!diagnostics)} />{diagnostics && <Text selectable style={s.muted}>{run.reason}</Text>}</>}</View>}
                 {!finished && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                     {run.status === 'running' ? <Button disabled={busy} label="Pause run" onPress={() => void action('pause')} /> : <Button disabled={busy} label="Resume run" onPress={() => void action('resume')} />}
                     <Button disabled={busy} label="Cancel run" onPress={() => void action('cancel')} />
@@ -73,9 +78,9 @@ export default function WorkflowRunScreen() {
             {tab === 'Work' && <View style={s.card}><Text style={{ ...s.text, fontWeight: '700' }}>Preserved workspace</Text><Text selectable style={s.text}>{run.directory}</Text><Text selectable style={s.muted}>Branch: {run.branch}{'\n'}Base: {run.baseCommit}{'\n'}Verified contents: {run.artifactVersion || 'Not verified yet'}</Text><Text style={s.muted}>All work remains here after completion or cancellation. This workflow does not merge, publish, or deploy.</Text>{run.tasks.filter(t => t.stage === 'execute').map(t => <View key={t.id}><Text style={s.text}>Execution round {t.round}: {t.result?.summary ?? t.status}</Text><Text selectable style={s.muted}>{t.result?.document}</Text></View>)}{run.checks.map((c, i) => <View key={i} style={{ gap: 4 }}><Text style={s.text}>{c.name}: {c.exitCode === 0 ? 'Passed' : 'Failed'}</Text><Text selectable style={s.muted}>{c.output || 'No command output'}</Text></View>)}</View>}
             {tab === 'Review' && <View style={{ gap: 12 }}>{latestReview.length === 0 && <Text style={s.muted}>Review begins after execution and completion checks. Every reviewer assesses the same workspace revision independently.</Text>}{latestReview.map(t => <View key={t.id} style={s.card}><Text style={{ ...s.text, fontWeight: '700' }}>{t.agentName}: {t.result?.decision ?? t.status}</Text><Text style={s.text}>{t.result?.summary}</Text><Text selectable style={s.muted}>Revision: {t.version}</Text>{t.result?.findings.map((f, i) => <View key={i} style={{ gap: 5 }}><Text style={{ ...s.text, fontWeight: '700' }}>{f.blocking ? 'Blocking' : 'Suggestion'} · {f.title}</Text><Text selectable style={s.text}>{f.evidence}</Text><Text selectable style={s.muted}>Required correction: {f.correction}</Text></View>)}</View>)}</View>}
             {tab === 'Activity' && <>
-                {[...run.tasks].reverse().map(t => <View key={t.id} style={s.card}><Text style={s.text}>{run.definition.steps?.find(s => s.id === t.stepId)?.name ?? ''} · {t.agentName} · {workflowStageLabel[t.stage]} · {t.status}</Text><Text style={s.muted}>{t.result?.summary ?? t.error ?? 'Working on the assigned task.'}</Text><Button label={`Details ${t.agentName} ${t.stage} round ${t.round}`} onPress={async () => { if (expanded === t.id) { setExpanded(null); return; } try { setDetail(await workflowRPC<WorkflowTask>(machine, 'task', { id, taskId: t.id })); setExpanded(t.id); } catch (e) { setError(String(e)); } }} />{expanded === t.id && <><Text selectable style={s.text}>{detail?.id === t.id ? detail.result?.summary : ''}</Text><Text selectable style={s.text}>{detail?.id === t.id ? detail.result?.document : ''}</Text>{detail?.id === t.id && detail.result?.findings.map((f, i) => <Text key={i} selectable style={s.text}>{f.title}{'\n'}{f.evidence}{'\n'}Required correction: {f.correction}</Text>)}<Text selectable style={s.muted}>{detail?.id === t.id ? detail.prompt : ''}</Text>{t.sessionId && <Button label="Open participant session" onPress={() => router.push(`/session/${t.sessionId}` as any)} />}</>}</View>)}
-                <View style={s.card}>{[...run.events].reverse().map((e, i) => <Text key={i} style={s.muted}>{new Date(e.at).toLocaleTimeString()} · {e.text}</Text>)}</View>
+                {[...run.tasks].reverse().map(t => <View key={t.id} style={s.card}><Text style={s.text}>{run.definition.steps?.find(s => s.id === t.stepId)?.name ?? ''} · {t.agentName} · {workflowStageLabel[t.stage]} · {t.status}</Text><Text style={s.muted}>{t.result?.summary ?? (t.error ? workflowErrorMessage(t.error, 'This agent was interrupted. Open its session to inspect the work before resuming.') : 'Working on the assigned task.')}</Text><Button label={`Details ${t.agentName} ${t.stage} round ${t.round}`} onPress={async () => { if (expanded === t.id) { setExpanded(null); return; } try { setDetail(await workflowRPC<WorkflowTask>(machine, 'task', { id, taskId: t.id })); setExpanded(t.id); } catch (e) { setError(workflowErrorMessage(e, 'Details could not be loaded. Check the machine connection and try again.')); } }} />{expanded === t.id && <>{!!t.error && <><Text style={s.muted}>Technical details</Text><Text selectable style={s.muted}>{t.error}</Text></>}<Text selectable style={s.text}>{detail?.id === t.id ? detail.result?.summary : ''}</Text><Text selectable style={s.text}>{detail?.id === t.id ? detail.result?.document : ''}</Text>{detail?.id === t.id && detail.result?.findings.map((f, i) => <Text key={i} selectable style={s.text}>{f.title}{'\n'}{f.evidence}{'\n'}Required correction: {f.correction}</Text>)}<Text selectable style={s.muted}>{detail?.id === t.id ? detail.prompt : ''}</Text>{t.sessionId && <Button label="Open participant session" onPress={() => router.push(`/session/${t.sessionId}` as any)} />}</>}</View>)}
+                <View style={s.card}>{[...run.events].reverse().map((e, i) => <Text key={i} style={s.muted}>{new Date(e.at).toLocaleTimeString()} · {e.text === run.reason || run.tasks.some(task => task.error === e.text) ? workflowRunMessage(e.text, run.tasks) : e.text}</Text>)}</View>
             </>}
         </>}
-    </ScrollView>;
+    </WorkflowScaffold>;
 }

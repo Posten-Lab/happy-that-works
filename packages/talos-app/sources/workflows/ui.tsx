@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, TextInput, Pressable, View, ScrollView, Keyboard, useWindowDimensions } from 'react-native';
+import { Text, TextInput, Pressable, View, ScrollView, Keyboard, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
 import { BaseModal } from '@/modal/components/BaseModal';
@@ -7,7 +7,7 @@ import { useUnistyles } from 'react-native-unistyles';
 export function useWorkflowStyles() {
     const { theme } = useUnistyles(); const c = theme.colors;
     return { row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 } as const, colors: c, text: { ...Typography.default(), color: c.text, fontSize: 16, lineHeight: 24 }, muted: { ...Typography.default(), color: c.textSecondary, fontSize: 14, lineHeight: 21 },
-        card: { backgroundColor: c.surface, borderColor: c.divider, borderWidth: 1, borderRadius: 16, padding: 16, gap: 12 } as const };
+        card: { backgroundColor: c.surface, borderColor: c.divider, borderWidth: 1, borderRadius: 20, padding: 20, gap: 14 } as const };
 }
 export function WorkflowButton({ label, onPress, primary = false, disabled = false, selected, accessibilityLabel }: { label: string; onPress: () => void; primary?: boolean; disabled?: boolean; selected?: boolean; accessibilityLabel?: string }) {
     const { colors: c } = useWorkflowStyles();
@@ -18,9 +18,17 @@ export function WorkflowButton({ label, onPress, primary = false, disabled = fal
         <Text style={{ ...Typography.default('semiBold'), color: primary ? c.button.primary.tint : selected ? c.accent : c.text, fontSize: 15, fontWeight: '600' }}>{selected !== undefined ? `${selected ? '✓' : '○'}  ` : ''}{label}</Text>
     </Pressable>;
 }
-export function WorkflowInput({ label, value, onChange, multiline = false, max = 24000 }: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean; max?: number }) {
+export function WorkflowInput({ label, value, onChange, multiline = false, max = 24000, placeholder, hint, numeric = false }: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean; max?: number; placeholder?: string; hint?: string; numeric?: boolean }) {
     const { text, colors: c } = useWorkflowStyles();
-    return <View style={{ gap: 6 }}><Text style={{ ...text, fontSize: 13, color: c.textSecondary }}>{label}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={onChange} multiline={multiline} maxLength={max} style={{ ...text, borderWidth: 1, borderColor: c.divider, borderRadius: 10, padding: 12, minHeight: multiline ? 100 : 48, textAlignVertical: 'top' }} /></View>;
+    const [focused, setFocused] = React.useState(false);
+    return <View style={{ gap: 8 }}>
+        <Text style={{ ...text, ...Typography.header(), fontSize: 13 }}>{label}</Text>
+        <TextInput accessibilityLabel={label} accessibilityHint={hint} value={value} onChangeText={onChange} multiline={multiline}
+            maxLength={max} placeholder={placeholder} placeholderTextColor={c.textSecondary} keyboardType={numeric ? 'number-pad' : 'default'}
+            onFocus={e => { setFocused(true); if (Platform.OS === 'web') { const target = e.target as unknown as HTMLElement; setTimeout(() => target.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }), 150); } }}
+            onBlur={() => setFocused(false)} style={{ ...text, backgroundColor: c.surfaceHigh, borderWidth: 1, borderColor: focused ? c.accent : c.divider, borderRadius: 12, padding: 14, minHeight: multiline ? 116 : 52, maxHeight: multiline ? 220 : undefined, textAlignVertical: 'top' }} />
+        {!!hint && <Text style={{ ...text, color: c.textSecondary, fontSize: 12, lineHeight: 18 }}>{hint}</Text>}
+    </View>;
 }
 
 export type WorkflowSelection = { title: string; options: { value: string; label: string; description?: string }[]; value: string; onSelect: (value: string) => void };
@@ -36,7 +44,7 @@ export function WorkflowSelectionList({ selection, onClose }: { selection: Workf
             {selection.options.map(option => <Pressable key={option.value} accessibilityRole="radio" aria-checked={selection.value === option.value} accessibilityState={{ checked: selection.value === option.value }}
                 accessibilityLabel={option.label} onPress={() => { selection.onSelect(option.value); onClose(); }}
                 style={({ pressed }) => ({ minHeight: 56, paddingVertical: 14, paddingHorizontal: 12, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: pressed ? s.colors.divider : 'transparent' })}>
-                <View style={{ flex: 1 }}><Text style={s.text}>{option.label}</Text>{option.description && <Text style={s.muted}>{option.description}</Text>}</View>
+                <View style={{ flex: 1 }}><Text style={s.text}>{option.label}</Text>{!!option.description && <Text style={s.muted}>{option.description}</Text>}</View>
                 {selection.value === option.value && <Ionicons name="checkmark" size={22} color={s.colors.accent} />}
             </Pressable>)}
         </ScrollView>

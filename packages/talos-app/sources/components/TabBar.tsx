@@ -7,8 +7,10 @@ import { t } from '@/text';
 import { Typography } from '@/constants/Typography';
 import { layout } from '@/components/layout';
 import { useInboxHasContent } from '@/hooks/useInboxHasContent';
+import { useSetting } from '@/sync/storage';
+import { workflowEnabled } from '@ahmadposten/talos-wire';
 
-export type TabType = 'inbox' | 'sessions' | 'settings';
+export type TabType = 'inbox' | 'sessions' | 'workflows' | 'settings';
 
 interface TabBarProps {
     activeTab: TabType;
@@ -84,15 +86,18 @@ export const TabBar = React.memo(({ activeTab, onTabPress, inboxBadgeCount = 0 }
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
     const inboxHasContent = useInboxHasContent();
+    const experiments = useSetting('experiments');
+    const expWorkflows = useSetting('expWorkflows');
+    const showWorkflows = workflowEnabled({ experiments, expWorkflows });
 
     const tabs: { key: TabType; icon: React.ComponentProps<typeof Ionicons>['name']; label: string }[] = React.useMemo(() => {
-        // NOTE: Zen tab removed - the feature never got to a useful state
         return [
             { key: 'inbox', icon: 'file-tray-outline', label: t('tabs.inbox') },
             { key: 'sessions', icon: 'terminal-outline', label: t('tabs.sessions') },
+            ...(showWorkflows ? [{ key: 'workflows' as const, icon: 'git-network-outline' as const, label: 'Workflows' }] : []),
             { key: 'settings', icon: 'settings-outline', label: t('tabs.settings') },
         ];
-    }, []);
+    }, [showWorkflows]);
 
     return (
         <View style={[styles.outerContainer, { paddingBottom: insets.bottom }]}>
@@ -104,6 +109,7 @@ export const TabBar = React.memo(({ activeTab, onTabPress, inboxBadgeCount = 0 }
                         <Pressable
                             key={tab.key}
                             accessibilityRole="tab"
+                            aria-selected={isActive}
                             accessibilityState={{ selected: isActive }}
                             accessibilityLabel={tab.label}
                             style={styles.tab}
