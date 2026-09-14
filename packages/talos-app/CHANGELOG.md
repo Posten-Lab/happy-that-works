@@ -1,3 +1,12 @@
+# Your agents, working together
+
+Build experimental workflows with Codex, Claude, and Muse Code agents.
+
+- Choose a provider, model, and effort for each agent.
+- Edit agents in a focused panel while keeping your stages easy to scan.
+- Mix planners, executors, and reviewers across providers.
+- Update your machine CLI to use multi-provider workflows.
+
 # Editable workflows
 
 Build a workflow around your own planning, execution, and review stages. Enable Workflows in Experimental Features to try it.

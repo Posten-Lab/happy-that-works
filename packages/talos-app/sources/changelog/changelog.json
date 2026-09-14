@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "Your agents, working together",
+      "summary": "Build experimental workflows with Codex, Claude, and Muse Code agents.",
+      "markdown": "- Choose a provider, model, and effort for each agent.\n- Edit agents in a focused panel while keeping your stages easy to scan.\n- Mix planners, executors, and reviewers across providers.\n- Update your machine CLI to use multi-provider workflows."
+    },
+    {
       "title": "Editable workflows",
       "summary": "Build a workflow around your own planning, execution, and review stages. Enable Workflows in Experimental Features to try it.",
       "markdown": "- Add, remove, and reorder stages.\n- Choose up to three planners or reviewers and one executor per stage.\n- Create agents while editing, and customize instructions and completion checks.\n- Update your machine CLI to use the new workflows."
@@ -41,5 +46,5 @@
       "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
     }
   ],
-  "latestTitle": "Editable workflows"
+  "latestTitle": "Your agents, working together"
 }
