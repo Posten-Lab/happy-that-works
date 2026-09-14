@@ -3,7 +3,7 @@ import { workflowEnvironment } from './environment';
 import { z } from 'zod';
 import { spawn } from 'node:child_process';
 import { homedir, hostname } from 'node:os';
-import { WorkflowDecisionSchema, type WorkflowSlot } from '@ahmadposten/talos-wire';
+import { WorkflowDecisionOutputSchema, WorkflowDecisionSchema, type WorkflowSlot } from '@ahmadposten/talos-wire';
 import { CodexAppServerClient } from '@/codex/codexAppServerClient';
 import type { ReasoningEffort } from '@/codex/codexAppServerTypes';
 import { ApiClient } from '@/api/api';
@@ -79,7 +79,7 @@ export function workflowRuntime(api: ApiClient, home: string): WorkflowRuntime {
                 sync.sendProviderUserMessage(task.prompt, task.id);
                 const result = await client.sendTurnAndWait(task.prompt, { cwd: run.directory, model: slot.agent.model,
                     effort: (slot.agent.effort ?? undefined) as ReasoningEffort | undefined, approvalPolicy: 'never', sandbox,
-                    outputSchema: z.toJSONSchema(WorkflowDecisionSchema), turnTimeoutMs: run.definition.turnMinutes * 60000 });
+                    outputSchema: z.toJSONSchema(WorkflowDecisionOutputSchema), turnTimeoutMs: run.definition.turnMinutes * 60000 });
                 if (result.aborted || signal.aborted || error) throw new Error(error || 'Agent interrupted or step time limit reached. Inspect before retrying.');
                 if (answer.length > 64000) throw new Error('Agent result exceeded the workflow limit.');
                 const decision = WorkflowDecisionSchema.parse(JSON.parse(answer));

@@ -1,0 +1,32 @@
+{
+  "runId": "27d2232a-b78e-489b-bd37-bf58dd54a53d",
+  "actualUIStart": true,
+  "realProvider": "codex",
+  "planners": 3,
+  "planVersions": 2,
+  "taskSessions": 13,
+  "explicitResolution": [
+    {
+      "agent": "Ada",
+      "status": "addressed",
+      "version": "plan:2"
+    },
+    {
+      "agent": "Ben",
+      "status": "verified",
+      "version": "plan:2"
+    }
+  ],
+  "sourceTranscriptOpened": true,
+  "planComparison": true,
+  "plannerHistoryAfterCompletion": true,
+  "checks": [
+    {
+      "name": "Exact bytes",
+      "exitCode": 0
+    }
+  ],
+  "sourceUnchanged": true,
+  "pageErrors": [],
+  "validatedAt": "2026-09-14T21:30:22.733Z"
+}

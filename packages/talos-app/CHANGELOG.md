@@ -1,3 +1,13 @@
+# See how your planners reach a decision
+
+Follow each planner’s contribution and understand how the team reaches agreement.
+
+- Jump between planners and their full session transcripts.
+- Read the discussion, compare plan versions, and inspect each round’s votes.
+- Trace objections from the original finding through the response and verification.
+- Open the exact source behind a contribution without losing your place.
+- Update your machine CLI to 1.0.18 for complete history on new workflow runs.
+
 # Resume interrupted workflows
 
 Understand why a workflow stopped and continue without losing approved planning.

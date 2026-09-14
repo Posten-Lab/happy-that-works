@@ -26,7 +26,7 @@ describe('workflow run presentation', () => {
         const stale = task({ id: 'old', stepId: 'plan', attempt: 1 });
         const value = run({ definition: staged(), stepIndex: 0, stepAttempt: 2, tasks: [active, stale] });
         expect(workflowCurrentParticipants(value)[0].task?.id).toBe('new');
-        expect(workflowCurrentParticipants(run({ tasks: [task()] })).map(item => item.slot.agent.id)).toEqual(['planner-a']);
+        expect(workflowCurrentParticipants(run({ tasks: [task()] })).map(item => item.slot.agent.id)).toEqual(['planner-a', 'planner-b']);
     });
     it('never describes an agent as working when the workflow is paused or cancelled', () => {
         expect(workflowParticipantState(run({ status: 'paused' }), task())).toBe('Paused');
@@ -35,7 +35,7 @@ describe('workflow run presentation', () => {
         expect(workflowParticipantState(run(), task({ status: 'interrupted' }))).toBe('Interrupted');
     });
     it('offers a useful automatic pane for each phase and final output', () => {
-        expect(workflowDefaultPane(run({ stage: 'plan_vote' }))).toBe('Plan');
+        expect(workflowDefaultPane(run({ stage: 'plan_vote' }))).toBe('Team');
         expect(workflowDefaultPane(run({ stage: 'execute' }))).toBe('Work');
         expect(workflowDefaultPane(run({ stage: 'verify' }))).toBe('Review');
         expect(workflowDefaultPane(run({ stage: 'review', status: 'complete' }))).toBe('Work');

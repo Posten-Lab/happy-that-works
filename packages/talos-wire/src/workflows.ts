@@ -79,13 +79,18 @@ export type WorkflowStage = z.infer<typeof WorkflowStageSchema>;
 export const WorkflowDecisionSchema = z.object({
     decision: z.enum(['approve', 'changes', 'information', 'replan']), summary: text,
     document: z.string().max(24000),
+    findingResponses: z.array(z.object({ findingId: z.string().min(1).max(100), status: z.enum(['open', 'addressed', 'verified']), evidence: text })).max(40).optional(),
     findings: z.array(z.object({ title: z.string().min(1).max(300), evidence: text, correction: text, blocking: z.boolean() })).max(20),
 });
+export const WorkflowDecisionOutputSchema = WorkflowDecisionSchema.required({ findingResponses: true });
 export type WorkflowDecision = z.infer<typeof WorkflowDecisionSchema>;
 export const WorkflowTaskSchema = z.object({
     id: z.string(), stage: WorkflowStageSchema, round: z.number(), agentId: z.string(), agentName: z.string(),
     stepId: z.string().uuid().optional(), attempt: z.number().int().positive().optional(),
     clarifications: z.number().int().optional(),
+    participants: z.array(z.object({ id: z.string(), name: z.string() })).max(4).optional(),
+    // Exact source records included in this task's prompt. Absent on older runs.
+    inputs: z.array(z.object({ taskId: z.string(), content: z.enum(['result', 'findings', 'summary', 'plan']) })).max(200).optional(),
     assignment: z.string(), version: z.string(), status: z.enum(['running', 'done', 'interrupted']),
     startedAt: z.number(), completedAt: z.number().optional(), sessionId: z.string().optional(),
     threadId: z.string().optional(), prompt: z.string(), result: WorkflowDecisionSchema.optional(), error: z.string().optional(),
@@ -93,6 +98,7 @@ export const WorkflowTaskSchema = z.object({
 });
 export const WorkflowRunSchema = z.object({
     id: z.string().uuid(), revision: z.number().int(), definition: WorkflowDefinitionSchema, machineId: z.string(),
+    historyVersion: z.literal(1).optional(),
     task: text, requestedDirectory: z.string().optional(), sourceDirectory: z.string(), directory: z.string(), branch: z.string(), baseCommit: z.string(),
     status: z.enum(['running', 'paused', 'needs_input', 'complete', 'cancelled']), stage: WorkflowStageSchema,
     stepIndex: z.number().int().nonnegative().optional(), stepAttempt: z.number().int().positive().optional(),

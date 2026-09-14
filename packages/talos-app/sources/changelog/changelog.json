@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "See how your planners reach a decision",
+      "summary": "Follow each planner’s contribution and understand how the team reaches agreement.",
+      "markdown": "- Jump between planners and their full session transcripts.\n- Read the discussion, compare plan versions, and inspect each round’s votes.\n- Trace objections from the original finding through the response and verification.\n- Open the exact source behind a contribution without losing your place.\n- Update your machine CLI to 1.0.18 for complete history on new workflow runs."
+    },
+    {
       "title": "Resume interrupted workflows",
       "summary": "Understand why a workflow stopped and continue without losing approved planning.",
       "markdown": "- See provider usage limits and reset times directly in the workflow.\n- Switch an interrupted builder to another model while keeping the approved plan and completed steps.\n- Follow completed, current, and waiting steps together.\n- Update your machine CLI to use model recovery."
@@ -71,5 +76,5 @@
       "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
     }
   ],
-  "latestTitle": "Resume interrupted workflows"
+  "latestTitle": "See how your planners reach a decision"
 }
