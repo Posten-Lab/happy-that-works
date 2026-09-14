@@ -28,19 +28,19 @@
       "file": "05-plan-comparison.png",
       "width": 390,
       "height": 844,
-      "sha256": "1d5d50be9806c976b8e268f98fd5df0d201d22a4e0278129aa561db18ac79ada"
+      "sha256": "6ad3e40e845fc182fdd6b2524ece7262671b3d3e5b86b6afdf557c780383c241"
     },
     {
       "file": "06-desktop-evidence.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "62262fbc7b138f380c452c137255bcbb69c5d507555558cba56c6f6311eade7f"
+      "sha256": "dfa94409cf7655180428533b998a9ac2823ff24a458b2ffd2db160bc50340df2"
     },
     {
       "file": "07-history-after-completion.png",
       "width": 390,
       "height": 844,
-      "sha256": "81e0768cb0d6c3bb3108cff47e66387b6169921e14f367e6d1a0599843a727f6"
+      "sha256": "0df7d09f31cfc131058381f9b3533ee9c47ff4179407ff8212ba98ba2726f8c7"
     },
     {
       "file": "08-verified-objection.png",
@@ -52,7 +52,7 @@
       "file": "09-desktop-history.png",
       "width": 1440,
       "height": 1000,
-      "sha256": "2f2ed9d155bf6682f255c6541f38aff29223db85fbc1d5de44496af5314fac7b"
+      "sha256": "d92007ce556f613ca03118d761c6ea07c01f7f5fe7e8f6d7c31f0f0df75a7c50"
     }
   ]
 }

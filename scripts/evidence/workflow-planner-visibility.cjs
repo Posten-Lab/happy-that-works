@@ -116,4 +116,5 @@ async function main() {
     } catch (error) { await shot('failure'); console.log((await page.locator('body').innerText()).slice(-3000)); throw error; }
     finally { await browser.close(); }
 }
-main().catch(error => { console.error(error.stack); process.exitCode = 1; });
+// End the standalone runner after browser cleanup; imported SDK keep-alives must not hold CI open.
+main().then(() => process.exit(0)).catch(error => { console.error(error.stack); process.exit(1); });

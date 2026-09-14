@@ -1,6 +1,6 @@
 # Planner visibility validation
 
-Built from `origin/main` at `5b5a44c5` in a fresh `feat/workflow-planner-visibility` worktree. All runs used an isolated local server, web app, CLI home, and temporary committed Git project. Production sessions and installations were not changed.
+Started from `origin/main` at `5b5a44c5` in a fresh `feat/workflow-planner-visibility` worktree, then rebased onto `c008d4cb`. Automated checks and real-service browser history/navigation validation were rerun after the rebase. All runs used an isolated local server, web app, CLI home, and temporary committed Git project. Production sessions and installations were not changed.
 
 ## Real end-to-end flow
 
@@ -13,7 +13,7 @@ The script asserts source-session IDs and handoff references, explicit addressed
 ## Automated checks
 
 - App typecheck and CLI build/typecheck passed.
-- App: 98 test files, 976 tests passed.
+- App: 99 test files, 986 tests passed.
 - CLI workflow suite: 7 files, 68 tests passed, including encrypted persistence and real filesystem/workspace tests.
 - Wire: 5 files, 48 tests passed, including old-record compatibility, exact vote grouping, false-verification rejection, proposal objections, and explicit reopening.
 - The coordinator regression parses the actual summary with `WorkflowRunSchema`, protecting against the malformed shortened finding caught during browser validation.
