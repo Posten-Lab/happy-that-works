@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AgentDocumentSchema } from '@ahmadposten/talos-wire';
 import type { ProviderModel } from '@/sync/ops';
 
 export const AgentDefinitionSchema = z.object({
@@ -10,12 +11,12 @@ export const AgentDefinitionSchema = z.object({
     provider: z.enum(['codex', 'claude', 'muse']),
     model: z.string().min(1).max(200), modelLabel: z.string().max(300).optional(),
     effort: z.string().max(30).nullable(),
-    permissionMode: z.enum(['default', 'read-only']),
+    permissionMode: z.enum(['default', 'read-only', 'yolo']),
     instructions: z.string().trim().min(1).max(24000),
-    documents: z.array(z.object({ name: z.string().min(1).max(120), content: z.string().max(16000) })).max(5),
+    documents: z.array(AgentDocumentSchema).max(5),
     specialties: z.array(z.enum(['development', 'review', 'operations', 'design'])).max(4),
     updatedAt: z.number(),
-}).refine(agent => agent.provider === 'codex' || agent.permissionMode === 'default', { message: 'This permission mode is not supported by the selected runtime', path: ['permissionMode'] });
+}).refine(agent => agent.provider === 'codex' || agent.permissionMode !== 'read-only', { message: 'This permission mode is not supported by the selected runtime', path: ['permissionMode'] });
 export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>;
 // Leave headroom for UTF-8, encryption/base64, and the rest of account settings.
 export const AgentLibrarySchema = z.array(AgentDefinitionSchema).max(100).refine(
@@ -55,3 +56,7 @@ export function agentLibrarySettings(agents: AgentDefinition[]) {
     return { agentLibrary: agents.filter(a => a.provider !== 'muse'), agentLibraryV2: agents.filter(a => a.provider === 'muse') };
 }
 export function allSavedAgents(settings: { agentLibrary: AgentDefinition[]; agentLibraryV2: AgentDefinition[] }) { return [...settings.agentLibrary, ...settings.agentLibraryV2]; }
+
+export function agentPermissionLabel(mode: AgentDefinition['permissionMode']) {
+    return mode === 'yolo' ? 'YOLO (no approvals)' : mode === 'read-only' ? 'Read only' : 'Ask for untrusted actions';
+}

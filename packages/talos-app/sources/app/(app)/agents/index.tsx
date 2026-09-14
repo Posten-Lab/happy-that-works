@@ -1,3 +1,4 @@
+import { readAgentDocument } from '@/agents/agentDocument';
 import { AgentRuntimePicker } from '@/agents/AgentRuntimePicker';
 import React from 'react';
 import { View, Text, TextInput, Pressable, ScrollView } from 'react-native';
@@ -12,7 +13,7 @@ import { sync } from '@/sync/sync';
 import { useMachineModelCatalog } from '@/hooks/useMachineModelCatalog';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { Modal } from '@/modal';
-import { AgentDefinitionSchema, AgentLibrarySchema, agentTemplates, agentLibraryEnabled, agentLaunchError, agentLibrarySettings, allSavedAgents, type AgentDefinition } from '@/agents/agentDefinition';
+import { AgentDefinitionSchema, AgentLibrarySchema, agentTemplates, agentLibraryEnabled, agentLaunchError, agentLibrarySettings, allSavedAgents, agentPermissionLabel, type AgentDefinition } from '@/agents/agentDefinition';
 
 const steps = ['Identity', 'Instructions', 'Runtime', 'Review'];
 const newAgent = (): AgentDefinition => ({ id: randomUUID(), revision: 1, name: '', description: '', avatar: 'sparkles', provider: 'codex', model: '', effort: null, permissionMode: 'default', instructions: '', documents: [], specialties: [], updatedAt: Date.now() });
@@ -31,6 +32,10 @@ export default function AgentLibraryScreen() {
     const [original, setOriginal] = React.useState<AgentDefinition | null>(null);
     const [step, setStep] = React.useState(0);
     const [error, setError] = React.useState('');
+    const [attachmentStatus, setAttachmentStatus] = React.useState('');
+    const [attachmentError, setAttachmentError] = React.useState('');
+    const [attaching, setAttaching] = React.useState(false);
+    const attachmentPending = React.useRef(false);
     const [machineId, setMachineId] = React.useState('');
     const selectedMachine = machines.find(m => m.id === machineId) ?? machines[0];
     const catalog = useMachineModelCatalog(draft ? selectedMachine?.id ?? null : null, draft?.provider ?? 'codex');
@@ -54,21 +59,27 @@ export default function AgentLibraryScreen() {
                 style={{ ...text, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.divider, minHeight: multiline ? 140 : 48, textAlignVertical: 'top' }} />
         </View>
     );
-    const begin = (value: AgentDefinition, existing: AgentDefinition | null = null) => { setDraft(value); setOriginal(existing); setStep(0); setError(''); };
+    const begin = (value: AgentDefinition, existing: AgentDefinition | null = null) => { setDraft(value); setOriginal(existing); setStep(0); setError(''); setAttachmentStatus(''); setAttachmentError(''); };
     const leave = async () => {
         if (await Modal.confirm('Discard draft?', 'Your saved agents will not change.', { confirmText: 'Discard', cancelText: 'Keep editing' })) setDraft(null);
     };
     const attach = async () => {
+        if (!draft || attachmentPending.current || draft.documents.length >= 5) return;
+        attachmentPending.current = true;
+        setAttaching(true); setAttachmentError(''); setAttachmentStatus('Choose a file…');
+        let filename = '';
         try {
             const result = await DocumentPicker.getDocumentAsync({ type: ['text/markdown', 'text/plain', 'text/x-markdown'], copyToCacheDirectory: true });
-            if (result.canceled) return;
-            const asset = result.assets[0];
-            if (!/\.(md|markdown|txt)$/i.test(asset.name) || (asset.size ?? 0) > 64000) throw new Error('Choose a Markdown or text file up to 64 KB.');
-            const content = asset.file ? await asset.file.text() : await new File(asset.uri).text();
-            if (content.length > 16000) throw new Error('Each instruction file can contain up to 16,000 characters.');
-            patch({ documents: [...(draft?.documents ?? []), { name: asset.name, content }] });
-            setError('');
-        } catch (e) { setError(e instanceof Error ? e.message : 'Could not read that file'); }
+            if (result.canceled) { setAttachmentStatus(''); return; }
+            const asset = result.assets[0]; filename = asset.name;
+            setAttachmentStatus(`Reading ${filename}…`);
+            const document = await readAgentDocument(asset, () => asset.file ? asset.file.text() : new File(asset.uri).text());
+            setDraft(current => current ? { ...current, documents: [...current.documents, document] } : current);
+            setAttachmentStatus(`${filename} added to draft. Save the agent to keep it.`);
+        } catch (e) {
+            setAttachmentStatus('');
+            setAttachmentError(`${filename || 'File'} not attached. ${e instanceof Error ? e.message : 'Could not read that file. Try again.'}`);
+        } finally { attachmentPending.current = false; setAttaching(false); }
     };
     const next = () => {
         if (!draft) return;
@@ -114,9 +125,11 @@ export default function AgentLibraryScreen() {
                 </>}
                 {step === 1 && <>
                     {input('Instructions', draft.instructions, instructions => patch({ instructions }), true, 24000)}
-                    <Text style={muted}>Describe how to work, when to ask you, and what a useful result looks like. Attached files are saved as a copy with the agent.</Text>
-                    {draft.documents.map((d, i) => <View key={i} style={{ gap: 8 }}><Text style={text}>{d.name}</Text>{button(`Remove ${d.name}`, () => patch({ documents: draft.documents.filter((_, n) => n !== i) }))}</View>)}
-                    {button('Attach Markdown instructions', () => { void attach(); }, false, draft.documents.length >= 5)}
+                    <Text style={muted}>Describe how to work, when to ask you, and what a useful result looks like. Up to 5 Markdown or text files, 64,000 characters per file. Files are copied into the draft and saved with the agent.</Text>
+                    {draft.documents.map((d, i) => <View key={i} style={{ gap: 8 }}><Text style={text}>{d.name}</Text><Text style={muted}>Added to draft · {d.content.length.toLocaleString()} characters</Text>{button(`Remove ${d.name}`, () => { patch({ documents: draft.documents.filter((_, n) => n !== i) }); setAttachmentStatus(`${d.name} removed from draft.`); })}</View>)}
+                    {button('Attach Markdown instructions', () => { void attach(); }, false, attaching || draft.documents.length >= 5)}
+                    {!!attachmentStatus && <Text accessibilityLiveRegion="polite" style={muted}>{attachmentStatus}</Text>}
+                    {!!attachmentError && <Text accessibilityRole="alert" style={{ color: colors.textDestructive }}>{attachmentError}</Text>}
                 </>}
                 {step === 2 && <>
                     <Text style={text}>Runtime</Text>
@@ -124,15 +137,12 @@ export default function AgentLibraryScreen() {
                     {machines.map(m => button(m.metadata?.displayName || m.metadata?.host || m.id, () => { setMachineId(m.id); }, selectedMachine?.id === m.id))}
                     {!selectedMachine && <Text style={muted}>Connect a machine to choose a model. You can keep editing the other steps.</Text>}
                     <AgentRuntimePicker catalog={catalog} agent={draft} machineId={selectedMachine?.id ?? null} onChange={patch} />
-                    <Text style={text}>Permissions</Text>
-                    {button('Ask for untrusted actions', () => patch({ permissionMode: 'default' }), draft.permissionMode === 'default')}
-                    {draft.provider === 'codex' && button('Read only', () => patch({ permissionMode: 'read-only' }), draft.permissionMode === 'read-only')}
                     <Text style={muted}>This experiment supports text and code tasks. Browser, vision, and image-generation availability is not yet verified here. Specialties describe the agent’s focus; they do not grant tools or access.</Text>
                 </>}
                 {step === 3 && <>
                     <Text style={{ ...text, fontSize: 24, fontWeight: '700' }}>{draft.name}</Text><Text style={muted}>{draft.description}</Text>
                     <Text style={text}>{draft.provider} · {draft.model} · {draft.effort ?? 'provider default'} effort</Text>
-                    <Text style={muted}>{draft.permissionMode === 'read-only' ? 'Read only' : 'Ask for untrusted actions'} · Direct sessions and experimental workflows</Text>
+                    <Text style={muted}>Direct sessions: {agentPermissionLabel(draft.permissionMode)}</Text>
                     <Text selectable style={text}>{draft.instructions}</Text>
                     <Text style={muted}>{draft.documents.length} instruction files · {draft.specialties.join(', ') || 'General specialist'}</Text>
                     <Text style={muted}>Saved in your encrypted account settings. Editing this agent changes future sessions. Sessions already started retain their configuration. Use Workflows to assign saved agents to a planning and review team. Existing workflow runs keep their own snapshots.</Text>
@@ -140,9 +150,9 @@ export default function AgentLibraryScreen() {
             </View>
             {error ? <Text accessibilityRole="alert" style={{ color: colors.textDestructive }}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                {step > 0 && button('Back', () => { setStep(step - 1); setError(''); })}
-                {step < 3 ? button('Continue', next, true) : button('Save agent', save, true)}
-                {button('Cancel', () => { void leave(); })}
+                {step > 0 && button('Back', () => { setStep(step - 1); setError(''); }, false, attaching)}
+                {step < 3 ? button('Continue', next, true, attaching) : button('Save agent', save, true)}
+                {button('Cancel', () => { void leave(); }, false, attaching)}
             </View>
         </> : <>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{expWorkflows && button('Workflows', () => router.push('/workflows' as any))}

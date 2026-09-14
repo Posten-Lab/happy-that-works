@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WorkflowScaffold } from './WorkflowScaffold';
 import { agentDraftProblem, workflowSaveMessage, type WorkflowBuilderSection } from './wizard';
 import { Typography } from '@/constants/Typography';
-import { WorkflowAgentSchema, workflowSlots, type WorkflowDefinition, type WorkflowStep } from '@ahmadposten/talos-wire';
+import { AGENT_DOCUMENT_MAX_CHARACTERS, WorkflowAgentSchema, workflowSlots, type WorkflowDefinition, type WorkflowStep } from '@ahmadposten/talos-wire';
 import { randomUUID } from 'expo-crypto';
 import { AgentDefinitionSchema, agentLaunchError, agentProviders, type AgentDefinition } from '@/agents/agentDefinition';
 import type { Machine } from '@/sync/storageTypes';
@@ -107,11 +107,12 @@ export function WorkflowBuilder({ draft, onChange, candidates, onCandidates, age
             <Input label="Agent name" value={editing.name} placeholder="Give this agent a name" max={60} onChange={name => setEditing({ ...editing, name })} />
             <Input label="Agent description" value={editing.description} placeholder="What does this agent bring to the team?" max={300} onChange={description => setEditing({ ...editing, description })} />
             <View style={{ gap: 8 }}><WorkflowSectionHeader title="Intelligence" /><AgentRuntimePicker catalog={catalog} agent={editing} machineId={machine && isMachineOnline(machine) ? machine.id : null} onChange={value => { setError(''); setEditing({ ...editing, ...value }); }} /></View>
+            <Text style={s.muted}>Permissions apply to direct sessions. Workflow stages retain their own tool and workspace restrictions.</Text>
             <Input label="Agent instructions" value={editing.instructions} multiline onChange={instructions => setEditing({ ...editing, instructions })} />
             <Button variant="ghost" icon={references ? 'chevron-up' : 'document-text-outline'} label={`Reference files · ${editing.documents.length}/5 ${references ? '−' : '+'}`} onPress={() => setReferences(!references)} />
             {references && editing.documents.map((document, index) => <View key={index} style={{ borderTopWidth: 1, borderColor: s.colors.divider, paddingTop: 18, gap: 16 }}>
                 <Input label={`Reference ${index + 1} filename`} value={document.name} max={120} onChange={name => setEditing({ ...editing, documents: editing.documents.map((d, i) => i === index ? { ...d, name } : d) })} />
-                <Input label={`Reference ${index + 1} Markdown`} value={document.content} max={16000} multiline mono onChange={content => setEditing({ ...editing, documents: editing.documents.map((d, i) => i === index ? { ...d, content } : d) })} />
+                <Input label={`Reference ${index + 1} Markdown`} value={document.content} max={AGENT_DOCUMENT_MAX_CHARACTERS} multiline mono onChange={content => setEditing({ ...editing, documents: editing.documents.map((d, i) => i === index ? { ...d, content } : d) })} />
                 <Button variant="danger" compact icon="trash-outline" label={`Remove reference ${index + 1}`} onPress={() => setEditing({ ...editing, documents: editing.documents.filter((_, i) => i !== index) })} />
             </View>)}
             {references && editing.documents.length < 5 && <Button variant="ghost" icon="add" label="Add reference file" onPress={() => setEditing({ ...editing, documents: [...editing.documents, { name: 'instructions.md', content: '' }] })} />}
