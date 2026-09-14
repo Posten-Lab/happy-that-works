@@ -994,8 +994,9 @@ export const zhHans: TranslationStructure = {
         fileTooLargeMessage: ({ name, maxMb }: { name: string; maxMb: number }) => `"${name}"超过了 ${maxMb}MB 的限制，未能添加。`,
         uploadFailedTitle: '上传失败',
         uploadFailedMessage: ({ count }: { count: number }) => count === 1
-            ? '一张图片上传失败，未发送。'
-            : `${count} 张图片上传失败，未发送。`,
+            ? `一个附件上传失败。消息和附件仍保留在这里。点击发送重试。`
+            : `${count}个附件上传失败。消息和附件仍保留在这里。点击发送重试。`,
+        sendFailedMessage: `消息发送失败。草稿仍保留在这里，请重试。`,
         notSupportedTitle: '不支持图片',
         notSupportedMessage: '此代理不支持图片附件。图片未发送。',
     },

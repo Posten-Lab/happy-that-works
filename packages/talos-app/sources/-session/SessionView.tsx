@@ -547,7 +547,9 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
 
     // Image attachment state (expImageUpload feature flag)
     const expImageUpload = useSetting('expImageUpload');
-    const { selectedImages, pickImages, removeImage, clearImages, addImages } = useImagePicker();
+    const { selectedImages, pickImages, removeImage, addImages } = useImagePicker();
+    const sendingRef = React.useRef(false);
+    const [isSending, setIsSending] = React.useState(false);
     const { pickDocuments } = useDocumentPicker({
         currentCount: selectedImages.length,
         addImages,
@@ -596,23 +598,38 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
 
     // handleSend reads the live message via the composer ref, so it doesn't
     // need to re-create on every keystroke.
-    const handleSend = React.useCallback(() => {
+    const handleSend = React.useCallback(async () => {
+        if (sendingRef.current) return;
         const liveMessage = composerHandleRef.current?.getMessage() ?? '';
         if (liveMessage.trim() || (expImageUpload && selectedImages.length > 0)) {
             const attachments = expImageUpload ? selectedImages : undefined;
-            composerHandleRef.current?.clearMessage();
-            if (expImageUpload) clearImages();
-            sync.sendMessage(sessionId, liveMessage, {
-                source: 'chat',
-                attachments,
-                modeMeta: {
-                    permissionMode: permissionMode?.key,
-                    model: modelMode?.key === 'default' ? null : modelMode?.key,
-                    effort: effortLevel?.key,
-                },
-            });
+            sendingRef.current = true;
+            setIsSending(true);
+            try {
+                const sent = await sync.sendMessage(sessionId, liveMessage, {
+                    source: 'chat',
+                    attachments,
+                    modeMeta: {
+                        permissionMode: permissionMode?.key,
+                        model: modelMode?.key === 'default' ? null : modelMode?.key,
+                        effort: effortLevel?.key,
+                    },
+                });
+                if (sent) {
+                    // Uploads can take time: preserve any text or files added meanwhile.
+                    if (composerHandleRef.current?.getMessage() === liveMessage) {
+                        composerHandleRef.current.clearMessage();
+                    }
+                    attachments?.forEach(attachment => removeImage(attachment.id));
+                }
+            } catch {
+                Modal.alert(t('common.error'), t('imageUpload.sendFailedMessage'));
+            } finally {
+                sendingRef.current = false;
+                setIsSending(false);
+            }
         }
-    }, [sessionId, expImageUpload, selectedImages, clearImages, permissionMode?.key, modelMode?.key, effortLevel?.key]);
+    }, [sessionId, expImageUpload, selectedImages, removeImage, permissionMode?.key, modelMode?.key, effortLevel?.key]);
 
     const handleAbort = React.useCallback(() => {
         storage.getState().resetSessionAgentOverrides(sessionId);
@@ -788,6 +805,7 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
             connectionStatus={connectionStatus}
             blockSend={false}
             onSend={handleSend}
+            isSending={isSending}
             onMicPress={isDisconnected ? undefined : micButtonState.onMicPress}
             isMicActive={isDisconnected ? false : micButtonState.isMicActive}
             onAbort={isDisconnected ? undefined : handleAbort}

@@ -993,8 +993,9 @@ export const es: TranslationStructure = {
         fileTooLargeMessage: ({ name, maxMb }: { name: string; maxMb: number }) => `"${name}" supera el límite de ${maxMb}MB y no se añadió.`,
         uploadFailedTitle: 'Error al subir',
         uploadFailedMessage: ({ count }: { count: number }) => count === 1
-            ? 'No se pudo subir una imagen y no se envió.'
-            : `No se pudieron subir ${count} imágenes y no se enviaron.`,
+            ? `No se pudo subir un archivo adjunto. Tu mensaje y los archivos siguen aquí. Pulsa Enviar para reintentar.`
+            : `No se pudieron subir ${count} archivos adjuntos. Tu mensaje y los archivos siguen aquí. Pulsa Enviar para reintentar.`,
+        sendFailedMessage: `No se pudo enviar el mensaje. Tu borrador sigue aquí. Inténtalo de nuevo.`,
         notSupportedTitle: 'Imágenes no compatibles',
         notSupportedMessage: 'Este agente no admite archivos adjuntos de imagen. Las imágenes no se enviaron.',
     },

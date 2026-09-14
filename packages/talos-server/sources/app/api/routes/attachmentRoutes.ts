@@ -1,14 +1,15 @@
 /**
- * Attachment upload/download routes for image attachments in chat sessions.
+ * Attachment upload/download routes for chat sessions.
  *
  * Two storage modes:
- * - S3: Returns presigned PUT/GET URLs. Server never touches file bytes.
+ * - S3: Returns presigned POST/GET URLs. Server never touches file bytes.
  * - Local: Server accepts/serves encrypted blobs directly.
  *
  * No database records — attachments are identified by their ref path.
  * Cleanup happens when sessions are deleted (Phase 8).
  */
 import { z } from 'zod';
+import { MAX_ENCRYPTED_ATTACHMENT_BYTES } from '@ahmadposten/talos-wire';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -16,7 +17,6 @@ import { Fastify } from '../types';
 import { db } from '@/storage/db';
 import { s3client, s3bucket, isLocalStorage, getLocalFilesDir, putLocalFile } from '@/storage/files';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const PRESIGNED_TTL_SECONDS = 15 * 60; // 15 minutes (design spec)
 
 // Per-user, per-process token bucket for request-upload. Best-effort flood
@@ -81,7 +81,7 @@ export function attachmentRoutes(app: Fastify) {
             }),
             body: z.object({
                 filename: z.string(),
-                size: z.number().max(MAX_FILE_SIZE),
+                size: z.number().int().nonnegative(),
             }),
             response: {
                 200: z.object({
@@ -113,8 +113,8 @@ export function attachmentRoutes(app: Fastify) {
             return reply.code(404).send({ error: 'Session not found' });
         }
 
-        if (size > MAX_FILE_SIZE) {
-            return reply.code(413).send({ error: 'File too large (max 10MB)' });
+        if (size > MAX_ENCRYPTED_ATTACHMENT_BYTES) {
+            return reply.code(413).send({ error: 'File too large (max 100MB before encryption)' });
         }
 
         // Always .enc — encrypted opaque blobs, never trust client filename for path.
@@ -138,7 +138,7 @@ export function attachmentRoutes(app: Fastify) {
             policy.setBucket(s3bucket);
             policy.setKey(ref);
             policy.setExpires(new Date(Date.now() + PRESIGNED_TTL_SECONDS * 1000));
-            policy.setContentLengthRange(0, MAX_FILE_SIZE);
+            policy.setContentLengthRange(0, MAX_ENCRYPTED_ATTACHMENT_BYTES);
             const { postURL, formData } = await s3client.presignedPostPolicy(policy);
             return reply.send({
                 ref,
@@ -154,6 +154,7 @@ export function attachmentRoutes(app: Fastify) {
      * Only active when S3 is not configured.
      */
     app.put('/v1/sessions/:sessionId/attachments/:attachmentFile', {
+        bodyLimit: MAX_ENCRYPTED_ATTACHMENT_BYTES,
         schema: {
             params: z.object({
                 sessionId: z.string(),
@@ -188,8 +189,8 @@ export function attachmentRoutes(app: Fastify) {
         }
 
         const body = request.body as Buffer;
-        if (body.length > MAX_FILE_SIZE) {
-            return reply.code(413).send({ error: 'File too large (max 10MB)' });
+        if (body.length > MAX_ENCRYPTED_ATTACHMENT_BYTES) {
+            return reply.code(413).send({ error: 'File too large (max 100MB before encryption)' });
         }
 
         const ref = `sessions/${sessionId}/attachments/${attachmentFile}`;

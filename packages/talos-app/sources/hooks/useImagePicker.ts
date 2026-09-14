@@ -2,12 +2,11 @@
  * Image picker hook for attaching images to messages.
  *
  * Wraps expo-image-picker with permission handling and thumbhash generation.
- * Enforces limits: max 20 images per message, 10MB per file.
+ * Enforces limits: max 20 attachments per message, 100MB per file.
  *
  * Note: fileSize from expo-image-picker is optional — some platforms do not
  * provide it (returns undefined → size=0). Such files pass the client-side
- * size check; the server enforces the limit on upload. Phase 5 should handle
- * 413 responses gracefully.
+ * size check; the server enforces the actual encrypted size on upload.
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,15 +16,10 @@ import { Modal } from '@/modal';
 import { generateThumbhash } from '@/utils/thumbhash';
 import { t } from '@/text';
 import type { AttachmentPreview } from '@/sync/attachmentTypes';
+import { MAX_ATTACHMENT_FILE_BYTES } from '@ahmadposten/talos-wire';
 
 export const MAX_IMAGES_PER_MESSAGE = 20;
-/**
- * 100 MB matches the server's Fastify bodyLimit and the CLI-side axios
- * maxBodyLength. Photos are almost never anywhere near this — the ceiling
- * is here so a picked video from Photos doesn't get rejected client-side
- * before we even try to upload.
- */
-export const MAX_FILE_SIZE = 100 * 1024 * 1024;
+export const MAX_FILE_SIZE = MAX_ATTACHMENT_FILE_BYTES;
 const IOS_ATTACHMENT_JPEG_QUALITY = 0.92;
 
 export type { AttachmentPreview };

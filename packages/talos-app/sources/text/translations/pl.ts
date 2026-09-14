@@ -1022,8 +1022,9 @@ export const pl: TranslationStructure = {
         fileTooLargeMessage: ({ name, maxMb }: { name: string; maxMb: number }) => `"${name}" przekracza limit ${maxMb}MB i nie został dodany.`,
         uploadFailedTitle: 'Przesyłanie nieudane',
         uploadFailedMessage: ({ count }: { count: number }) => count === 1
-            ? 'Nie udało się przesłać jednego zdjęcia i nie zostało wysłane.'
-            : `Nie udało się przesłać ${count} zdjęć i nie zostały wysłane.`,
+            ? `Nie udało się przesłać jednego załącznika. Wiadomość i załączniki pozostały tutaj. Naciśnij Wyślij, aby spróbować ponownie.`
+            : `Nie udało się przesłać załączników (${count}). Wiadomość i załączniki pozostały tutaj. Naciśnij Wyślij, aby spróbować ponownie.`,
+        sendFailedMessage: `Nie udało się wysłać wiadomości. Szkic pozostał tutaj. Spróbuj ponownie.`,
         notSupportedTitle: 'Obrazy nieobsługiwane',
         notSupportedMessage: 'Ten agent nie obsługuje załączników obrazów. Obrazy nie zostały wysłane.',
     },

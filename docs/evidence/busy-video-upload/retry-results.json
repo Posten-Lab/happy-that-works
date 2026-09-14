@@ -1,0 +1,10 @@
+{
+  "videoBytes": 20566593,
+  "videoSha256": "2d4640483c95973f102e29bb90ec4044820d7c6acecb24c436482a7da70de965",
+  "failedBatchSentRecords": 0,
+  "retrySentRecords": 3,
+  "retryUploadRequests": 2,
+  "newerTextPreserved": true,
+  "newerAttachmentPreserved": true,
+  "fault": "The second request-upload is aborted once; all successful transfers use the actual server."
+}

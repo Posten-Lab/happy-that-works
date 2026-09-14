@@ -995,8 +995,9 @@ export const ja: TranslationStructure = {
         fileTooLargeMessage: ({ name, maxMb }: { name: string; maxMb: number }) => `"${name}"は${maxMb}MBの制限を超えているため追加されませんでした。`,
         uploadFailedTitle: 'アップロードに失敗しました',
         uploadFailedMessage: ({ count }: { count: number }) => count === 1
-            ? '1枚の画像をアップロードできず、送信されませんでした。'
-            : `${count}枚の画像をアップロードできず、送信されませんでした。`,
+            ? `添付ファイルを1件アップロードできませんでした。メッセージと添付ファイルはここに残っています。送信をタップして再試行してください。`
+            : `添付ファイルを${count}件アップロードできませんでした。メッセージと添付ファイルはここに残っています。送信をタップして再試行してください。`,
+        sendFailedMessage: `メッセージを送信できませんでした。下書きはここに残っています。再試行してください。`,
         notSupportedTitle: '画像はサポートされていません',
         notSupportedMessage: 'このエージェントは画像の添付に対応していません。画像は送信されませんでした。',
     },

@@ -1,13 +1,13 @@
 /**
- * Server API for image attachment upload/download.
+ * Server API for attachment upload/download.
  *
  * Two storage modes are transparent to the client:
  * - Local: uploadUrl points to the server itself (PUT endpoint)
- * - S3: uploadUrl is a presigned PUT URL
+ * - S3: uploadUrl and formFields authorize a presigned POST
  *
  * The client always follows the same flow:
  *   1. POST request-upload → get { ref, uploadUrl }
- *   2. PUT encrypted blob to uploadUrl
+ *   2. Upload the encrypted blob using the supplied method
  *   3. Embed ref in the file event sent to the CLI
  */
 import { AuthCredentials } from '@/auth/tokenStorage';
@@ -17,8 +17,6 @@ import {
 } from './attachmentDiagnostics';
 import { getServerUrl } from './serverConfig';
 import { appendFormFile } from './uploadFormFile';
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 /**
  * If a self-hosted server's request-upload / request-download response points
@@ -87,7 +85,7 @@ export async function requestAttachmentUpload(
 
     if (!response.ok) {
         if (response.status === 413) {
-            throw createAttachmentDiagnosticError(`Attachment too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`, {
+            throw createAttachmentDiagnosticError('Attachment exceeds the server upload limit', {
                 leg: 'request-upload',
                 method: 'POST',
                 url: requestUrl,

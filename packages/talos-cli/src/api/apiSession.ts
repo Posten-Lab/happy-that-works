@@ -1,5 +1,5 @@
 import { normalizeMetadata, toWireMetadata } from '@ahmadposten/talos-wire';
-import { encryptionContexts } from '@ahmadposten/talos-wire';
+import { encryptionContexts, MAX_ENCRYPTED_ATTACHMENT_BYTES } from '@ahmadposten/talos-wire';
 import { logger } from '@/ui/logger'
 import { EventEmitter } from 'node:events'
 import { io, Socket } from 'socket.io-client'
@@ -456,7 +456,8 @@ export class ApiSessionClient extends EventEmitter {
                     'Content-Type': `multipart/form-data; boundary=${boundary}`,
                 },
                 timeout: 60000,
-                maxBodyLength: 100 * 1024 * 1024,
+                // Multipart fields sit outside the encrypted file's size limit.
+                maxBodyLength: MAX_ENCRYPTED_ATTACHMENT_BYTES + 1024 * 1024,
             });
             return;
         }
@@ -471,7 +472,7 @@ export class ApiSessionClient extends EventEmitter {
         await axios.put(upload.uploadUrl, Buffer.from(encrypted), {
             headers,
             timeout: 60000,
-            maxBodyLength: 10 * 1024 * 1024,
+            maxBodyLength: MAX_ENCRYPTED_ATTACHMENT_BYTES,
         });
     }
 
@@ -525,7 +526,7 @@ export class ApiSessionClient extends EventEmitter {
             responseType: 'arraybuffer',
             timeout: 60000,
             maxRedirects: 5,
-            maxContentLength: 10 * 1024 * 1024,
+            maxContentLength: MAX_ENCRYPTED_ATTACHMENT_BYTES,
         });
         return new Uint8Array(response.data);
     }

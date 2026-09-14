@@ -1029,8 +1029,9 @@ export const en: TranslationStructure = {
         fileTooLargeMessage: ({ name, maxMb }: { name: string; maxMb: number }) => `"${name}" exceeds the ${maxMb}MB limit and was not added.`,
         uploadFailedTitle: 'Upload Failed',
         uploadFailedMessage: ({ count }: { count: number }) => count === 1
-            ? 'One image could not be uploaded and was not sent.'
-            : `${count} images could not be uploaded and were not sent.`,
+            ? `One attachment could not be uploaded. Your message and attachments are saved here. Tap Send to retry.`
+            : `${count} attachments could not be uploaded. Your message and attachments are saved here. Tap Send to retry.`,
+        sendFailedMessage: `Message could not be sent. Your draft is saved here. Please retry.`,
         notSupportedTitle: 'Images Not Supported',
         notSupportedMessage: 'This agent does not support image attachments. Images were not sent.',
     },

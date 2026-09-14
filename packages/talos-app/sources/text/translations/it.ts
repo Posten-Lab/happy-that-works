@@ -991,8 +991,9 @@ export const it: TranslationStructure = {
         fileTooLargeMessage: ({ name, maxMb }: { name: string; maxMb: number }) => `"${name}" supera il limite di ${maxMb}MB e non è stato aggiunto.`,
         uploadFailedTitle: 'Caricamento non riuscito',
         uploadFailedMessage: ({ count }: { count: number }) => count === 1
-            ? 'Un\'immagine non è stata caricata e non è stata inviata.'
-            : `Non è stato possibile caricare ${count} immagini e non sono state inviate.`,
+            ? `Impossibile caricare un allegato. Il messaggio e gli allegati sono ancora qui. Tocca Invia per riprovare.`
+            : `Impossibile caricare ${count} allegati. Il messaggio e gli allegati sono ancora qui. Tocca Invia per riprovare.`,
+        sendFailedMessage: `Impossibile inviare il messaggio. La bozza è ancora qui. Riprova.`,
         notSupportedTitle: 'Immagini non supportate',
         notSupportedMessage: 'Questo agente non supporta gli allegati immagine. Le immagini non sono state inviate.',
     },

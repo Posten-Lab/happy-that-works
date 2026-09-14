@@ -1,0 +1,57 @@
+{
+  "date": "2026-09-14",
+  "baseRevision": "7130fa06",
+  "viewport": {
+    "width": 430,
+    "height": 932
+  },
+  "services": [
+    "Expo web app",
+    "PGlite Talos server with local storage",
+    "Talos CLI",
+    "real Codex app-server session"
+  ],
+  "baselineUpload": {
+    "plaintextBytes": 12582912,
+    "encryptedBytes": 12582952,
+    "httpStatus": 400
+  },
+  "busyDelivery": {
+    "activeTurnStarted": "07:41:55.290",
+    "fileReceived": "07:42:26.533",
+    "activeTurnCompleted": "07:42:49.310",
+    "filePathCount": 1,
+    "skippedCount": 0,
+    "modelResult": "VIDEO_OK"
+  },
+  "screenshots": [
+    {
+      "path": "new-session-retry-complete.png",
+      "sha256": "26cd9f981a372a359a7fd4672ca9576144578a702dd0f3a69a599d6385006892"
+    },
+    {
+      "path": "new-session-retry.png",
+      "sha256": "2b8390e1dd747542fc31cbcabe74492a359a1402cb6c740c0889db3bc3b1ff4f"
+    },
+    {
+      "path": "retry-success-preserves-new-draft.png",
+      "sha256": "31f049c321f09994d1d1ad460b43265ca40485dbfd32c853d0f7e24615b4ee67"
+    },
+    {
+      "path": "upload-failure-preserves-draft.png",
+      "sha256": "9843476e38be991bd6ce97cbeab7affc5faf2f7bf9647d8d17f33c55ba036134"
+    },
+    {
+      "path": "upload-in-progress-new-draft.png",
+      "sha256": "530d1d48dd882232d3a1c06dacaa41098f62a1a61a5e1ecca3a1ba4c20243336"
+    },
+    {
+      "path": "video-inspected.png",
+      "sha256": "c5d3b31291c8061b4b986c4185b7cca65aca9dc6631da301d55c2d4dd4fd82e5"
+    },
+    {
+      "path": "video-ready-while-busy.png",
+      "sha256": "64ee4afa7ac8f87e61e2cf1bb51686f7fd5a6d5a96dac960d38e748bda6fb6ce"
+    }
+  ]
+}

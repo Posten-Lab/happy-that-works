@@ -993,8 +993,9 @@ export const zhHant: TranslationStructure = {
         fileTooLargeMessage: ({ name, maxMb }: { name: string; maxMb: number }) => `"${name}"超過了 ${maxMb}MB 的限制，未能新增。`,
         uploadFailedTitle: '上傳失敗',
         uploadFailedMessage: ({ count }: { count: number }) => count === 1
-            ? '一張圖片上傳失敗，未傳送。'
-            : `${count} 張圖片上傳失敗，未傳送。`,
+            ? `一個附件上傳失敗。訊息和附件仍保留在這裡。點擊傳送重試。`
+            : `${count}個附件上傳失敗。訊息和附件仍保留在這裡。點擊傳送重試。`,
+        sendFailedMessage: `訊息傳送失敗。草稿仍保留在這裡，請重試。`,
         notSupportedTitle: '不支援圖片',
         notSupportedMessage: '此代理不支援圖片附件。圖片未傳送。',
     },
