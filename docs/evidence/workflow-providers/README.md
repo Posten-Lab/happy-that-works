@@ -48,7 +48,7 @@ Native iPhone 17 Pro / iOS 26.1 checks: agent name focused with software keyboar
 
 - `pnpm --filter @ahmadposten/talos-wire test`: 34 passed.
 - `pnpm --filter talos-app test`: 911 passed.
-- `pnpm --filter talosapp test`: 1,056 passed; the subsequently expanded workflow storage/RPC suite passed all 36 tests.
+- `pnpm --filter talosapp test`: 1,056 passed; the subsequently expanded workflow storage/RPC suite passed all 36 tests. Provider authentication-environment/output regressions passed all 5 tests after the final credential-preservation adjustment.
 - App and CLI type checks passed; `git diff --check` passed.
 
 No credentials, authenticated URLs, raw account settings, or full participant logs are included in this evidence bundle.

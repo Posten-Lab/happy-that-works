@@ -11,7 +11,7 @@ import { discoverClaudeModels } from '@/claude/claudeModels';
 import { discoverMuseModels } from '@/muse/museClient';
 import type { MuseMessage } from '@/muse/museProtocol';
 import { MuseSession } from '@/muse/MuseSession';
-import { workflowEnvironment } from './environment';
+import { claudeWorkflowEnvironment } from './environment';
 
 export const discoverWorkflowProviderModels = (provider: 'claude' | 'muse') => provider === 'claude' ? discoverClaudeModels() : discoverMuseModels(homedir());
 
@@ -76,9 +76,7 @@ export function providerWorkflowTurn(api: ApiClient, home: string): WorkflowRunt
         try {
             sync.sendProviderUserMessage(task.prompt, task.id);
             if (slot.agent.provider === 'claude') {
-                const env = workflowEnvironment(process.env, false);
-                // Provider authentication location is configuration, not inherited session routing.
-                if (process.env.CLAUDE_CONFIG_DIR) env.CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
+                const env = claudeWorkflowEnvironment(process.env);
                 const client = query({ prompt: task.prompt, options: {
                     ...claudeWorkflowOptions(run.directory, task.stage === 'execute'), cwd: run.directory,
                     env, model: slot.agent.model, effort: (slot.agent.effort ?? undefined) as Options['effort'],
