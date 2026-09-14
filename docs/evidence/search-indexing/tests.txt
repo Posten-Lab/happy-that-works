@@ -1,0 +1,13 @@
+RUN  v3.2.4 /Users/ahmedposten/work/talos-fast-search/packages/talos-app
+
+ ✓ sources/sync/search/getSearchSession.test.ts (11 tests) 5ms
+ ✓ sources/sync/search/backgroundSearch.test.ts (10 tests) 65ms
+ ✓ sources/components/sessionSearchPresentation.spec.ts (5 tests) 3ms
+ ✓ sources/sync/search/searchCoordinator.test.ts (33 tests) 61ms
+ ✓ sources/sync/search/searchIndex.test.ts (8 tests) 7ms
+ ✓ sources/sync/search/searchDecryption.test.ts (4 tests) 13ms
+
+ Test Files  6 passed (6)
+      Tests  71 passed (71)
+   Start at  21:38:55
+   Duration  358ms (transform 329ms, setup 0ms, collect 668ms, tests 154ms, environment 0ms, prepare 311ms)

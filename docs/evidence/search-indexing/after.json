@@ -1,0 +1,24 @@
+{
+  "label": "after",
+  "checkedAt": "2026-09-14T20:40:12.880Z",
+  "sessions": 226,
+  "encryptedMessages": 14500,
+  "largestSessionMessages": 10000,
+  "networkLatencyMs": 100,
+  "openedMatchingMessage": true,
+  "cold": {
+    "firstCompletedSessionMs": 585,
+    "firstShortConversationMatchMs": 585,
+    "completeMs": 15467,
+    "messageRequests": 275
+  },
+  "refresh": {
+    "minimumCompletedSessions": 226,
+    "maximumCompletedSessions": 226
+  },
+  "reopen": {
+    "completeFromNavigationMs": 1430,
+    "messageRequests": 0
+  },
+  "result": "passed"
+}

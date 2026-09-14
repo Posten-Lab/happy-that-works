@@ -1,0 +1,2 @@
+> talos-app@2.0.0 typecheck /Users/ahmedposten/work/talos-fast-search/packages/talos-app
+> tsc --noEmit
