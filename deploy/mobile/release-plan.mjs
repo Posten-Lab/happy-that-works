@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 export function classifyPath(path) {
@@ -21,6 +22,24 @@ export function classifyPath(path) {
   // Unknown files, shared dependencies, patches and build scripts fail to native.
   return 'native';
 }
+function classifyChange(path, base, head) {
+  // Publishing the JS-only wire package changes its version without changing
+  // native dependencies. Everything else in either manifest still fails closed.
+  if (path === 'packages/talos-wire/package.json') {
+    try {
+      const before = JSON.parse(git('show', `${base}:${path}`));
+      const after = JSON.parse(git('show', `${head}:${path}`));
+      const version = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+      if (before?.name === '@ahmadposten/talos-wire' && after?.name === before.name &&
+          typeof before.version === 'string' && typeof after.version === 'string' &&
+          version.test(before.version) && version.test(after.version)) {
+        delete before.version; delete after.version;
+        if (isDeepStrictEqual(before, after)) return 'ota';
+      }
+    } catch { /* Added, deleted or malformed manifests require native review. */ }
+  }
+  return classifyPath(path);
+}
 export function plan(base, head, mode = 'auto') {
   if (!['auto', 'native', 'ota', 'none'].includes(mode)) throw Error('Invalid release mode');
   if (!/^[a-f0-9]{40}$/.test(head)) throw Error('Head must be an exact commit SHA');
@@ -30,7 +49,7 @@ export function plan(base, head, mode = 'auto') {
     if (!/^[a-f0-9]{40}$/.test(base)) throw Error('Base must be an exact commit SHA');
     git('merge-base', '--is-ancestor', base, head);
     const paths = git('diff', '--no-renames', '--name-only', '-z', base, head).split('\0').filter(Boolean);
-    const kinds = paths.map(classifyPath);
+    const kinds = paths.map(path => classifyChange(path, base, head));
     kind = kinds.includes('native') ? 'native' : kinds.includes('ota') ? 'ota' : 'none';
   }
   if (mode === 'ota' && kind !== 'ota' || mode === 'none' && kind !== 'none') {

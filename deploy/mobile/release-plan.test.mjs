@@ -213,3 +213,45 @@ test('submit configuration uses Jenkins credential IDs without changing build se
     assert.equal(result.submit.production.ios.ascApiKeyPath, '/tmp/talos-asc-key.TEST123');
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
+
+test('wire version-only publication allows guarded OTA while manifest changes remain native', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'talos-wire-version-release-'));
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const selector = new URL('./release-plan.mjs', import.meta.url).pathname;
+  const run = (base, head, mode = 'auto') => execFileSync(process.execPath, [selector, base, head, mode],
+    { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const file = 'packages/talos-wire/package.json';
+  const manifest = { name: '@ahmadposten/talos-wire', version: '0.1.2', dependencies: { zod: '^4.0.0' } };
+  const commit = value => {
+    mkdirSync(dirname(join(cwd, file)), { recursive: true });
+    writeFileSync(join(cwd, file), typeof value === 'string' ? value : JSON.stringify(value));
+    git('add', '.'); git('commit', '-qm', 'manifest'); return git('rev-parse', 'HEAD');
+  };
+  try {
+    git('init', '-q'); git('config', 'user.name', 'CI test'); git('config', 'user.email', 'ci@example.invalid');
+    const base = commit(manifest);
+    const version = commit({ ...manifest, version: '0.1.3' });
+    assert.equal(run(base, version), 'ota');
+    assert.equal(run(base, version, 'ota'), 'ota');
+    assert.throws(() => run(base, version, 'none'));
+    for (const value of [
+      { ...manifest, version: '0.1.4', dependencies: { zod: '^5.0.0' } },
+      { ...manifest, version: '0.1.4', scripts: { postinstall: 'native-build' } },
+      { ...manifest, name: 'another-package', version: '0.1.4' },
+      { ...manifest, version: {} },
+      '{broken json',
+    ]) {
+      const changed = commit(value);
+      assert.equal(run(base, changed), 'native');
+      assert.throws(() => run(base, changed, 'ota'));
+    }
+    git('rm', file); git('commit', '-qm', 'delete wire manifest');
+    const deleted = git('rev-parse', 'HEAD');
+    assert.equal(run(version, deleted), 'native');
+    const added = commit({ ...manifest, version: '0.1.3' });
+    assert.equal(run(deleted, added), 'native');
+    writeFileSync(join(cwd, 'pnpm-lock.yaml'), 'changed dependencies');
+    git('add', '.'); git('commit', '-qm', 'lockfile');
+    assert.equal(run(base, git('rev-parse', 'HEAD')), 'native');
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
