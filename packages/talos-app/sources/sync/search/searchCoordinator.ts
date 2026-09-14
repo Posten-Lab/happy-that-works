@@ -1,4 +1,14 @@
-import { archiveCutoff, SessionSearchIndex, type SearchMessage, type SearchSession } from './searchIndex';
+import { archiveCutoff, sessionInSearchWindow, SessionSearchIndex, type SearchMessage, type SearchSession } from './searchIndex';
+
+// Bound requests/crypto work on phones while overlapping network and storage
+// latency. A worker may append a continuation, behind the other sessions.
+const SEARCH_CONCURRENCY = 6;
+async function drainQueue<T>(queue: T[], current: () => boolean, process: (item: T) => Promise<void>) {
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(SEARCH_CONCURRENCY, queue.length) }, async () => {
+        while (current() && next < queue.length) await process(queue[next++]);
+    }));
+}
 
 export type SearchSessionDescriptor = {
     id: string; seq: number; metadata: string; metadataVersion: number;
@@ -80,6 +90,16 @@ export class SearchCoordinator {
         this.listeners.forEach(listener => listener());
     }
 
+    private publishProgress(patch: Partial<SearchSnapshot> = {}, indexChanged = false) {
+        let indexedSessions = 0;
+        for (const record of this.records.values()) {
+            if (record.complete && record.retryFromSeq === undefined && record.indexedSeq === record.descriptor.seq
+                && !this.dirty.has(record.session.id) && sessionInSearchWindow(record.session, this.snapshot.allHistory)) indexedSessions++;
+        }
+        const next = { indexedSessions, ...patch };
+        if (indexChanged || Object.entries(next).some(([key, value]) => this.snapshot[key as keyof SearchSnapshot] !== value)) this.publish(next);
+    }
+
     isConfigured = () => this.dependencies !== null;
 
     start = async (options: { allHistory?: boolean; refresh?: boolean } = {}) => {
@@ -93,7 +113,7 @@ export class SearchCoordinator {
         const generation = ++this.generation;
         const controller = new AbortController();
         this.controller = controller;
-        this.publish({ isIndexing: true, indexedSessions: 0, error: null });
+        this.publishProgress({ isIndexing: true, error: null });
         const dependencies = this.dependencies;
         const job = this.run(dependencies, generation, controller.signal).catch(error => {
             if (generation === this.generation && !controller.signal.aborted) {
@@ -143,13 +163,14 @@ export class SearchCoordinator {
 
     removeSession = (id: string) => {
         this.removed.add(id);
-        const chunks = this.records.get(id)?.chunks ?? [];
+        const record = this.records.get(id);
+        const chunks = record?.chunks ?? [];
         this.records.delete(id);
         this.dirty.delete(id);
         this.persistedMessages.delete(id);
         this.messageKeys.delete(id);
         this.index.removeSession(id);
-        this.publish();
+        this.publishProgress({ totalSessions: Math.max(0, this.snapshot.totalSessions - (record ? 1 : 0)) }, true);
         const dependencies = this.dependencies;
         if (dependencies) this.enqueueWrite(async () => {
             await dependencies.cache.remove(id);
@@ -247,32 +268,34 @@ export class SearchCoordinator {
             try {
                 const manifest = await dependencies.cache.get('manifest');
                 const ids = manifest ? await dependencies.decrypt(manifest) : [];
-                if (Array.isArray(ids)) for (const id of ids) {
-                    if (!current()) return;
-                    if (typeof id !== 'string') continue;
-                    if (this.removed.has(id)) continue;
-                    const encrypted = await dependencies.cache.get(id);
-                    if (!encrypted) continue;
-                    const cached = await dependencies.decrypt(encrypted) as CachedSession | null;
-                    if (!current()) return;
-                    if (this.removed.has(id)) continue;
-                    if (cached?.version !== 1 || cached.session?.id !== id || !Array.isArray(cached.messages)) continue;
-                    for (const key of cached.chunks ?? []) {
-                        const chunk = await dependencies.cache.get(key);
-                        const messages = chunk ? await dependencies.decrypt(chunk) : null;
+                if (!current()) return;
+                if (Array.isArray(ids)) await drainQueue([...new Set(ids.filter((id): id is string => typeof id === 'string'))], current, async id => {
+                    if (this.removed.has(id) || this.records.has(id)) return;
+                    try {
+                        const encrypted = await dependencies.cache.get(id);
+                        if (!encrypted || !current()) return;
+                        const cached = await dependencies.decrypt(encrypted) as CachedSession | null;
                         if (!current()) return;
-                        if (!Array.isArray(messages)) throw new Error('Incomplete search cache');
-                        cached.messages.push(...messages);
-                    }
-                    if (this.removed.has(id)) continue;
-                    const messages = cached.messages;
-                    cached.messages = [];
-                    this.appendMessages(cached, messages);
-                    this.records.set(id, cached);
-                    this.persistedMessages.set(id, cached.chunks ? cached.messages.length : 0);
-                    this.index.upsertSession(cached.session);
-                    this.index.addMessages(id, cached.messages);
-                }
+                        if (this.removed.has(id)) return;
+                        if (cached?.version !== 1 || cached.session?.id !== id || !Array.isArray(cached.messages)) return;
+                        for (const key of cached.chunks ?? []) {
+                            const chunk = await dependencies.cache.get(key);
+                            const messages = chunk ? await dependencies.decrypt(chunk) : null;
+                            if (!current()) return;
+                            if (!Array.isArray(messages)) throw new Error('Incomplete search cache');
+                            cached.messages.push(...messages);
+                        }
+                        if (this.removed.has(id)) return;
+                        const messages = cached.messages;
+                        cached.messages = [];
+                        this.appendMessages(cached, messages);
+                        this.records.set(id, cached);
+                        this.persistedMessages.set(id, cached.chunks ? cached.messages.length : 0);
+                        this.index.upsertSession(cached.session);
+                        this.index.addMessages(id, cached.messages);
+                        this.publishProgress({ totalSessions: this.records.size }, true);
+                    } catch { /* Rebuild this session; other cached histories are still usable. */ }
+                });
             } catch { /* Private browsing/cache eviction: use the relay to rebuild. */ }
             if (!current()) return;
             this.restored = true;
@@ -287,21 +310,30 @@ export class SearchCoordinator {
         do {
             const page = await dependencies.listSessions(cursor, since, signal);
             if (!current()) return;
-            for (const descriptor of page.sessions) {
-                if (this.removed.has(descriptor.id)) continue;
-                if (seen.has(descriptor.id)) continue;
+            const newDescriptors = page.sessions.filter(descriptor => {
+                if (this.removed.has(descriptor.id) || seen.has(descriptor.id)) return false;
                 seen.add(descriptor.id);
                 descriptors.push(descriptor);
+                return true;
+            });
+            await drainQueue(newDescriptors, current, async descriptor => {
+                const record = this.records.get(descriptor.id);
                 let session: SearchSession;
-                try { session = await dependencies.decryptSession(descriptor); }
+                try {
+                    session = record && record.descriptor.metadata === descriptor.metadata
+                        && record.descriptor.metadataVersion === descriptor.metadataVersion
+                        && record.descriptor.dataEncryptionKey === descriptor.dataEncryptionKey
+                        ? { ...record.session, active: descriptor.active, createdAt: descriptor.createdAt,
+                            updatedAt: descriptor.updatedAt, lastMessageAt: descriptor.lastMessageAt }
+                        : await dependencies.decryptSession(descriptor);
+                }
                 catch {
                     if (!current()) return;
                     titleFailures++;
-                    continue;
+                    return;
                 }
                 if (!current()) return;
-                if (this.removed.has(descriptor.id)) continue;
-                const record = this.records.get(descriptor.id);
+                if (this.removed.has(descriptor.id)) return;
                 if (record) {
                     if (JSON.stringify(record.descriptor) !== JSON.stringify(descriptor) || record.session.title !== session.title || record.session.active !== session.active) this.dirty.add(descriptor.id);
                     record.descriptor = descriptor; record.session = session;
@@ -310,8 +342,9 @@ export class SearchCoordinator {
                     this.dirty.add(descriptor.id);
                 }
                 this.index.upsertSession(session);
-            }
-            this.publish({ totalSessions: descriptors.length });
+            });
+            if (!current()) return;
+            this.publishProgress({ totalSessions: Math.max(descriptors.length, this.records.size) }, true);
             if (page.hasNext && (!page.nextCursor || page.nextCursor === cursor)) throw new Error('Session history pagination stalled. Please retry.');
             cursor = page.hasNext ? page.nextCursor : null;
         } while (cursor && current());
@@ -338,60 +371,57 @@ export class SearchCoordinator {
         const manifest = await dependencies.encrypt([...seen]);
         if (!current()) return;
         await this.enqueueWrite(async () => { if (current()) await dependencies.cache.set('manifest', manifest); });
+        if (!current()) return;
+        this.publishProgress({ totalSessions: descriptors.filter(item => !this.removed.has(item.id)).length });
 
         descriptors.sort((a, b) => Number(b.active) - Number(a.active) || (b.lastMessageAt ?? b.createdAt) - (a.lastMessageAt ?? a.createdAt));
-        let indexedSessions = 0;
         let failures = titleFailures;
-        for (const descriptor of descriptors) {
-            if (!current()) return;
+        const queue = descriptors.map(descriptor => ({ descriptor, afterSeq: undefined as number | undefined, retryFromSeq: undefined as number | undefined }));
+        await drainQueue(queue, current, async work => {
+            const { descriptor } = work;
             const record = this.records.get(descriptor.id);
-            if (!record) continue;
+            if (!record || this.removed.has(descriptor.id)) return;
             try {
                 if (record.complete && record.retryFromSeq === undefined && record.indexedSeq === descriptor.seq) {
                     if (this.dirty.has(descriptor.id)) await this.save(dependencies, record, generation);
                     if (!current()) return;
-                    indexedSessions++;
-                    this.publish({ indexedSessions });
-                    continue;
+                    this.publishProgress();
+                    return;
                 }
-                let afterSeq = record.retryFromSeq ?? record.cursor;
-                let retryFromSeq: number | undefined;
-                let hasMore: boolean;
-                do {
-                    const page = await dependencies.readMessages(descriptor, afterSeq, signal);
-                    if (!current()) return;
-                    if (this.removed.has(descriptor.id)) break;
-                    if (page.hasMore && page.lastSeq <= afterSeq) throw new Error('Message history pagination stalled.');
-                    if (page.failedCount) {
-                        retryFromSeq ??= afterSeq;
-                        record.retryFromSeq = Math.min(record.retryFromSeq ?? afterSeq, afterSeq);
-                    }
-                    this.appendMessages(record, page.messages);
-                    this.dirty.add(descriptor.id);
-                    this.index.addMessages(descriptor.id, page.messages);
-                    record.cursor = Math.max(record.cursor, page.lastSeq);
-                    afterSeq = page.lastSeq;
-                    // Keep the old retry checkpoint until a full replay proves
-                    // which unreadable pages remain. Interrupted retries are safe.
-                    if (!page.hasMore) record.retryFromSeq = retryFromSeq;
-                    record.complete = !page.hasMore && record.retryFromSeq === undefined;
-                    if (record.complete) record.indexedSeq = descriptor.seq;
-                    await this.save(dependencies, record, generation);
-                    if (!current()) return;
-                    this.publish();
-                    hasMore = page.hasMore;
-                    // Yield between bounded pages; don't monopolize the RN JS thread.
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                    if (!current()) return;
-                } while (hasMore && current());
-                if (record.retryFromSeq !== undefined) failures++;
-                else indexedSessions++;
+                const afterSeq = work.afterSeq ?? record.retryFromSeq ?? record.cursor;
+                const page = await dependencies.readMessages(descriptor, afterSeq, signal);
+                if (!current()) return;
+                if (this.removed.has(descriptor.id)) return;
+                if (page.hasMore && page.lastSeq <= afterSeq) throw new Error('Message history pagination stalled.');
+                if (page.failedCount) {
+                    work.retryFromSeq ??= afterSeq;
+                    record.retryFromSeq = Math.min(record.retryFromSeq ?? afterSeq, afterSeq);
+                }
+                this.appendMessages(record, page.messages);
+                this.dirty.add(descriptor.id);
+                this.index.addMessages(descriptor.id, page.messages);
+                record.cursor = Math.max(record.cursor, page.lastSeq);
+                work.afterSeq = page.lastSeq;
+                // Keep the old retry checkpoint until a full replay proves
+                // which unreadable pages remain. Interrupted retries are safe.
+                if (!page.hasMore) record.retryFromSeq = work.retryFromSeq;
+                record.complete = !page.hasMore && record.retryFromSeq === undefined;
+                if (record.complete) record.indexedSeq = descriptor.seq;
+                await this.save(dependencies, record, generation);
+                if (!current()) return;
+                this.publishProgress({}, true);
+                if (page.hasMore) {
+                    // Give every conversation a turn before continuing a long
+                    // history. Yield to rendering without a fixed per-page delay.
+                    queue.push(work);
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                } else if (record.retryFromSeq !== undefined) failures++;
             } catch (error) {
                 if (!current()) return;
                 failures++;
             }
-            if (current()) this.publish({ indexedSessions });
-        }
+            if (current()) this.publishProgress();
+        });
         if (current()) this.publish({ error: failures ? `Could not finish indexing ${failures} conversation${failures === 1 ? '' : 's'}. Retry to include their missing history.` : null });
     }
 }

@@ -62,7 +62,9 @@ export class SessionSearchIndex {
     });
 
     upsertSession(session: SearchSession) {
+        const previous = this.sessions.get(session.id);
         this.sessions.set(session.id, session);
+        if (previous?.title === session.title) return;
         this.upsert({ id: `${session.id}:title`, sessionId: session.id, title: session.title });
     }
 
