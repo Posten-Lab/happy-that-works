@@ -1,4 +1,6 @@
 /** Translate service failures into recovery instructions; never expose raw RPC, Git or schema output. */
+import { t } from '@/text';
+
 export function workflowErrorMessage(error: unknown, fallback = 'Something went wrong. Try again. If it continues, reconnect this machine in Settings.'): string {
     const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
     if (/E2BIG|argument list too long|exec argument limit/i.test(message)) return 'The agent’s command runner could not start on this machine. Open its session for details, then give the team guidance or replace the agent to continue. Completed files are preserved.';
@@ -6,6 +8,8 @@ export function workflowErrorMessage(error: unknown, fallback = 'Something went 
         || /"code"\s*:\s*"invalid_(?:type|value)"/.test(message) && /"path"\s*:\s*\[\s*"(?:decision|summary|document|findings)"/.test(message)) return 'The agent returned a response Talos could not read. Add guidance asking for a new response, then resume. Completed work is preserved.';
     if (/not a git repository|ambiguous argument ['"]?HEAD|unknown revision|bad revision ['"]?HEAD/i.test(message)) return 'Choose a Git project with at least one commit. Open Project to choose another folder.';
     if (/repository root/i.test(message)) return 'Choose the top-level folder of your Git project, rather than a folder inside it. Open Project to change the folder.';
+    if (/another workflow is using this project folder or an overlapping folder/i.test(message)) return t('workflowWorkspace.folderOverlap');
+    if (/choose a project folder, not a file/i.test(message)) return t('workflowWorkspace.projectFolderNotFile');
     if (/commit or stash|working tree.*(dirty|clean)|uncommitted/i.test(message)) return 'This project has uncommitted changes. Commit or stash them on the selected machine, then try again. Your files have not been changed.';
     if (/submodules/i.test(message)) return 'Workflows cannot run in projects with Git submodules yet. Choose a different project.';
     if (/spawn\s+(muse|claude|codex).*ENOENT|(?:muse|claude|codex).*(not installed|executable.*not found)/i.test(message)) {

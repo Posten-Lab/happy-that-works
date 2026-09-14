@@ -1046,6 +1046,23 @@ export const en = {
         noData: 'No usage data available',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: 'All five agents start with this model and effort. Planners and reviewers are read-only; the executor can edit the workspace chosen for this run. No agents run during setup.',
+        builderExecutorWorkspace: 'Builds in the selected workspace',
+        cancelMessage: ({ isolated }: { isolated: boolean }): string => isolated ? 'Active work will stop. The isolated worktree, decisions, and evidence are retained.' : 'Active work will stop. This directory, decisions, and evidence are retained.',
+        title: 'Your workspace', showDetails: 'Show details', hideDetails: 'Hide details',
+        isolatedMessage: 'Changes are preserved in a separate worktree. Nothing is merged, published, or deployed automatically.',
+        directMessage: 'The executor and completion checks run directly in this directory. Nothing is merged, published, or deployed automatically.',
+        launchMessage: 'The executor and completion checks run in the selected folder. Clean, committed Git projects use an isolated worktree.',
+        worktreeTitle: 'Worktree', directoryTitle: 'Directory',
+        branch: ({ branch }: { branch: string }) => `Branch: ${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `Base commit: ${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `Verified contents: ${contents}`,
+        notVerified: 'Not verified yet',
+        folderOverlap: 'Another workflow is already using this project folder or an overlapping folder. Finish or cancel that run before starting here.',
+        projectFolderNotFile: 'Choose a project folder, not a file. Open Project to choose a folder.',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} sent you a friend request`,

@@ -1027,6 +1027,23 @@ export const ru: TranslationStructure = {
         notSupportedMessage: 'Этот агент не поддерживает вложения изображений. Изображения не были отправлены.',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: 'Все пять агентов используют эту модель и уровень рассуждений. Планировщики и проверяющие работают только для чтения; исполнитель может редактировать рабочую папку этого запуска. Во время настройки агенты не запускаются.',
+        builderExecutorWorkspace: 'Работает в выбранной рабочей папке',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? 'Активная работа будет остановлена. Изолированный worktree, решения и доказательства будут сохранены.' : 'Активная работа будет остановлена. Эта папка, решения и доказательства будут сохранены.',
+        title: 'Ваша рабочая папка', showDetails: 'Показать детали', hideDetails: 'Скрыть детали',
+        isolatedMessage: 'Изменения сохраняются в отдельном worktree. Ничего не объединяется, не публикуется и не развёртывается автоматически.',
+        directMessage: 'Исполнитель и проверки завершения выполняются непосредственно в этой папке. Ничего не объединяется, не публикуется и не развёртывается автоматически.',
+        launchMessage: 'Исполнитель и проверки завершения выполняются в выбранной папке. Чистые Git-проекты с коммитами используют изолированный worktree.',
+        worktreeTitle: 'Worktree', directoryTitle: 'Папка',
+        branch: ({ branch }: { branch: string }) => `Ветка: ${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `Базовый коммит: ${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `Проверенные файлы: ${contents}`,
+        notVerified: 'Ещё не проверено',
+        folderOverlap: 'Другой workflow уже использует эту папку проекта или пересекающуюся папку. Завершите или отмените тот запуск, прежде чем запускать здесь.',
+        projectFolderNotFile: 'Выберите папку проекта, а не файл. Откройте «Проект», чтобы выбрать папку.',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} отправил вам запрос в друзья`,

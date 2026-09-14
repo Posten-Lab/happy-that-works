@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, workflowSlots, workflowProjection, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
 
 type Start = ReturnType<typeof WorkflowStartSchema.parse>;
@@ -14,6 +16,17 @@ export interface RunStore { load(): WorkflowRun[]; save(run: WorkflowRun): void 
 const terminal = (r: WorkflowRun) => r.status === 'complete' || r.status === 'cancelled';
 const agentTurnLimit = 'Agent turn limit reached. Completed work is retained.';
 const workflowContextLimit = 'Workflow context limit reached. Start a new run with a shorter task and instructions.';
+// Persisted cancellation receipt: do not release a direct folder claim merely
+// because the daemon died before its active turn/check finished cleaning up.
+const cancellationPending = 'Cancelled by you. Waiting for active work to stop; workspace and evidence retained.';
+const cancellationComplete = 'Cancelled by you. Workspace and evidence retained.';
+function overlappingDirectories(left: string, right: string): boolean {
+    const canonical = (path: string) => { try { return realpathSync(path); } catch { return resolve(path); } };
+    const distance = relative(canonical(left), canonical(right));
+    const reverse = relative(canonical(right), canonical(left));
+    const inside = (path: string) => path === '' || path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path);
+    return inside(distance) || inside(reverse);
+}
 export class WorkflowCoordinator {
     private runs = new Map<string, WorkflowRun>();
     private active = new Map<string, AbortController>();
@@ -26,8 +39,11 @@ export class WorkflowCoordinator {
         let saved: WorkflowRun[];
         try { saved = store.load();
         for (const run of saved) {
-            if (run.status === 'running') {
-                run.status = 'needs_input'; run.reason = 'Coordinator restarted. Inspect any interrupted work before resuming; no execution was replayed.';
+            if (run.status === 'running' || run.status === 'cancelled' && run.reason === cancellationPending) {
+                const wasStopping = run.status === 'cancelled';
+                run.status = 'needs_input'; run.reason = wasStopping
+                    ? 'Coordinator restarted before cancellation finished. Inspect participant sessions and stop any remaining work before cancelling or resuming; the workspace remains reserved.'
+                    : 'Coordinator restarted. Inspect any interrupted work before resuming; no execution was replayed.';
                 for (const task of run.tasks) if (task.status === 'running') { task.status = 'interrupted'; task.error = run.reason; }
                 this.persist(run, run.reason);
             }
@@ -99,13 +115,23 @@ export class WorkflowCoordinator {
         await this.runtime.validate(workflowSlots(input.definition));
         if (this.closed) throw new Error('Coordinator is shutting down');
         const workspace = await this.runtime.prepare(input);
-        if (this.closed) throw new Error('Coordinator stopped during workspace preparation. No agents were started; the worktree is retained.');
+        if (this.closed) throw new Error('Coordinator stopped during workspace preparation. No agents were started; the workspace is retained.');
+        // This check and insertion below are synchronous, so simultaneous starts
+        // cannot both claim a direct folder. Paused runs retain their claim;
+        // cancelled runs retain it until their active process has stopped.
+        const direct = workspace.directory === workspace.sourceDirectory;
+        for (const existing of this.runs.values()) {
+            if (terminal(existing) && !this.active.has(existing.id)) continue;
+            if ((direct || existing.directory === existing.sourceDirectory) && overlappingDirectories(workspace.directory, existing.directory)) {
+                throw new Error('Another workflow is using this project folder or an overlapping folder. Finish or cancel that run before starting here.');
+            }
+        }
         const now = Date.now();
         const run = WorkflowRunSchema.parse({ id: input.id, revision: 0, definition: input.definition, machineId: this.machineId, task: input.task, requestedDirectory: input.directory, ...workspace,
             ...(input.definition.steps ? { stepIndex: 0, stepAttempt: 1, completedSteps: [], stepRounds: {} } : {}),
             status: 'running', stage: 'propose', planningRound: 1, reviewRound: 1, planVersion: 1, plan: '', artifactVersion: '', reason: '',
             tasks: [], checks: [], events: [], notes: [], approvedPlanVersion: null, createdAt: now, updatedAt: now });
-        this.persist(run, 'Run created in an isolated worktree. All required participants must approve.');
+        this.persist(run, `${direct ? 'Run created in the selected project folder.' : 'Run created in an isolated worktree.'} All required participants must approve.`);
         this.runs.set(run.id, run); this.kick(run); return this.get(run.id);
     }
     async action(raw: unknown) {
@@ -115,7 +141,7 @@ export class WorkflowCoordinator {
         if (run.revision !== a.expectedRevision) throw new Error('This run changed. Refresh before applying your decision.');
         if (terminal(run)) throw new Error('This run has finished. Start a new run to change it.');
         if (a.action === 'pause' || a.action === 'cancel') {
-            run.status = a.action === 'pause' ? 'paused' : 'cancelled'; run.reason = a.action === 'pause' ? 'Paused by you.' : 'Cancelled by you. Worktree and evidence retained.';
+            run.status = a.action === 'pause' ? 'paused' : 'cancelled'; run.reason = a.action === 'pause' ? 'Paused by you.' : this.active.has(run.id) ? cancellationPending : cancellationComplete;
             this.persist(run, run.reason); this.active.get(run.id)?.abort(); return this.get(run.id);
         }
         if (run.status === 'running' || this.active.has(run.id)) throw new Error('Wait for the current step to stop before changing the run.');
@@ -190,7 +216,13 @@ export class WorkflowCoordinator {
                 try { this.block(run, e instanceof Error ? e.message : 'Workflow step failed.'); } catch { /* Persistence failure already disabled workflows and aborted active work. */ }
             }
         })
-            .finally(() => { this.active.delete(run.id); this.operations.delete(operation); });
+            .finally(() => {
+                this.active.delete(run.id); this.operations.delete(operation);
+                if (!this.settled && !this.loadError && run.status === 'cancelled' && run.reason === cancellationPending) {
+                    run.reason = cancellationComplete;
+                    try { this.persist(run, run.reason); } catch { /* Persistence failure already disabled the coordinator. */ }
+                }
+            });
         this.operations.add(operation);
     }
     private async perform(run: WorkflowRun, slot: WorkflowSlot, signal: AbortSignal) {
@@ -220,7 +252,7 @@ export class WorkflowCoordinator {
             propose: 'Independently propose an approach. Do not seek other participants\' proposals. Put your proposal in document.',
             consolidate: 'Consolidate the proposals and objections into ONE implementable plan. Put the complete plan in document. Address every unresolved objection. You cannot override votes.',
             plan_vote: 'Review the exact plan version below. Explicitly approve it or request specific changes. A blocking finding means changes. Use information for missing user input.',
-            execute: 'Implement the approved plan in this isolated worktree. Address every review finding with evidence. Run relevant checks. Approve means ready for independent review. Use replan if scope or the agreed approach must change.',
+            execute: `Implement the approved plan in ${run.directory === run.sourceDirectory ? 'the selected project folder. Preserve existing work; your edits and completion checks operate directly in this folder' : 'this isolated worktree'}. Address every review finding with evidence. Run relevant checks. Approve means ready for independent review. Use replan if scope or the agreed approach must change.`,
             review: 'Independently inspect the exact workspace revision and completion evidence. Verify every acceptance criterion and earlier fixes. Do not edit files. Approve only with no unresolved blocking findings. Supply evidence and actionable correction for each finding.',
             verify: '',
         }[stage];

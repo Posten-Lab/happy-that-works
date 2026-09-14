@@ -1000,6 +1000,23 @@ export const zhHans: TranslationStructure = {
         notSupportedMessage: '此代理不支持图片附件。图片未发送。',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: '五个代理都会以此模型和推理级别启动。规划者和审阅者为只读；执行者可以编辑本次运行选定的工作区。设置期间不会运行代理。',
+        builderExecutorWorkspace: '在选定的工作区中工作',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? '活动工作将停止。隔离的 worktree、决策和证据将被保留。' : '活动工作将停止。此目录、决策和证据将被保留。',
+        title: '你的工作区', showDetails: '显示详情', hideDetails: '隐藏详情',
+        isolatedMessage: '更改会保存在单独的 worktree 中。不会自动合并、发布或部署任何内容。',
+        directMessage: '执行者和完成检查会直接在此目录中运行。不会自动合并、发布或部署任何内容。',
+        launchMessage: '执行者和完成检查会在所选文件夹中运行。干净且已提交的 Git 项目会使用隔离的 worktree。',
+        worktreeTitle: 'Worktree', directoryTitle: '目录',
+        branch: ({ branch }: { branch: string }) => `分支：${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `基准提交：${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `已验证内容：${contents}`,
+        notVerified: '尚未验证',
+        folderOverlap: '另一个 workflow 已在使用此项目目录或重叠目录。请先完成或取消该运行，再在此处开始。',
+        projectFolderNotFile: '请选择项目目录，而不是文件。打开“项目”以选择目录。',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} 向您发送了好友请求`,

@@ -997,6 +997,23 @@ export const pt: TranslationStructure = {
         notSupportedMessage: 'Este agente não suporta anexos de imagem. As imagens não foram enviadas.',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: 'Todos os cinco agentes começam com este modelo e nível de raciocínio. Planejadores e revisores têm acesso somente leitura; o executor pode editar o espaço de trabalho desta execução. Nenhum agente é executado durante a configuração.',
+        builderExecutorWorkspace: 'Trabalha no espaço de trabalho selecionado',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? 'O trabalho ativo será interrompido. O worktree isolado, as decisões e as evidências serão preservados.' : 'O trabalho ativo será interrompido. Esta pasta, as decisões e as evidências serão preservadas.',
+        title: 'Seu espaço de trabalho', showDetails: 'Mostrar detalhes', hideDetails: 'Ocultar detalhes',
+        isolatedMessage: 'As alterações são preservadas em um worktree separado. Nada é mesclado, publicado ou implantado automaticamente.',
+        directMessage: 'O executor e as verificações de conclusão são executados diretamente nesta pasta. Nada é mesclado, publicado ou implantado automaticamente.',
+        launchMessage: 'O executor e as verificações de conclusão são executados na pasta selecionada. Projetos Git limpos com commits usam um worktree isolado.',
+        worktreeTitle: 'Worktree', directoryTitle: 'Pasta',
+        branch: ({ branch }: { branch: string }) => `Branch: ${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `Commit base: ${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `Conteúdo verificado: ${contents}`,
+        notVerified: 'Ainda não verificado',
+        folderOverlap: 'Outro workflow já está usando esta pasta do projeto ou uma pasta sobreposta. Conclua ou cancele essa execução antes de iniciar aqui.',
+        projectFolderNotFile: 'Escolha uma pasta de projeto, não um arquivo. Abra Projeto para escolher uma pasta.',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} enviou-lhe um pedido de amizade`,

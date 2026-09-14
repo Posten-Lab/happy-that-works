@@ -998,6 +998,23 @@ export const ca: TranslationStructure = {
         notSupportedMessage: 'Aquest agent no admet fitxers adjunts d\'imatge. Les imatges no s\'han enviat.',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: 'Els cinc agents comencen amb aquest model i nivell de raonament. Els planificadors i revisors són de només lectura; l’executor pot editar l’espai de treball d’aquesta execució. No s’executa cap agent durant la configuració.',
+        builderExecutorWorkspace: 'Treballa a l’espai de treball seleccionat',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? 'El treball actiu s’aturarà. Es conservaran el worktree aïllat, les decisions i les proves.' : 'El treball actiu s’aturarà. Es conservaran aquesta carpeta, les decisions i les proves.',
+        title: 'El teu espai de treball', showDetails: 'Mostra els detalls', hideDetails: 'Amaga els detalls',
+        isolatedMessage: 'Els canvis es conserven en un worktree separat. No es fusiona, publica ni desplega res automàticament.',
+        directMessage: 'L’executor i les comprovacions de finalització s’executen directament en aquesta carpeta. No es fusiona, publica ni desplega res automàticament.',
+        launchMessage: 'L’executor i les comprovacions de finalització s’executen a la carpeta seleccionada. Els projectes Git nets amb commits utilitzen un worktree aïllat.',
+        worktreeTitle: 'Worktree', directoryTitle: 'Carpeta',
+        branch: ({ branch }: { branch: string }) => `Branca: ${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `Commit base: ${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `Contingut verificat: ${contents}`,
+        notVerified: 'Encara no verificat',
+        folderOverlap: 'Un altre workflow ja està utilitzant aquesta carpeta del projecte o una carpeta que se solapa. Acaba o cancel·la aquella execució abans de començar aquí.',
+        projectFolderNotFile: 'Tria una carpeta de projecte, no un fitxer. Obre Projecte per triar una carpeta.',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} t'ha enviat una sol·licitud d'amistat`,

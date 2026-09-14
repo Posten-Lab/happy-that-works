@@ -1001,6 +1001,23 @@ export const ja: TranslationStructure = {
         notSupportedMessage: 'このエージェントは画像の添付に対応していません。画像は送信されませんでした。',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: '5人のエージェントはこのモデルと推論レベルで開始します。プランナーとレビュアーは読み取り専用で、実行者はこの実行で選ばれたワークスペースを編集できます。設定中にエージェントは実行されません。',
+        builderExecutorWorkspace: '選択したワークスペースで作業します',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? '実行中の作業を停止します。隔離されたworktree、判断、証拠は保持されます。' : '実行中の作業を停止します。このフォルダー、判断、証拠は保持されます。',
+        title: 'ワークスペース', showDetails: '詳細を表示', hideDetails: '詳細を隠す',
+        isolatedMessage: '変更は別のworktreeに保持されます。自動でマージ、公開、デプロイされることはありません。',
+        directMessage: '実行者と完了チェックはこのフォルダーで直接実行されます。自動でマージ、公開、デプロイされることはありません。',
+        launchMessage: '実行者と完了チェックは選択したフォルダーで実行されます。クリーンでコミット済みのGitプロジェクトでは隔離されたworktreeを使用します。',
+        worktreeTitle: 'Worktree', directoryTitle: 'フォルダー',
+        branch: ({ branch }: { branch: string }) => `ブランチ: ${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `ベースコミット: ${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `確認済みの内容: ${contents}`,
+        notVerified: '未確認',
+        folderOverlap: '別のworkflowがこのプロジェクトフォルダーまたは重複するフォルダーをすでに使用しています。ここで開始する前に、その実行を完了またはキャンセルしてください。',
+        projectFolderNotFile: 'ファイルではなくプロジェクトフォルダーを選択してください。フォルダーを選ぶには「プロジェクト」を開いてください。',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name}さんから友達リクエストが届きました`,

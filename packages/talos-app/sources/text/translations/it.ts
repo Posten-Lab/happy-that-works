@@ -997,6 +997,23 @@ export const it: TranslationStructure = {
         notSupportedMessage: 'Questo agente non supporta gli allegati immagine. Le immagini non sono state inviate.',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: 'Tutti e cinque gli agenti iniziano con questo modello e livello di ragionamento. Pianificatori e revisori sono in sola lettura; l’esecutore può modificare lo spazio di lavoro di questa esecuzione. Durante la configurazione non viene avviato alcun agente.',
+        builderExecutorWorkspace: 'Lavora nello spazio di lavoro selezionato',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? 'Il lavoro attivo verrà interrotto. Il worktree isolato, le decisioni e le prove saranno conservati.' : 'Il lavoro attivo verrà interrotto. Questa cartella, le decisioni e le prove saranno conservate.',
+        title: 'Il tuo spazio di lavoro', showDetails: 'Mostra dettagli', hideDetails: 'Nascondi dettagli',
+        isolatedMessage: 'Le modifiche vengono conservate in un worktree separato. Nulla viene unito, pubblicato o distribuito automaticamente.',
+        directMessage: 'L’esecutore e i controlli di completamento vengono eseguiti direttamente in questa cartella. Nulla viene unito, pubblicato o distribuito automaticamente.',
+        launchMessage: 'L’esecutore e i controlli di completamento vengono eseguiti nella cartella selezionata. I progetti Git puliti con commit usano un worktree isolato.',
+        worktreeTitle: 'Worktree', directoryTitle: 'Cartella',
+        branch: ({ branch }: { branch: string }) => `Ramo: ${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `Commit di base: ${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `Contenuti verificati: ${contents}`,
+        notVerified: 'Non ancora verificati',
+        folderOverlap: 'Un altro workflow sta già usando questa cartella del progetto o una cartella sovrapposta. Completa o annulla quell’esecuzione prima di iniziare qui.',
+        projectFolderNotFile: 'Scegli una cartella del progetto, non un file. Apri Progetto per scegliere una cartella.',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} ti ha inviato una richiesta di amicizia`,

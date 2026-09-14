@@ -8,6 +8,7 @@ import { isMachineOnline } from '@/utils/machineUtils';
 import { useMachineModelCatalog } from '@/hooks/useMachineModelCatalog';
 import { WorkflowButton as Button, useWorkflowStyles } from './ui';
 import { createStarterTeam, savedWorkflowTeam } from './setup';
+import { t } from '@/text';
 
 export function WorkflowSetup({ machines, machine, agents, onMachine, onContinue, onCancel }: {
     machines: Machine[]; machine: Machine | undefined; agents: AgentDefinition[];
@@ -71,7 +72,7 @@ export function WorkflowSetup({ machines, machine, agents, onMachine, onContinue
                     <Button label="Use provider default effort" onPress={() => { setChoice({ machineId: machine!.id, model: model.code, effort: null }); setPicker(null); }} />
                     {model.supportedReasoningEfforts?.map(e => <Button key={e.code} label={`Use ${e.value} effort`} onPress={() => { setChoice({ machineId: machine!.id, model: model.code, effort: e.code }); setPicker(null); }} />)}
                 </>}
-                <Text style={s.muted}>All five agents start with this model and effort. Planners and reviewers are read-only; the executor can edit the isolated worktree. No agents run during setup.</Text>
+                <Text style={s.muted}>{t('workflowWorkspace.setupExecutorWorkspace')}</Text>
             </>}
         </View>}
         {error !== '' && <Text accessibilityRole="alert" style={{ ...s.text, color: s.colors.warning }}>{error}</Text>}

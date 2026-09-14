@@ -18,6 +18,7 @@ import { workflowErrorMessage } from '@/workflows/errors';
 import { inspectWorkflowStart, prepareWorkflowStart, workflowMachineIssue, workflowStartMethod, settleWorkflowStart, sameWorkflowStart, type PendingWorkflowStart, type WorkflowStartRequest } from '@/workflows/launch';
 import { WorkflowButton, WorkflowAvatar, useWorkflowStyles } from '@/workflows/ui';
 import { WorkflowScaffold, WorkflowNotice, WorkflowPageHeading } from '@/workflows/WorkflowScaffold';
+import { t } from '@/text';
 
 /** A launch has its own state. Opening a workflow never changes an unfinished regular-session draft. */
 export default function RunWorkflowScreen() {
@@ -172,7 +173,7 @@ export default function RunWorkflowScreen() {
                     <View style={{ height: 1, backgroundColor: s.colors.divider, marginHorizontal: 16 }} />
                     <DestinationRow icon="folder-open-outline" label="Project" value={pending.current?.directory ?? (directory || 'Choose a project folder')} disabled={locked || !enabled || !machine} onPress={() => openPicker('project')} />
                 </View>
-                <View style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}><Ionicons name="git-branch-outline" size={14} color={s.colors.textSecondary} /><Text style={{ ...s.muted, fontSize: 12, flex: 1 }}>Work stays in a separate copy of your Git project.</Text></View>
+                <View style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}><Ionicons name="git-branch-outline" size={14} color={s.colors.textSecondary} /><Text style={{ ...s.muted, fontSize: 12, flex: 1 }}>{t('workflowWorkspace.launchMessage')}</Text></View>
             </View>
             </View>
             <View style={{ width: window.width >= 1000 ? 240 : undefined, gap: 14 }}>

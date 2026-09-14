@@ -12,6 +12,7 @@ import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { WorkflowScaffold, WorkflowNotice } from '@/workflows/WorkflowScaffold';
 import { workflowErrorMessage, workflowRunMessage } from '@/workflows/errors';
 import { workflowCurrentParticipants, workflowDefaultPane, workflowParticipantState, workflowRunSteps, type WorkflowPane } from '@/workflows/runPresentation';
+import { t } from '@/text';
 
 const providers = { codex: 'Codex', claude: 'Claude', muse: 'Muse Code' };
 const statusLabels = { running: 'Running', paused: 'Paused', needs_input: 'Needs you', complete: 'Complete', cancelled: 'Cancelled' };
@@ -56,7 +57,7 @@ export default function WorkflowRunScreen() {
         acting.current = true;
         const requestRoute = routeKey;
         try {
-            if (name === 'cancel' && !(await Modal.confirm('Cancel this run?', 'Active work will stop. The worktree, decisions, and evidence are retained.'))) return;
+            if (name === 'cancel' && !(await Modal.confirm('Cancel this run?', t('workflowWorkspace.cancelMessage', { isolated: run.directory !== run.sourceDirectory })))) return;
             setBusy(true);
             await workflowRPC(machine, 'action', { id, expectedRevision: run.revision, action: name, note, ...extra });
             const value = await loadWorkflowRun(machine, id);
@@ -92,6 +93,7 @@ export default function WorkflowRunScreen() {
     const executions = run?.tasks.filter(task => task.stage === 'execute').reverse() ?? [];
     const reason = run?.reason ? workflowRunMessage(run.reason, run.tasks) : '';
     const tone = run?.status === 'complete' ? 'success' : run?.status === 'needs_input' || run?.status === 'paused' ? 'warning' : run?.status === 'cancelled' ? 'neutral' : 'active';
+    const isolatedWorkspace = !!run && run.directory !== run.sourceDirectory;
 
     return <WorkflowScaffold scrollRef={scroll}>
         {connectionError !== '' && <WorkflowNotice title="Machine disconnected" message={connectionError} />}
@@ -178,7 +180,7 @@ export default function WorkflowRunScreen() {
                 {pane === 'Work' && <>
                     <View style={{ gap: 12 }}><WorkflowSectionHeader title={run.status === 'complete' ? 'Delivered work' : 'Execution'} />{executions.length ? executions.map((task, index) => <View key={task.id} style={{ gap: 10, paddingBottom: 18, borderBottomWidth: 1, borderColor: s.colors.divider }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}><Text style={{ ...s.text, ...Typography.header(), fontWeight: '600', flex: 1 }}>{run.definition.steps?.find(step => step.id === task.stepId)?.name ?? `Execution round ${task.round}`}</Text>{task.sessionId && <Button label="Open session" accessibilityLabel={`Open execution session round ${task.round}`} variant="ghost" compact onPress={() => openSession(task.sessionId!)} />}</View><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}><Text style={{ ...s.muted, fontSize: 12, flex: 1 }}>{index === 0 ? 'Latest execution' : 'Earlier execution'} · {task.agentName}</Text><WorkflowStatusChip label={task.status === 'interrupted' ? 'Interrupted' : task.status === 'done' ? 'Finished' : workflowParticipantState(run, task)} tone={task.status === 'interrupted' ? 'warning' : 'neutral'} /></View><Text style={s.text}>{task.result?.summary ?? (task.status === 'running' ? 'Your executor is working on this step.' : workflowParticipantState(run, task))}</Text>{!!task.result?.document && <MarkdownView markdown={task.result.document} />}</View>) : <EmptyState icon="hammer-outline" title="Execution is up next" message="Once the planning step passes, the executor’s work and results appear here." />}</View>
                     <Checks run={run} expanded={checkExpanded} onExpand={index => setCheckExpanded(checkExpanded === index ? null : index)} />
-                    <View style={{ gap: 10 }}><WorkflowSectionHeader title="Your workspace" action={workspaceExpanded ? 'Hide details' : 'Show details'} onAction={() => setWorkspaceExpanded(!workspaceExpanded)} /><Text selectable style={s.muted}>{run.sourceDirectory}</Text><Text style={{ ...s.muted, fontSize: 12 }}>Changes are preserved in a separate worktree. Nothing is merged, published, or deployed automatically.</Text>{workspaceExpanded && <View style={{ backgroundColor: s.colors.surfaceHigh, borderRadius: 12, padding: 14, gap: 8 }}><Text style={{ ...s.text, ...Typography.header(), fontWeight: '600', fontSize: 13 }}>Worktree</Text><Text selectable style={s.muted}>{run.directory}</Text><Text selectable style={{ ...s.muted, fontSize: 12 }}>Branch: {run.branch}{'\n'}Base commit: {run.baseCommit}{'\n'}Verified contents: {run.artifactVersion || 'Not verified yet'}</Text></View>}</View>
+                    <View style={{ gap: 10 }}><WorkflowSectionHeader title={t('workflowWorkspace.title')} action={workspaceExpanded ? t('workflowWorkspace.hideDetails') : t('workflowWorkspace.showDetails')} onAction={() => setWorkspaceExpanded(!workspaceExpanded)} /><Text selectable style={s.muted}>{run.sourceDirectory}</Text><Text style={{ ...s.muted, fontSize: 12 }}>{isolatedWorkspace ? t('workflowWorkspace.isolatedMessage') : t('workflowWorkspace.directMessage')}</Text>{workspaceExpanded && <View style={{ backgroundColor: s.colors.surfaceHigh, borderRadius: 12, padding: 14, gap: 8 }}><Text style={{ ...s.text, ...Typography.header(), fontWeight: '600', fontSize: 13 }}>{isolatedWorkspace ? t('workflowWorkspace.worktreeTitle') : t('workflowWorkspace.directoryTitle')}</Text><Text selectable style={s.muted}>{run.directory}</Text><Text selectable style={{ ...s.muted, fontSize: 12 }}>{run.branch ? t('workflowWorkspace.branch', { branch: run.branch }) : ''}{run.branch && run.baseCommit ? '\n' : ''}{run.baseCommit ? t('workflowWorkspace.baseCommit', { baseCommit: run.baseCommit }) : ''}{(run.branch || run.baseCommit) ? '\n' : ''}{t('workflowWorkspace.verifiedContents', { contents: run.artifactVersion || t('workflowWorkspace.notVerified') })}</Text></View>}</View>
                 </>}
                 {pane === 'Review' && <>
                     <Checks run={run} expanded={checkExpanded} onExpand={index => setCheckExpanded(checkExpanded === index ? null : index)} />

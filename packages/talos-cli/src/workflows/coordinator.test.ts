@@ -29,6 +29,74 @@ function recoveryDefinition(staged: boolean): WorkflowDefinition {
     return WorkflowDefinitionSchema.parse({ ...d, steps, ...workflowProjection(steps) });
 }
 describe('workflow consensus and delivery', () => {
+    it.each(['/project', '/project/child', '/'])('rejects overlapping direct starts at %s and retains paused claims', async directory => {
+        const { coordinator: c } = setup({ prepare: async i => ({ sourceDirectory: i.directory, directory: i.directory, branch: '', baseCommit: '' }) });
+        const d = definition(); d.approvePlan = true;
+        const first = await c.start({ id: randomUUID(), definition: d, task: 'First', directory: '/project' });
+        await until(c, first.id, stopped);
+        await expect(c.start({ id: randomUUID(), definition: d, task: 'Second', directory })).rejects.toThrow('overlapping folder');
+        const sibling = await c.start({ id: randomUUID(), definition: d, task: 'Sibling', directory: '/project-other' });
+        expect(sibling.directory).toBe('/project-other');
+        await c.shutdown();
+    });
+    it('only accepts one of two concurrent direct starts for the same folder', async () => {
+        const { coordinator: c } = setup({ prepare: async i => ({ sourceDirectory: i.directory, directory: i.directory, branch: '', baseCommit: '' }) });
+        const d = definition(); d.approvePlan = true;
+        const starts = await Promise.allSettled([1, 2].map(index => c.start({ id: randomUUID(), definition: d, task: `Task ${index}`, directory: '/project' })));
+        expect(starts.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+        expect(starts.filter(result => result.status === 'rejected')).toHaveLength(1);
+        expect(c.list()).toHaveLength(1);
+        await c.shutdown();
+    });
+    it('keeps a cancelled direct folder claimed until the active turn finishes stopping', async () => {
+        let finishStop: () => void = () => {};
+        const { coordinator: c } = setup({
+            prepare: async i => ({ sourceDirectory: i.directory, directory: i.directory, branch: '', baseCommit: '' }),
+            turn: async (_run, _task, _slot, signal) => {
+                await new Promise<void>(resolve => signal.addEventListener('abort', () => { finishStop = resolve; }, { once: true }));
+                throw new Error('Stopped');
+            },
+        });
+        const request = { definition: definition(), task: 'Build', directory: '/project' };
+        const first = await c.start({ ...request, id: randomUUID() });
+        const running = await until(c, first.id, r => r.tasks.length === 1);
+        await c.action({ id: first.id, expectedRevision: running.revision, action: 'cancel' });
+        await expect(c.start({ ...request, id: randomUUID() })).rejects.toThrow('overlapping folder');
+        finishStop(); await new Promise(resolve => setTimeout(resolve, 10));
+        const next = await c.start({ ...request, id: randomUUID() });
+        expect(next.id).not.toBe(first.id);
+        await until(c, next.id, r => r.tasks.length === 1);
+        const shutdown = c.shutdown(); finishStop(); await shutdown;
+    });
+    it('describes direct execution accurately while retaining normal consensus and review gates', async () => {
+        const { coordinator: c, start } = setup({ prepare: async i => ({ sourceDirectory: i.directory, directory: i.directory, branch: '', baseCommit: '' }) });
+        const run = await start(); const done = await until(c, run.id, stopped);
+        expect(done.status).toBe('complete');
+        expect(done.events[0].text).toContain('selected project folder');
+        expect(done.tasks.find(task => task.stage === 'execute')?.prompt).toContain('Preserve existing work');
+        expect(done.tasks.find(task => task.stage === 'execute')?.prompt).not.toContain('isolated worktree');
+        expect(done.checks.every(check => check.exitCode === 0 && check.version === done.artifactVersion)).toBe(true);
+    });
+    it('recovers an unfinished cancellation with its direct workspace claim intact', async () => {
+        let finishStop: () => void = () => {};
+        const overrides: Partial<WorkflowRuntime> = {
+            prepare: async i => ({ sourceDirectory: i.directory, directory: i.directory, branch: '', baseCommit: '' }),
+            turn: async (_run, _task, _slot, signal) => {
+                await new Promise<void>(resolve => signal.addEventListener('abort', () => { finishStop = resolve; }, { once: true }));
+                throw new Error('Stopped');
+            },
+        };
+        const { coordinator: c, store, start } = setup(overrides);
+        const first = await start(); const running = await until(c, first.id, run => run.tasks.length === 1);
+        await c.action({ id: first.id, expectedRevision: running.revision, action: 'cancel' });
+        const persisted = store.load();
+        expect(persisted[0].reason).toContain('Waiting for active work to stop');
+        const recovered = setup(overrides, persisted);
+        expect(recovered.coordinator.get(first.id).status).toBe('needs_input');
+        expect(recovered.coordinator.get(first.id).reason).toContain('before cancellation finished');
+        await expect(recovered.start()).rejects.toThrow('overlapping folder');
+        finishStop(); await c.shutdown(); await recovered.coordinator.shutdown();
+    });
     it('rejects conflicting requests while a run is still being prepared', async () => {
         let release: () => void = () => {};
         let firstValidation = true;

@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-14",
+  "scope": "Read-only probe of the user's existing plain parent workspace; no workflow or agent was started there",
+  "workspace": "benjamins-v2",
+  "preparation": {
+    "durationMs": 14,
+    "mode": "direct",
+    "branch": "",
+    "gitInitialized": false
+  },
+  "snapshot": {
+    "files": 698805,
+    "bytes": 88965509598,
+    "enumerationMs": 26495,
+    "totalMs": 93467,
+    "parallelFileLimit": 16,
+    "sha256": "564ceab02b620c804d9a5ff8e801eededb45cbffd39cab17212dd6c733189470"
+  },
+  "limitations": [
+    "These are local observations, not a latency guarantee.",
+    "Full content verification reads all included files; large archive workspaces can take minutes.",
+    "Two earlier probes exceeded a 120-second timeout, including one before bounded parallel hashing was added."
+  ]
+}

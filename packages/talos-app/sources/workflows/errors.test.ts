@@ -1,4 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/text', () => ({
+    t: (key: string) => key === 'workflowWorkspace.folderOverlap'
+        ? 'Another workflow is already using this project folder or an overlapping folder. Finish or cancel that run before starting here.'
+        : 'Choose a project folder, not a file. Open Project to choose a folder.',
+}));
+
 import { workflowErrorMessage, workflowRunMessage } from './errors';
 
 describe('workflow failure explanations', () => {
@@ -15,6 +22,8 @@ describe('workflow failure explanations', () => {
         ['Claude authentication failed; run claude auth login', 'sign in'],
         ['machine RPC timed out', 'machine is not responding'],
         ['EACCES: permission denied', 'cannot access'],
+        ['Another workflow is using this project folder or an overlapping folder. Finish or cancel that run before starting here.', 'already using this project folder'],
+        ['Choose a project folder, not a file.', 'Open Project to choose a folder'],
     ])('explains %s with a recovery action', (error, recovery) => {
         const friendly = workflowErrorMessage(new Error(error));
         expect(friendly).toContain(recovery);
