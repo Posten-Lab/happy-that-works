@@ -58,7 +58,13 @@ export function workflowRuntime(api: ApiClient, home: string): WorkflowRuntime {
                 eventState = mapped;
                 for (const envelope of mapped.envelopes) sync.sendSessionProtocolMessage(envelope);
                 if (event.type === 'agent_message' && typeof event.message === 'string') answer = event.message;
-                if (event.type === 'error' || event.type === 'task_complete' && event.error) error = 'Codex reported an error. Inspect the participant session.';
+                // Codex can recover transient errors itself. Its terminal result
+                // determines whether the workflow turn failed.
+                if ((event.type === 'task_complete' || event.type === 'turn_aborted') && event.error) {
+                    const detail = typeof event.error === 'string' ? event.error
+                        : typeof event.error === 'object' && 'message' in event.error ? event.error.message : undefined;
+                    error = typeof detail === 'string' && detail.trim() ? detail.slice(0, 4000) : 'Codex reported an error. Inspect the participant session.';
+                }
             });
             const stop = () => { void client.disconnect(); };
             signal.addEventListener('abort', stop, { once: true });

@@ -89,6 +89,7 @@ export const WorkflowTaskSchema = z.object({
     assignment: z.string(), version: z.string(), status: z.enum(['running', 'done', 'interrupted']),
     startedAt: z.number(), completedAt: z.number().optional(), sessionId: z.string().optional(),
     threadId: z.string().optional(), prompt: z.string(), result: WorkflowDecisionSchema.optional(), error: z.string().optional(),
+    provider: WorkflowAgentSchema.shape.provider.optional(), model: z.string().optional(), effort: z.string().nullable().optional(),
 });
 export const WorkflowRunSchema = z.object({
     id: z.string().uuid(), revision: z.number().int(), definition: WorkflowDefinitionSchema, machineId: z.string(),
@@ -117,9 +118,22 @@ export type WorkflowRun = z.infer<typeof WorkflowRunSchema>;
 export type WorkflowTask = z.infer<typeof WorkflowTaskSchema>;
 export const WorkflowStartSchema = z.object({ id: z.string().uuid(), definition: WorkflowDefinitionSchema, task: text, directory: z.string().min(1).max(4000) });
 export const WorkflowActionSchema = z.object({
-    id: z.string().uuid(), expectedRevision: z.number().int(), action: z.enum(['pause', 'resume', 'cancel', 'approve_plan', 'revise_plan', 'retry_review', 'replace_agent']),
+    id: z.string().uuid(), expectedRevision: z.number().int(), action: z.enum(['pause', 'resume', 'cancel', 'approve_plan', 'revise_plan', 'retry_review', 'replace_agent', 'change_model']),
     note: z.string().trim().max(24000).default(''), agentId: z.string().optional(), replacement: WorkflowAgentSchema.optional(),
+    model: z.string().trim().min(1).max(200).optional(), effort: z.string().max(30).nullable().optional(),
 });
+/** A model-only retry cannot reinterpret a participant's completed contributions. */
+export function workflowRecoverableExecutor(run: WorkflowRun): WorkflowSlot | undefined {
+    if (!['needs_input', 'paused'].includes(run.status) || run.stage !== 'execute') return;
+    const step = run.definition.steps?.[run.stepIndex ?? 0];
+    const slot = step ? step.agents[0] : run.definition.executor;
+    const tasks = run.tasks.filter(task => task.agentId === slot.agent.id);
+    const latest = tasks.at(-1);
+    if (!latest || latest.status !== 'interrupted' || latest.stage !== 'execute' || latest.version !== `plan:${run.planVersion}`
+        || step && (latest.stepId !== step.id || latest.attempt !== run.stepAttempt)
+        || tasks.some(task => task.status === 'done')) return;
+    return slot;
+}
 export function workflowEnabled(s: { experiments?: boolean; expWorkflows?: boolean }) { return s.experiments === true && s.expWorkflows === true; }
 export const workflowStageLabel: Record<WorkflowStage, string> = { propose: 'Independent proposals', consolidate: 'Consolidating plan', plan_vote: 'Planning consensus', execute: 'Executing', review: 'Independent review', verify: 'Completion checks' };
 

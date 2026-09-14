@@ -29,6 +29,55 @@ function recoveryDefinition(staged: boolean): WorkflowDefinition {
     return WorkflowDefinitionSchema.parse({ ...d, steps, ...workflowProjection(steps) });
 }
 describe('workflow consensus and delivery', () => {
+    it.each([false, true])('switches an interrupted builder model without repeating approved planning (steps=%s)', async staged => {
+        const { coordinator: c, start } = setup({ turn: async (_run, task, slot) => {
+            if (task.stage === 'execute' && slot.agent.model !== 'replacement-model') throw new Error('Usage limit exceeded. Try again at 03:05.');
+            return structuredClone(approve);
+        } });
+        const run = await start(recoveryDefinition(staged)), failed = await until(c, run.id, stopped);
+        const planningTasks = failed.tasks.filter(task => task.stage !== 'execute');
+        await c.action({ id: run.id, expectedRevision: failed.revision, action: 'change_model', model: 'replacement-model', effort: 'low' });
+        const done = await until(c, run.id, stopped);
+        expect(done.status).toBe('complete');
+        expect(done.plan).toBe(failed.plan); expect(done.planVersion).toBe(failed.planVersion);
+        expect(done.approvedPlanVersion).toBe(failed.approvedPlanVersion);
+        expect(done.tasks.slice(0, planningTasks.length)).toEqual(planningTasks);
+        const executions = done.tasks.filter(task => task.stage === 'execute');
+        expect(executions).toHaveLength(2);
+        expect(executions[0]).toMatchObject({ status: 'interrupted', model: failed.definition.executor.agent.model });
+        expect(executions[1]).toMatchObject({ status: 'done', model: 'replacement-model', effort: 'low' });
+        expect(executions[1].prompt).toContain('repair incomplete changes');
+        expect(executions[1].prompt).toContain('Usage limit exceeded');
+        expect(done.checks.every(check => check.exitCode === 0)).toBe(true);
+    });
+    it('rejects unavailable models atomically and checks revision again after discovery', async () => {
+        const { coordinator: c, runtime, start } = setup({ turn: async (_run, task) => {
+            if (task.stage === 'execute') throw new Error('Provider unavailable');
+            return structuredClone(approve);
+        } });
+        const run = await start(), failed = await until(c, run.id, stopped);
+        runtime.validate = async () => { throw new Error('model unavailable'); };
+        const action = { id: run.id, expectedRevision: failed.revision, action: 'change_model', model: 'replacement' };
+        await expect(c.action(action)).rejects.toThrow('model unavailable');
+        expect(c.get(run.id)).toEqual(failed);
+        let finish: () => void = () => {};
+        runtime.validate = () => new Promise<void>(resolve => { finish = resolve; });
+        const pending = c.action(action);
+        await c.action({ id: run.id, expectedRevision: failed.revision, action: 'cancel' });
+        finish();
+        await expect(pending).rejects.toThrow('run changed');
+        expect(c.get(run.id).status).toBe('cancelled');
+        expect(c.get(run.id).definition).toEqual(failed.definition);
+    });
+    it('does not switch models after completed execution or while planning', async () => {
+        const { coordinator: c, start } = setup({ turn: async (_run, task) => {
+            if (task.stage === 'review') throw new Error('Provider unavailable');
+            return structuredClone(approve);
+        } });
+        const run = await start(), failed = await until(c, run.id, stopped);
+        await expect(c.action({ id: run.id, expectedRevision: failed.revision, action: 'change_model', model: 'replacement' })).rejects.toThrow('Only an interrupted executor');
+        expect(c.get(run.id)).toEqual(failed);
+    });
     it.each(['/project', '/project/child', '/'])('rejects overlapping direct starts at %s and retains paused claims', async directory => {
         const { coordinator: c } = setup({ prepare: async i => ({ sourceDirectory: i.directory, directory: i.directory, branch: '', baseCommit: '' }) });
         const d = definition(); d.approvePlan = true;

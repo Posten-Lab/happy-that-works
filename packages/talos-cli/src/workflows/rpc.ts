@@ -10,6 +10,9 @@ export function registerWorkflowHandlers(manager: Pick<RpcHandlerManager, 'regis
         if (workflows.get(id).definition.steps) throw new Error('Update the Talos app to inspect or control this editable workflow.');
     };
     manager.registerHandler('workflow-start-status', (p: { id: string }) => workflows.startStatus(p.id));
+    // Dedicated method: an older daemon must reject this, never silently resume
+    // with the old model after stripping unfamiliar action fields.
+    manager.registerHandler('workflow-change-model-v1', async p => workflows.view((await workflows.action({ ...p, action: 'change_model' })).id));
     manager.registerHandler('workflow-list', () => workflows.list().filter(run => !workflows.get(run.id).definition.steps && !workflowNeedsProviders(workflows.get(run.id).definition)));
     manager.registerHandler('workflow-get', (p: { id: string }) => { requireLegacy(p.id); return workflows.view(p.id); });
     manager.registerHandler('workflow-task', (p: { id: string; taskId: string }) => { requireLegacy(p.id); return workflows.task(p.id, p.taskId); });
