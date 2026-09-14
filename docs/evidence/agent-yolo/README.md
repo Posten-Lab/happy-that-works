@@ -35,7 +35,7 @@ git diff --check
 - CLI workflow regressions: 67 tests passed in 7 files; the test setup rebuilt/typechecked the CLI.
 - New regression coverage includes all three providers' saved YOLO settings and session metadata precedence, documents beyond 16K, the exact 64K boundary, multibyte content, invalid filenames, oversize pre-read rejection, and read failures.
 - Native iOS/Android simulator execution was not performed; UI evidence is responsive Chromium.
-- Library and workflow aggregate transport budgets remain enforced. Existing workflow daemons need the updated wire schema to accept YOLO snapshots or references beyond the old limit; this PR does not publish a CLI release.
+- Library and workflow aggregate transport budgets remain enforced. Existing workflow daemons need the updated wire schema to accept YOLO snapshots or references beyond the old limit; release preparation targets wire 0.1.5 and CLI 1.0.16.
 
 ## Screenshots
 
@@ -46,3 +46,4 @@ git diff --check
 - [Review with saved permission choice, phone](review-yolo-mobile.png)
 - [Real session proof and reference marker, phone](session-proof-mobile.png)
 - [Workflow participant permission setting, phone](workflow-agent-mobile.png)
+- [In-app release notes, phone](release-changelog-mobile.png)

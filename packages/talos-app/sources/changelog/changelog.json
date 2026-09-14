@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "YOLO for your agents",
+      "summary": "Choose how your saved agents work, and see whether reference files were attached.",
+      "markdown": "- Select YOLO when creating or editing an agent to skip approval prompts in new sessions.\n- Attach Markdown references up to 64,000 characters and see clear added-to-draft or not-attached feedback.\n- Keep your latest instructions while a file is being read.\n- Update your machine CLI to use these agent settings in workflows."
+    },
+    {
       "title": "Run workflows in your project folder",
       "summary": "Start workflows in ordinary folders, including workspaces containing several repositories.",
       "markdown": "- Use folders with no Git repository or first commit, and keep your uncommitted work.\n- See whether a run works directly in your folder or in an isolated Git worktree.\n- Update your machine CLI to use this improvement."
@@ -56,5 +61,5 @@
       "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
     }
   ],
-  "latestTitle": "Run workflows in your project folder"
+  "latestTitle": "YOLO for your agents"
 }
