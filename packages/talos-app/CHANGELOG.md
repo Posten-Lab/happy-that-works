@@ -1,3 +1,12 @@
+# Resume interrupted workflows
+
+Understand why a workflow stopped and continue without losing approved planning.
+
+- See provider usage limits and reset times directly in the workflow.
+- Switch an interrupted builder to another model while keeping the approved plan and completed steps.
+- Follow completed, current, and waiting steps together.
+- Update your machine CLI to use model recovery.
+
 # YOLO for your agents
 
 Choose how your saved agents work, and see whether reference files were attached.
