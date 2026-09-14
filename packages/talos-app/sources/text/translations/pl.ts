@@ -1028,6 +1028,23 @@ export const pl: TranslationStructure = {
         notSupportedMessage: 'Ten agent nie obsługuje załączników obrazów. Obrazy nie zostały wysłane.',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: 'Wszystkie pięć agentów używa tego modelu i poziomu rozumowania. Planiści i recenzenci mają dostęp tylko do odczytu; wykonawca może edytować obszar roboczy tego uruchomienia. Podczas konfiguracji żaden agent nie jest uruchamiany.',
+        builderExecutorWorkspace: 'Pracuje w wybranym obszarze roboczym',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? 'Aktywna praca zostanie zatrzymana. Izolowany worktree, decyzje i dowody zostaną zachowane.' : 'Aktywna praca zostanie zatrzymana. Ten katalog, decyzje i dowody zostaną zachowane.',
+        title: 'Twój obszar roboczy', showDetails: 'Pokaż szczegóły', hideDetails: 'Ukryj szczegóły',
+        isolatedMessage: 'Zmiany są zachowywane w oddzielnym worktree. Nic nie jest automatycznie scalane, publikowane ani wdrażane.',
+        directMessage: 'Wykonawca i kontrole ukończenia działają bezpośrednio w tym katalogu. Nic nie jest automatycznie scalane, publikowane ani wdrażane.',
+        launchMessage: 'Wykonawca i kontrole ukończenia działają w wybranym folderze. Czyste projekty Git z commitami używają izolowanego worktree.',
+        worktreeTitle: 'Worktree', directoryTitle: 'Katalog',
+        branch: ({ branch }: { branch: string }) => `Gałąź: ${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `Commit bazowy: ${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `Zweryfikowana zawartość: ${contents}`,
+        notVerified: 'Jeszcze niezweryfikowane',
+        folderOverlap: 'Inny workflow już używa tego folderu projektu lub nakładającego się folderu. Zakończ lub anuluj tamto uruchomienie przed rozpoczęciem tutaj.',
+        projectFolderNotFile: 'Wybierz folder projektu, a nie plik. Otwórz Projekt, aby wybrać folder.',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} wysłał Ci zaproszenie do znajomych`,

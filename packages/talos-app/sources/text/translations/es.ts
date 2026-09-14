@@ -999,6 +999,23 @@ export const es: TranslationStructure = {
         notSupportedMessage: 'Este agente no admite archivos adjuntos de imagen. Las imágenes no se enviaron.',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: 'Los cinco agentes comienzan con este modelo y nivel de razonamiento. Los planificadores y revisores son de solo lectura; el ejecutor puede editar el espacio de trabajo de esta ejecución. No se ejecutan agentes durante la configuración.',
+        builderExecutorWorkspace: 'Trabaja en el espacio de trabajo seleccionado',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? 'El trabajo activo se detendrá. Se conservarán el worktree aislado, las decisiones y las pruebas.' : 'El trabajo activo se detendrá. Se conservarán este directorio, las decisiones y las pruebas.',
+        title: 'Tu espacio de trabajo', showDetails: 'Mostrar detalles', hideDetails: 'Ocultar detalles',
+        isolatedMessage: 'Los cambios se conservan en un worktree independiente. No se fusiona, publica ni despliega nada automáticamente.',
+        directMessage: 'El ejecutor y las comprobaciones de finalización se ejecutan directamente en este directorio. No se fusiona, publica ni despliega nada automáticamente.',
+        launchMessage: 'El ejecutor y las comprobaciones de finalización se ejecutan en la carpeta seleccionada. Los proyectos Git limpios y confirmados usan un worktree aislado.',
+        worktreeTitle: 'Worktree', directoryTitle: 'Directorio',
+        branch: ({ branch }: { branch: string }) => `Rama: ${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `Commit base: ${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `Contenido verificado: ${contents}`,
+        notVerified: 'Aún no verificado',
+        folderOverlap: 'Otro workflow ya está usando esta carpeta del proyecto o una carpeta superpuesta. Finaliza o cancela esa ejecución antes de iniciar aquí.',
+        projectFolderNotFile: 'Elige una carpeta de proyecto, no un archivo. Abre Proyecto para elegir una carpeta.',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} te envió una solicitud de amistad`,

@@ -999,6 +999,23 @@ export const zhHant: TranslationStructure = {
         notSupportedMessage: '此代理不支援圖片附件。圖片未傳送。',
     },
 
+    workflowWorkspace: {
+        setupExecutorWorkspace: '五位代理都會以此模型和推理程度開始。規劃者和審閱者為唯讀；執行者可以編輯這次執行所選的工作區。設定期間不會執行代理。',
+        builderExecutorWorkspace: '在選取的工作區中工作',
+        cancelMessage: ({ isolated }: { isolated: boolean }) => isolated ? '進行中的工作將停止。隔離的 worktree、決策和證據會被保留。' : '進行中的工作將停止。此目錄、決策和證據會被保留。',
+        title: '你的工作區', showDetails: '顯示詳細資料', hideDetails: '隱藏詳細資料',
+        isolatedMessage: '變更會保留在獨立的 worktree 中。不會自動合併、發佈或部署任何內容。',
+        directMessage: '執行者和完成檢查會直接在此目錄中執行。不會自動合併、發佈或部署任何內容。',
+        launchMessage: '執行者和完成檢查會在選取的資料夾中執行。乾淨且已提交的 Git 專案會使用隔離的 worktree。',
+        worktreeTitle: 'Worktree', directoryTitle: '目錄',
+        branch: ({ branch }: { branch: string }) => `分支：${branch}`,
+        baseCommit: ({ baseCommit }: { baseCommit: string }) => `基礎提交：${baseCommit}`,
+        verifiedContents: ({ contents }: { contents: string }) => `已驗證內容：${contents}`,
+        notVerified: '尚未驗證',
+        folderOverlap: '另一個 workflow 已在使用此專案目錄或重疊目錄。請先完成或取消該執行，再在這裡開始。',
+        projectFolderNotFile: '請選取專案目錄，而不是檔案。開啟「專案」以選取目錄。',
+    },
+
     feed: {
         // Feed notifications for friend requests and acceptances
         friendRequestFrom: ({ name }: { name: string }) => `${name} 向您傳送了好友請求`,

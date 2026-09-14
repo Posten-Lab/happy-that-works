@@ -14,6 +14,7 @@ import { isMachineOnline } from '@/utils/machineUtils';
 import { useMachineModelCatalog } from '@/hooks/useMachineModelCatalog';
 import { WorkflowButton as Button, WorkflowInput as Input, WorkflowPickerContext, WorkflowSelectionList, WorkflowAvatar, WorkflowSectionHeader, type WorkflowSelection, useWorkflowStyles } from './ui';
 import { attachWorkflowAgent, builderAgent, newWorkflowStep, stepLabels, withSteps } from './builder';
+import { t } from '@/text';
 
 export function WorkflowBuilder({ draft, onChange, candidates, onCandidates, agents, machine, machines, onMachine, onReveal, section }: {
     draft: WorkflowDefinition; onChange: (draft: WorkflowDefinition) => void;
@@ -101,7 +102,7 @@ export function WorkflowBuilder({ draft, onChange, candidates, onCandidates, age
         {editing ? <>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <WorkflowAvatar name={editing.name} provider={editing.provider} size={48} />
-                <View style={{ flex: 1, gap: 3 }}><Text style={{ ...s.text, ...Typography.header(), fontSize: 18 }}>{editing.name || 'Your agent'}</Text><Text style={s.muted}>{selectedStep.kind === 'execute' ? 'Builds in the project worktree' : 'Independent, read-only participation'}</Text></View>
+                <View style={{ flex: 1, gap: 3 }}><Text style={{ ...s.text, ...Typography.header(), fontSize: 18 }}>{editing.name || 'Your agent'}</Text><Text style={s.muted}>{selectedStep.kind === 'execute' ? t('workflowWorkspace.builderExecutorWorkspace') : 'Independent, read-only participation'}</Text></View>
             </View>
             <Input label="Agent name" value={editing.name} placeholder="Give this agent a name" max={60} onChange={name => setEditing({ ...editing, name })} />
             <Input label="Agent description" value={editing.description} placeholder="What does this agent bring to the team?" max={300} onChange={description => setEditing({ ...editing, description })} />
