@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "Run workflows in your project folder",
+      "summary": "Start workflows in ordinary folders, including workspaces containing several repositories.",
+      "markdown": "- Use folders with no Git repository or first commit, and keep your uncommitted work.\n- See whether a run works directly in your folder or in an isolated Git worktree.\n- Update your machine CLI to use this improvement."
+    },
+    {
       "title": "A clearer way to run workflows",
       "summary": "Create reusable agent teams and follow their work from planning through review. Enable Workflows in Experimental Features to try it.",
       "markdown": "- Find saved workflows and recent runs in a dedicated Workflows library.\n- Create a workflow in four focused steps: Basics, Team, Finish, and Review.\n- Add and reorder stages, with up to three planners or reviewers per stage. Choose each agent's provider, model, effort, and instructions.\n- Run a saved workflow with a prompt, a machine, and the familiar project picker.\n- Read the agreed plan, follow agent progress, and inspect reviews and completion checks. Clear recovery actions help you continue when a run needs attention.\n- Keep fields and actions within reach while typing on your phone."
@@ -51,5 +56,5 @@
       "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
     }
   ],
-  "latestTitle": "A clearer way to run workflows"
+  "latestTitle": "Run workflows in your project folder"
 }

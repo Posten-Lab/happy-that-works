@@ -1,3 +1,11 @@
+# Run workflows in your project folder
+
+Start workflows in ordinary folders, including workspaces containing several repositories.
+
+- Use folders with no Git repository or first commit, and keep your uncommitted work.
+- See whether a run works directly in your folder or in an isolated Git worktree.
+- Update your machine CLI to use this improvement.
+
 # A clearer way to run workflows
 
 Create reusable agent teams and follow their work from planning through review. Enable Workflows in Experimental Features to try it.
