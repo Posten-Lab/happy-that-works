@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { readFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, relative, dirname } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { build } from 'esbuild';
+import { WorkflowStore } from '../../packages/talos-cli/src/workflows/store';
+import type { WorkflowRun } from '../../packages/talos-wire/src/workflows';
+const root = process.cwd(), old = '7130fa064cda06c1c0e73faa306dcf38bffffd95';
+const files = ['packages/talos-cli/src/workflows/store.ts', 'packages/talos-wire/src/workflows.ts'];
+const output = '/tmp/talos-provider-old-store.cjs';
+await build({entryPoints:[files[0]],bundle:true,platform:'node',format:'cjs',outfile:output,tsconfig:'packages/talos-cli/tsconfig.json',plugins:[{name:'shipped-store',setup(b){
+    b.onResolve({filter:/^@ahmadposten\/talos-wire$/},()=>({path:join(root,files[1])}));
+    b.onLoad({filter:/\.ts$/},args=>files.includes(relative(root,args.path))?{contents:execFileSync('git',['show',old+':'+relative(root,args.path)],{encoding:'utf8'}),loader:'ts',resolveDir:dirname(args.path)}:undefined);
+}}]});
+const OldStore=createRequire(import.meta.url)(output).WorkflowStore;
+const home=mkdtempSync(join(tmpdir(),'talos-provider-storage-')),key=randomBytes(32);
+const current=new WorkflowStore(home,'migration-evidence',key),shipped=new OldStore(home,'migration-evidence',key);
+const run:WorkflowRun=JSON.parse(readFileSync('/tmp/talos-provider-e2e-result.json','utf8'));
+const oldRun=structuredClone(run);oldRun.status='paused';
+for(const slot of [...oldRun.definition.planners,oldRun.definition.executor,...oldRun.definition.reviewers,...oldRun.definition.steps!.flatMap(s=>s.agents)]){slot.agent.provider='codex';slot.agent.model='gpt-5.6-sol';}
+current.save(oldRun);assert.equal(shipped.load()[0].status,'paused');
+current.save({...run,status:'paused'});
+assert.equal(shipped.load()[0].status,'cancelled');assert.match(shipped.load()[0].reason,/updated Talos CLI/);
+assert.equal(current.load().length,1);assert.equal(current.load()[0].definition.steps![2].agents[0].agent.provider,'muse');
+current.save(oldRun);
+assert.equal(shipped.load()[0].status,'cancelled');assert.equal(current.load().length,1);assert.equal(current.load()[0].status,'paused');
+console.log(JSON.stringify({shippedRevision:old,encryptedRealRunFixture:true,oldResumeRetired:true,noDuplicateRun:true,versionedLocationRetained:true}));

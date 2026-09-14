@@ -153,7 +153,7 @@ export class ApiMachineClient {
         workflows,
     }: MachineRpcHandlers) {
         this.resumeSessionHandler = resumeSession ?? null;
-        this.workflowVersion = workflows ? 2 : undefined;
+        this.workflowVersion = workflows ? 3 : undefined;
         if (workflows) registerWorkflowHandlers(this.rpcHandlerManager, workflows);
         if (setSessionRecovery) {
             this.rpcHandlerManager.registerHandler('set-session-recovery', async (params: unknown) => {

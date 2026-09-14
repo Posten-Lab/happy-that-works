@@ -20,6 +20,13 @@ function fixture() {
 }
 
 describe('automatic session recovery', () => {
+    it('never restarts workflow participants outside their coordinator', async () => {
+        const f = fixture();
+        f.records([{ ...checkpoint, metadata: { ...checkpoint.metadata, workflowManaged: true } }]);
+        await f.coordinator.tick();
+        expect(f.deps.resume).not.toHaveBeenCalled();
+        expect(f.coordinator.getState().sessions).toEqual([]);
+    });
     it('restores the same checkpoint and reports success', async () => {
         const f = fixture();
         await f.coordinator.tick();

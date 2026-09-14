@@ -32,7 +32,7 @@ describe('workflow setup', () => {
     it('rejects invalid teams before opening the details wizard', () => {
         const agents = team();
         expect(() => workflowDraft([...agents.slice(0, 4), agents[0]], 'id')).toThrow('distinct');
-        expect(() => workflowDraft(agents.map(a => ({ ...a, provider: 'claude' })), 'id')).toThrow();
+        expect(() => workflowDraft(agents.map(a => ({ ...a, provider: 'unknown' as any })), 'id')).toThrow();
     });
     it('saves edited starter identities together with the workflow and preserves existing data', () => {
         const existing = team(), additions = team(), value = draft(additions);

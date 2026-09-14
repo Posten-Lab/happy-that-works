@@ -3,7 +3,7 @@ import { z } from 'zod';
 const text = z.string().trim().min(1).max(24000);
 export const WorkflowAgentSchema = z.object({
     id: z.string().min(1).max(100), revision: z.number().int().positive(), name: z.string().min(1).max(60),
-    description: z.string().max(300), provider: z.literal('codex'), model: z.string().min(1).max(200),
+    description: z.string().max(300), provider: z.enum(['codex', 'claude', 'muse']), model: z.string().min(1).max(200), modelLabel: z.string().max(300).optional(),
     effort: z.string().max(30).nullable(), permissionMode: z.enum(['default', 'read-only']),
     instructions: text, documents: z.array(z.object({ name: z.string().max(120), content: z.string().max(16000) })).max(5),
 });
@@ -116,3 +116,7 @@ export const WorkflowActionSchema = z.object({
 });
 export function workflowEnabled(s: { experiments?: boolean; expWorkflows?: boolean }) { return s.experiments === true && s.expWorkflows === true; }
 export const workflowStageLabel: Record<WorkflowStage, string> = { propose: 'Independent proposals', consolidate: 'Consolidating plan', plan_vote: 'Planning consensus', execute: 'Executing', review: 'Independent review', verify: 'Completion checks' };
+
+export function workflowNeedsProviders(definition: WorkflowDefinition): boolean {
+    return workflowSlots(definition).some(slot => slot.agent.provider !== 'codex');
+}

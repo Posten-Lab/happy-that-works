@@ -61,7 +61,7 @@ export const initialMachineMetadata: MachineMetadata = {
   cliAvailability: detectCLIAvailability(),
   resumeSupport: { ...detectResumeSupport(), rpcAvailable: true },
   providerUsage: { rpcAvailable: true },
-  workflows: { version: 2 },
+  workflows: { version: 3 },
 };
 
 export async function startDaemon(): Promise<void> {
@@ -178,6 +178,9 @@ export async function startDaemon(): Promise<void> {
     const persisted = readPersistedSessions();
     for (const checkpoint of readSessionCheckpoints()) {
       if (checkpoint.serverUrl !== configuration.serverUrl || checkpoint.metadata.machineId !== machineId) continue;
+      // Retire checkpoints written by older workflow runtimes. Persisted stop intent
+      // also prevents a rollback daemon from independently restoring participants.
+      if (checkpoint.metadata.workflowManaged) { stopSessionRecovery(checkpoint.sessionId); continue; }
       persisted[checkpoint.sessionId] = { ...checkpoint.encryption, metadata: checkpoint.metadata, savedAt: checkpoint.updatedAt };
     }
     for (const [id, s] of Object.entries(persisted)) {
