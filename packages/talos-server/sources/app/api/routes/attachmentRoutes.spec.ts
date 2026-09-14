@@ -2,6 +2,7 @@ import fastify from "fastify";
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from "fastify-type-provider-zod";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Fastify } from "../types";
+import { MAX_ENCRYPTED_ATTACHMENT_BYTES } from '@ahmadposten/talos-wire';
 
 const {
     state,
@@ -165,7 +166,7 @@ describe("attachmentRoutes — request-upload", () => {
         expect(body.method).toBe("POST");
         expect(body.uploadUrl).toBe("https://s3.test/post-url");
         expect(body.formFields).toBeDefined();
-        expect(state.s3PolicyMaxLength).toBe(10 * 1024 * 1024);
+        expect(state.s3PolicyMaxLength).toBe(MAX_ENCRYPTED_ATTACHMENT_BYTES);
     });
 
     it("returns 404 when the requesting user is not the session owner", async () => {
@@ -193,7 +194,19 @@ describe("attachmentRoutes — request-upload", () => {
         expect(res.statusCode).toBe(401);
     });
 
-    it("returns 413 when the declared size exceeds the 10MB limit", async () => {
+    it.each([12 * 1024 * 1024 + 40, 100 * 1024 * 1024 + 40])("accepts an encrypted video of %i bytes", async (size) => {
+        seedSession("s1", "u1");
+        app = await createApp();
+        const res = await app.inject({
+            method: "POST",
+            url: "/v1/sessions/s1/attachments/request-upload",
+            headers: { "x-user-id": "u1" },
+            payload: { filename: "screen-recording.mov", size },
+        });
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("returns 413 when the declared size exceeds the encrypted 100MB limit", async () => {
         seedSession("s1", "u1");
         app = await createApp();
 
@@ -201,10 +214,21 @@ describe("attachmentRoutes — request-upload", () => {
             method: "POST",
             url: "/v1/sessions/s1/attachments/request-upload",
             headers: { "x-user-id": "u1" },
-            payload: { filename: "huge.bin", size: 10 * 1024 * 1024 + 1 },
+            payload: { filename: "huge.bin", size: MAX_ENCRYPTED_ATTACHMENT_BYTES + 1 },
         });
-        // Zod schema rejects size > 10MB at validation stage with 400.
-        expect([400, 413]).toContain(res.statusCode);
+        expect(res.statusCode).toBe(413);
+    });
+
+    it.each([-1, 1.5])("rejects an invalid declared size of %s", async (size) => {
+        seedSession("s1", "u1");
+        app = await createApp();
+        const res = await app.inject({
+            method: "POST",
+            url: "/v1/sessions/s1/attachments/request-upload",
+            headers: { "x-user-id": "u1" },
+            payload: { filename: "recording.mp4", size },
+        });
+        expect(res.statusCode).toBe(400);
     });
 });
 
@@ -212,6 +236,25 @@ describe("attachmentRoutes — PUT (local-mode upload)", () => {
     let app: Fastify;
     beforeEach(() => { resetState(); });
     afterEach(async () => { if (app) await app.close(); });
+
+    it("accepts the encrypted 100MB boundary and rejects a larger body before storage", async () => {
+        seedSession("s1", "u1");
+        app = await createApp();
+        const blob = Buffer.alloc(MAX_ENCRYPTED_ATTACHMENT_BYTES);
+        const accepted = await app.inject({
+            method: "PUT", url: "/v1/sessions/s1/attachments/video.enc",
+            headers: { "x-user-id": "u1", "content-type": "application/octet-stream" }, payload: blob,
+        });
+        expect(accepted.statusCode).toBe(200);
+        expect(state.uploads.get("sessions/s1/attachments/video.enc")?.length).toBe(blob.length);
+        const rejected = await app.inject({
+            method: "PUT", url: "/v1/sessions/s1/attachments/oversize.enc",
+            headers: { "x-user-id": "u1", "content-type": "application/octet-stream", "content-length": String(blob.length + 1) },
+            payload: Buffer.alloc(blob.length + 1),
+        });
+        expect(rejected.statusCode).toBe(413);
+        expect(state.uploads.has("sessions/s1/attachments/oversize.enc")).toBe(false);
+    });
 
     it("accepts the encrypted blob from the session owner and stores it under the session prefix", async () => {
         seedSession("s1", "u1");

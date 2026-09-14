@@ -992,8 +992,9 @@ export const ca: TranslationStructure = {
         fileTooLargeMessage: ({ name, maxMb }: { name: string; maxMb: number }) => `"${name}" supera el límit de ${maxMb}MB i no s'ha afegit.`,
         uploadFailedTitle: 'Error en la càrrega',
         uploadFailedMessage: ({ count }: { count: number }) => count === 1
-            ? 'No s\'ha pogut pujar una imatge i no s\'ha enviat.'
-            : `No s'han pogut pujar ${count} imatges i no s'han enviat.`,
+            ? `No s’ha pogut pujar un fitxer adjunt. El missatge i els fitxers continuen aquí. Prem Envia per tornar-ho a provar.`
+            : `No s’han pogut pujar ${count} fitxers adjunts. El missatge i els fitxers continuen aquí. Prem Envia per tornar-ho a provar.`,
+        sendFailedMessage: `No s’ha pogut enviar el missatge. L’esborrany continua aquí. Torna-ho a provar.`,
         notSupportedTitle: 'Imatges no compatibles',
         notSupportedMessage: 'Aquest agent no admet fitxers adjunts d\'imatge. Les imatges no s\'han enviat.',
     },

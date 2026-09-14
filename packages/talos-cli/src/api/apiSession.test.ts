@@ -3,6 +3,7 @@ import { ApiSessionClient } from './apiSession';
 import { decodeBase64, decrypt, decryptBlob, encodeBase64, encrypt } from './encryption';
 import type { Update } from './types';
 import { logger } from '@/ui/logger';
+import { MAX_ENCRYPTED_ATTACHMENT_BYTES } from '@ahmadposten/talos-wire';
 
 const {
     mockIo,
@@ -510,6 +511,7 @@ describe('ApiSessionClient v3 messages API migration', () => {
         });
 
         const uploadBody = mockAxiosPut.mock.calls[0][1];
+        expect(mockAxiosPut.mock.calls[0][2].maxBodyLength).toBe(MAX_ENCRYPTED_ATTACHMENT_BYTES);
         const blobKey = await client.getBlobKey();
         expect(decryptBlob(new Uint8Array(uploadBody), blobKey)).toEqual(pngBytes);
 
@@ -616,6 +618,19 @@ describe('ApiSessionClient v3 messages API migration', () => {
         const uploadBody = mockAxiosPut.mock.calls[0][1];
         const blobKey = await client.getBlobKey();
         expect(decryptBlob(new Uint8Array(uploadBody), blobKey)).toEqual(pngBytes);
+    });
+
+    it('downloads encrypted videos above the former 10MB cap', async () => {
+        const client = new ApiSessionClient('fake-token', session);
+        const encrypted = Buffer.alloc(12 * 1024 * 1024 + 40, 7);
+        mockAxiosPost.mockResolvedValueOnce({ data: { downloadUrl: 'https://server.test/video.enc' } });
+        mockAxiosGet.mockImplementationOnce(async (_url, options) => {
+            if (encrypted.length > options.maxContentLength) throw new Error('maxContentLength exceeded');
+            return { data: encrypted };
+        });
+        const downloaded = await client.downloadAttachment('sessions/test-session-id/attachments/video.enc');
+        expect(Buffer.from(downloaded).equals(encrypted)).toBe(true);
+        expect(mockAxiosGet.mock.calls[0][1].maxContentLength).toBe(MAX_ENCRYPTED_ATTACHMENT_BYTES);
     });
 
     it('sends session protocol messages through enqueueMessage with session envelope', async () => {

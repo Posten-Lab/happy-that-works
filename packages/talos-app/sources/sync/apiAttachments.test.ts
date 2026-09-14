@@ -70,7 +70,7 @@ describe('requestAttachmentUpload', () => {
         });
     });
 
-    it('keeps the request-upload 413 message while adding a diagnostic', async () => {
+    it('reports the server upload limit without assuming an older server uses the client limit', async () => {
         fetchMock.mockResolvedValueOnce(response({
             ok: false,
             status: 413,
@@ -84,7 +84,7 @@ describe('requestAttachmentUpload', () => {
             11 * 1024 * 1024,
         ));
 
-        expect(error.message).toBe('Attachment too large (max 10MB)');
+        expect(error.message).toBe('Attachment exceeds the server upload limit');
         expect(getAttachmentDiagnostic(error)).toEqual({
             leg: 'request-upload',
             method: 'POST',

@@ -569,9 +569,10 @@ function NewSessionScreen() {
         path: string;
         directory: string;
         worktreeKey: string;
-        profile: AgentDefinition;
+        profile: AgentDefinition | null;
+        provider: typeof draft.agentType;
     } | null>(null);
-    const profile = createdAgentLaunch?.profile ?? selectedProfile;
+    const profile = createdAgentLaunch ? createdAgentLaunch.profile : selectedProfile;
     const createdAgentSession = createdAgentLaunch?.sessionId ?? null;
     React.useEffect(() => {
         if (savedAgent && libraryEnabled) setProfile(previous => previous?.id === savedAgent.id ? previous : JSON.parse(JSON.stringify(savedAgent)));
@@ -591,7 +592,7 @@ function NewSessionScreen() {
     // so we hold the previews here and hand them to sendMessage once the spawn
     // hands back a sessionId (expImageUpload feature flag, same as SessionView).
     const expImageUpload = useSetting('expImageUpload');
-    const { selectedImages, pickImages, removeImage, clearImages, addImages } = useImagePicker();
+    const { selectedImages, pickImages, removeImage, addImages } = useImagePicker();
     const { pickDocuments } = useDocumentPicker({
         currentCount: selectedImages.length,
         addImages,
@@ -625,7 +626,7 @@ function NewSessionScreen() {
         setWorktreeKey: s.setWorktreeKey,
     })));
     const hasText = useNewSessionDraft((s) => s.input.trim().length > 0);
-    const selectedAgent = profile?.provider ?? draft.agentType;
+    const selectedAgent = createdAgentLaunch?.provider ?? profile?.provider ?? draft.agentType;
     const setSelectedAgent = draft.setAgentType;
     const selectedMachineId = createdAgentLaunch?.machineId ?? draft.selectedMachineId;
     const setSelectedMachineId = draft.setMachineId;
@@ -1012,7 +1013,7 @@ function NewSessionScreen() {
                 spawnDirectory = worktreeKey;
             }
 
-            const result = createdAgentSession && profile ? { type: 'success' as const, sessionId: createdAgentSession } : await machineSpawnNewSession({
+            const result = createdAgentSession ? { type: 'success' as const, sessionId: createdAgentSession } : await machineSpawnNewSession({
                 machineId: selectedMachineId,
                 directory: spawnDirectory,
                 approvedNewDirectoryCreation,
@@ -1021,19 +1022,18 @@ function NewSessionScreen() {
 
             switch (result.type) {
                 case 'success':
-                    if (profile) {
-                        // A retry must validate and use the same destination and
-                        // definition, even if the shared draft/settings change.
-                        setCreatedAgentLaunch(previous => previous ?? {
-                            sessionId: result.sessionId,
-                            machineId: selectedMachineId,
-                            path: pathToUse,
-                            directory: spawnDirectory,
-                            worktreeKey,
-                            profile,
-                        });
-                        setActivePicker(null);
-                    }
+                    // A retry must validate and use the same destination and
+                    // definition, even if the shared draft/settings change.
+                    setCreatedAgentLaunch(previous => previous ?? {
+                        sessionId: result.sessionId,
+                        machineId: selectedMachineId,
+                        path: pathToUse,
+                        directory: spawnDirectory,
+                        worktreeKey,
+                        profile,
+                        provider: selectedAgent,
+                    });
+                    setActivePicker(null);
                     await sync.refreshSessions();
                     if (profile) await saveSessionAgentProfile(result.sessionId, profile);
 
@@ -1068,8 +1068,7 @@ function NewSessionScreen() {
 
                     // Send initial message if provided
                     if (trimmedPrompt || attachments) {
-                        clearImages();
-                        await sync.sendMessage(result.sessionId, trimmedPrompt, {
+                        const sent = await sync.sendMessage(result.sessionId, trimmedPrompt, {
                             source: 'new_session',
                             attachments,
                             modeMeta: {
@@ -1078,6 +1077,8 @@ function NewSessionScreen() {
                                 effort: currentEffortKey,
                             },
                         });
+                        if (!sent) return;
+                        attachments?.forEach(attachment => removeImage(attachment.id));
                     }
 
                     // Uploads may take long enough for the user to edit the
@@ -1112,7 +1113,7 @@ function NewSessionScreen() {
         } finally {
             setIsSpawning(false);
         }
-    }, [agentId, libraryEnabled, profile, liveModels, createdAgentSession, selectedMachineId, selectedMachine, selectedPath, selectedAgent, router, navigateToSession, currentPermission.key, currentModelKey, currentEffort?.key, effectiveAgentDefaults.permissionMode, effectiveAgentDefaults.modelMode, effectiveAgentDefaults.effortLevel, worktreeKey, expImageUpload, selectedImages, clearImages]);
+    }, [agentId, libraryEnabled, profile, liveModels, createdAgentSession, selectedMachineId, selectedMachine, selectedPath, selectedAgent, router, navigateToSession, currentPermission.key, currentModelKey, currentEffort?.key, effectiveAgentDefaults.permissionMode, effectiveAgentDefaults.modelMode, effectiveAgentDefaults.effortLevel, worktreeKey, expImageUpload, selectedImages, removeImage]);
 
     const canSend = selectedMachineId && selectedMachine && isMachineOnline(selectedMachine) && !isSpawning;
     const sidebarLayout = getNewSessionSidebarLayout({

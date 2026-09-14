@@ -97,7 +97,7 @@ type OutboxMessage = {
 type SendMessageOptions = {
     displayText?: string;
     source?: MessageSentSource;
-    /** Optional image attachments to send before the text message. */
+    /** Optional attachments to send before the text message. */
     attachments?: AttachmentPreview[];
     /**
      * Snapshot of the modes visible in the composer when Send was pressed.
@@ -552,9 +552,9 @@ class Sync {
     }
 
     /**
-     * Upload image attachments for a session: read bytes → encrypt → upload to server.
+     * Upload attachments for a session: read bytes → encrypt → upload to server.
      * Returns UploadedAttachment records to embed as file events before the text message.
-     * Failures are logged and skipped rather than aborting the whole message send.
+     * Report failures so the caller can preserve the entire draft for retry.
      */
     private async uploadAttachmentsForSession(
         sessionId: string,
@@ -589,7 +589,7 @@ class Sync {
                 uploaded.push({
                     ref,
                     name: attachment.name,
-                    size: attachment.size,
+                    size: bytes.length,
                     mimeType: attachment.mimeType,
                     width: attachment.width,
                     height: attachment.height,
@@ -599,13 +599,13 @@ class Sync {
             } catch (err) {
                 const diagnostic = getAttachmentDiagnostic(err);
                 if (diagnostic) {
-                    console.error('[attachments] Failed to upload image attachment:', formatAttachmentDiagnosticForLog(diagnostic, {
+                    console.error('[attachments] Failed to upload attachment:', formatAttachmentDiagnosticForLog(diagnostic, {
                         platform: Platform.OS,
                         client: getTalosClientId(),
                     }));
                 } else {
                     const message = errorMessageFromUnknown(err);
-                    console.error('[attachments] Failed to upload image attachment:', {
+                    console.error('[attachments] Failed to upload attachment:', {
                         leg: 'blob-upload',
                         message,
                         platform: Platform.OS,
@@ -613,14 +613,13 @@ class Sync {
                     });
                 }
                 failed++;
-                // Skip this attachment; do not abort the whole message send.
             }
         }
 
         return { uploaded, failed };
     }
 
-    async sendMessage(sessionId: string, text: string, options?: SendMessageOptions) {
+    async sendMessage(sessionId: string, text: string, options?: SendMessageOptions): Promise<boolean> {
 
         // Get encryption — may not be ready yet if sessions are still syncing
         let encryption = this.encryption.getSessionEncryption(sessionId);
@@ -630,7 +629,7 @@ class Sync {
             encryption = this.encryption.getSessionEncryption(sessionId);
             if (!encryption) {
                 console.error(`Session ${sessionId} not found after sync`);
-                return;
+                return false;
             }
         }
 
@@ -641,7 +640,7 @@ class Sync {
             session = storage.getState().sessions[sessionId];
             if (!session) {
                 console.error(`Session ${sessionId} not found in storage after sync`);
-                return;
+                return false;
             }
         }
 
@@ -663,7 +662,7 @@ class Sync {
                 [{ text: t('common.ok'), style: 'cancel' }],
             );
             if (!attachmentPlan.shouldSendText) {
-                return;
+                return false;
             }
         }
 
@@ -677,6 +676,9 @@ class Sync {
                     t('imageUpload.uploadFailedMessage', { count: failed }),
                     [{ text: t('common.ok'), style: 'cancel' }],
                 );
+                // Do not send text without its files, or only part of a batch.
+                // The composer keeps the original text and attachments for retry.
+                return false;
             }
 
             if (uploaded.length > 0) {
@@ -805,6 +807,7 @@ class Sync {
 
         this.getSendSync(sessionId).invalidate();
         this.maybeStartBackgroundSendWatchdog();
+        return true;
     }
 
     /** Server sent us settings — merge any pending local changes on top, then apply as one update. */
