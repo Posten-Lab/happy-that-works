@@ -1,6 +1,6 @@
 import { AgentLibrarySchema, type AgentDefinition } from '@/agents/agentDefinition';
 import type { ProviderModel } from '@/sync/ops';
-import { WorkflowDefinitionSchema, WorkflowLibrarySchema, type WorkflowDefinition, WorkflowAgentSchema } from '@ahmadposten/talos-wire';
+import { WorkflowDefinitionSchema, WorkflowLibrarySchema, type WorkflowDefinition, WorkflowAgentSchema, workflowSlots } from '@ahmadposten/talos-wire';
 
 const roles = [
     { name: 'Aster', description: 'Plans the user experience and acceptance criteria', avatar: 'compass', specialties: ['design'], instructions: 'Independently identify the user goal, acceptance criteria, and practical approach. Make assumptions explicit. Consolidate proposals when assigned, preserving unresolved objections for a fresh vote.' },
@@ -51,7 +51,7 @@ export function workflowDraft(team: AgentDefinition[], id: string, now = Date.no
 /** Validate both libraries before the single settings update, so failed saves leave no orphan agents. */
 export function workflowSave(draft: WorkflowDefinition, candidates: AgentDefinition[], agents: AgentDefinition[], workflows: WorkflowDefinition[]) {
     const workflow = WorkflowDefinitionSchema.parse(draft);
-    const slots = [...workflow.planners, workflow.executor, ...workflow.reviewers];
+    const slots = workflowSlots(workflow);
     const additions = candidates.flatMap(candidate => {
         const used = slots.find(s => s.agent.id === candidate.id);
         if (!used) return [];
@@ -79,4 +79,9 @@ export function workflowStepError(draft: WorkflowDefinition, step: number): stri
         }
     }
     return null;
+}
+
+/** A separate settings field prevents old apps stripping steps and running a different workflow. */
+export function workflowLibrarySettings(workflows: WorkflowDefinition[]) {
+    return { workflowLibrary: workflows.filter(w => !w.steps), workflowLibraryV2: workflows.filter(w => !!w.steps) };
 }

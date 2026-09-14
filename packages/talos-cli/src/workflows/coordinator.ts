@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
-import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
+import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, workflowSlots, workflowProjection, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
 
 type Start = ReturnType<typeof WorkflowStartSchema.parse>;
 export interface WorkflowRuntime {
@@ -51,7 +51,7 @@ export class WorkflowCoordinator {
         const run = this.get(id);
         const clip = (value: string, length: number) => value.length > length ? value.slice(0, length) + '\n[Preview shortened. Open task details for full evidence.]' : value;
         run.tasks = run.tasks.map(t => ({ ...t, assignment: '', prompt: '', result: t.result ? { ...t.result, document: '',
-            findings: t.stage === 'review' && t.round === run.reviewRound ? t.result.findings : [] } : undefined }));
+            findings: t.stage === 'review' && t.round === run.reviewRound && (!run.definition.steps || t.stepId === run.definition.steps[run.stepIndex ?? 0]?.id && t.attempt === run.stepAttempt) ? t.result.findings : [] } : undefined }));
         run.events = run.events.slice(-100);
         run.notes = run.notes.slice(-5);
         for (const length of [2000, 500, 100]) {
@@ -94,12 +94,13 @@ export class WorkflowCoordinator {
         try { return await pending; } finally { this.starting.delete(input.id); }
     }
     private async create(input: Start) {
-        await this.runtime.validate([...input.definition.planners, input.definition.executor, ...input.definition.reviewers]);
+        await this.runtime.validate(workflowSlots(input.definition));
         if (this.closed) throw new Error('Coordinator is shutting down');
         const workspace = await this.runtime.prepare(input);
         if (this.closed) throw new Error('Coordinator stopped during workspace preparation. No agents were started; the worktree is retained.');
         const now = Date.now();
         const run = WorkflowRunSchema.parse({ id: input.id, revision: 0, definition: input.definition, machineId: this.machineId, task: input.task, requestedDirectory: input.directory, ...workspace,
+            ...(input.definition.steps ? { stepIndex: 0, stepAttempt: 1, completedSteps: [], stepRounds: {} } : {}),
             status: 'running', stage: 'propose', planningRound: 1, reviewRound: 1, planVersion: 1, plan: '', artifactVersion: '', reason: '',
             tasks: [], checks: [], events: [], notes: [], approvedPlanVersion: null, createdAt: now, updatedAt: now });
         this.persist(run, 'Run created in an isolated worktree. All required participants must approve.');
@@ -117,6 +118,7 @@ export class WorkflowCoordinator {
         }
         if (run.status === 'running' || this.active.has(run.id)) throw new Error('Wait for the current step to stop before changing the run.');
         if (run.notes.length >= 30 && a.note) throw new Error('Clarification limit reached. Start a new run with the refined task.');
+        if (run.definition.steps) return this.stepAction(run, a);
         if (a.action === 'approve_plan') {
             if (run.stage !== 'plan_vote' || !this.planApproved(run)) throw new Error('Every planner must approve the current plan first.');
             run.approvedPlanVersion = run.planVersion; run.stage = 'execute';
@@ -155,9 +157,17 @@ export class WorkflowCoordinator {
     }
     startStatus(id: string) { this.readable(); return this.runs.has(id) ? { state: 'created', id } : this.starting.has(id) ? { state: 'starting' } : { state: 'absent' }; }
     private current(run: WorkflowRun, slot: WorkflowSlot, stage = run.stage) {
-        return [...run.tasks].reverse().find(t => t.stage === stage && t.agentId === slot.agent.id && t.round === (stage === 'review' || stage === 'execute' ? run.reviewRound : run.planningRound) && t.version === (stage === 'review' ? run.artifactVersion : `plan:${run.planVersion}`) && t.status === 'done' && !(t.result?.decision !== 'approve' && (t.clarifications ?? 0) < run.notes.length));
+        return [...run.tasks].reverse().find(t => (!run.definition.steps || t.stepId === run.definition.steps[run.stepIndex ?? 0]?.id && t.attempt === run.stepAttempt) && t.stage === stage && t.agentId === slot.agent.id && t.round === (stage === 'review' || stage === 'execute' ? run.reviewRound : run.planningRound) && t.version === (stage === 'review' ? run.artifactVersion : `plan:${run.planVersion}`) && t.status === 'done' && !(t.result?.decision !== 'approve' && (t.clarifications ?? 0) < run.notes.length));
     }
-    private planApproved(run: WorkflowRun) { return run.definition.planners.every(s => this.current(run, s, 'plan_vote')?.result?.decision === 'approve' && !this.current(run, s, 'plan_vote')?.result?.findings.some(f => f.blocking)); }
+    private planApproved(run: WorkflowRun) {
+        if (run.definition.steps) {
+            const plan = run.definition.steps.slice(0, (run.stepIndex ?? 0) + 1).reverse().find(s => s.kind === 'plan');
+            return !!plan && plan.agents.every(s => {
+                const vote = [...run.tasks].reverse().find(t => t.stepId === plan.id && t.stage === 'plan_vote' && t.agentId === s.agent.id && t.version === `plan:${run.planVersion}` && t.status === 'done');
+                return vote?.result?.decision === 'approve' && !vote.result.findings.some(f => f.blocking);
+            });
+        }
+        return run.definition.planners.every(s => this.current(run, s, 'plan_vote')?.result?.decision === 'approve' && !this.current(run, s, 'plan_vote')?.result?.findings.some(f => f.blocking)); }
     private block(run: WorkflowRun, reason: string) { if (run.status !== 'running') return; run.status = 'needs_input'; run.reason = reason; this.persist(run, reason); }
     private kick(run: WorkflowRun) {
         if (this.closed || this.active.has(run.id) || run.status !== 'running') return;
@@ -176,7 +186,7 @@ export class WorkflowCoordinator {
         if (run.tasks.length >= run.definition.maxTurns) throw new Error('Agent turn limit reached. Completed work is retained.');
         const prompt = this.prompt(run, slot);
         if (Buffer.byteLength(prompt) > 400000) throw new Error('Workflow context limit reached. Start a new run with a shorter task and instructions.');
-        const task: WorkflowTask = { id: randomUUID(), stage: run.stage, round: run.stage === 'execute' || run.stage === 'review' ? run.reviewRound : run.planningRound,
+        const task: WorkflowTask = { ...(run.definition.steps ? { stepId: run.definition.steps[run.stepIndex ?? 0].id, attempt: run.stepAttempt } : {}), id: randomUUID(), stage: run.stage, round: run.stage === 'execute' || run.stage === 'review' ? run.reviewRound : run.planningRound,
             agentId: slot.agent.id, agentName: slot.agent.name, assignment: slot.assignment, version: run.stage === 'review' ? run.artifactVersion : `plan:${run.planVersion}`,
             status: 'running', startedAt: Date.now(), clarifications: run.notes.length, prompt };
         run.tasks.push(task); this.persist(run, `${slot.agent.name}: ${run.stage} started.`);
@@ -188,6 +198,7 @@ export class WorkflowCoordinator {
     }
     private prompt(run: WorkflowRun, slot: WorkflowSlot) {
         const stage = run.stage;
+        const step = run.definition.steps?.[run.stepIndex ?? 0];
         const context = stage === 'propose' ? '' : stage === 'consolidate'
             ? JSON.stringify(run.tasks.filter(t => t.status === 'done' && (t.stage === 'propose' && t.version === `plan:${run.planVersion}` || t.stage === 'plan_vote' && t.round === run.planningRound - 1)).map(t => ({ agent: t.agentName, version: t.version, result: t.result })))
             : stage === 'execute' ? JSON.stringify({ checks: run.checks, findings: run.tasks.filter(t => t.stage === 'review' && t.status === 'done' && t.round === run.reviewRound - 1).map(t => ({ agent: t.agentName, revision: t.version, result: t.result })) })
@@ -200,10 +211,11 @@ export class WorkflowCoordinator {
             review: 'Independently inspect the exact workspace revision and completion evidence. Verify every acceptance criterion and earlier fixes. Do not edit files. Approve only with no unresolved blocking findings. Supply evidence and actionable correction for each finding.',
             verify: '',
         }[stage];
-        return `You are ${slot.agent.name}. ${slot.agent.description}\n${slot.agent.instructions}\n${slot.agent.documents.map(d => `${d.name}:\n${d.content}`).join('\n')}\n\nWORKFLOW ASSIGNMENT: ${slot.assignment}\nTASK: ${run.task}\nACCEPTANCE CRITERIA: ${run.definition.criteria}\nREQUIRED COMPLETION CHECKS: ${JSON.stringify(run.definition.checks)}\nSTAGE: ${stage}\nROUND: ${stage === 'execute' || stage === 'review' ? run.reviewRound : run.planningRound}\n${instruction}\nPLAN VERSION: ${run.planVersion}\n${stage === 'propose' ? '' : run.plan}\nWORKSPACE REVISION: ${run.artifactVersion}\nUSER CLARIFICATIONS: ${JSON.stringify(run.notes)}\nEVIDENCE AND DISCUSSION: ${context}\nDo not invoke subagents or external actions outside this assignment. Never merge, publish, deploy, or send messages to others. The controller handles advancement. Return only the required structured result. Explain conclusions and evidence, not private reasoning.`;
+        return `You are ${slot.agent.name}. ${slot.agent.description}\n${slot.agent.instructions}\n${slot.agent.documents.map(d => `${d.name}:\n${d.content}`).join('\n')}\n\nWORKFLOW STEP: ${step ? `${(run.stepIndex ?? 0) + 1}. ${step.name} (${step.kind})` : stage}\nSTEP CRITERIA: ${step?.criteria || 'Follow this step’s assignment.'}\n${step ? 'Execute and assess only the current step’s scope. Later steps remain responsible for their assignments. Intermediate reviewers gate this step; final reviewers must also verify all workflow acceptance criteria and completion checks.' : ''}\nSTEP SEQUENCE: ${run.definition.steps?.map(s => s.name).join(' → ') ?? 'Plan → Execute → Review'}\nWORKFLOW ASSIGNMENT: ${slot.assignment}\nTASK: ${run.task}\nACCEPTANCE CRITERIA: ${run.definition.criteria}\nREQUIRED COMPLETION CHECKS: ${JSON.stringify(run.definition.checks)}\nSTEP CHECKS: ${JSON.stringify(step?.checks ?? [])}\nSTAGE: ${stage}\nROUND: ${stage === 'execute' || stage === 'review' ? run.reviewRound : run.planningRound}\n${instruction}\nPLAN VERSION: ${run.planVersion}\n${stage === 'propose' ? '' : run.plan}\nWORKSPACE REVISION: ${run.artifactVersion}\nUSER CLARIFICATIONS: ${JSON.stringify(run.notes)}\nEARLIER STEP RESULTS: ${step && stage !== 'propose' ? JSON.stringify(run.tasks.filter(t => t.status === 'done' && t.stepId !== step.id).slice(-16).map(t => ({ step: t.stepId, agent: t.agentName, summary: t.result?.summary, findings: t.result?.findings }))) : ''}\nEVIDENCE AND DISCUSSION: ${context}\nDo not invoke subagents or external actions outside this assignment. Never merge, publish, deploy, or send messages to others. The controller handles advancement. Return only the required structured result. Explain conclusions and evidence, not private reasoning.`;
     }
     private async drive(run: WorkflowRun, signal: AbortSignal) {
-        await this.runtime.validate([...run.definition.planners, run.definition.executor, ...run.definition.reviewers]);
+        await this.runtime.validate(workflowSlots(run.definition));
+        if (run.definition.steps) return this.driveSteps(run, signal);
         while (run.status === 'running' && !signal.aborted && !this.closed) {
             if (run.stage === 'propose') {
                 for (const slot of run.definition.planners) { await this.perform(run, slot, signal); if (signal.aborted) return; }
@@ -252,6 +264,117 @@ export class WorkflowCoordinator {
                 run.reviewRound++; run.stage = 'execute';
             }
             if (run.status === 'running') this.persist(run, `Advancing to ${run.stage}.`);
+        }
+    }
+    /** Move only after persisting the previous gate; attempts prevent reusing another step's work. */
+    private enterStep(run: WorkflowRun, index: number) {
+        const step = run.definition.steps![index];
+        run.stepIndex = index; run.stepAttempt = (run.stepAttempt ?? 0) + 1;
+        run.stage = step.kind === 'plan' ? 'propose' : step.kind === 'execute' ? 'execute' : 'verify';
+        run.reviewRound = run.stepRounds?.[step.id] ?? 1;
+        if (step.kind === 'plan') { run.planningRound = 1; run.planVersion++; run.approvedPlanVersion = null; }
+        if (step.kind === 'review') run.checks = [];
+    }
+    private advanceStep(run: WorkflowRun) {
+        const index = run.stepIndex ?? 0, steps = run.definition.steps!;
+        run.completedSteps = [...new Set([...(run.completedSteps ?? []), steps[index].id])];
+        if (index === steps.length - 1) { run.status = 'complete'; this.persist(run, 'Completed: all configured steps passed; final reviewers approved this revision and completion checks passed.'); }
+        else this.enterStep(run, index + 1);
+    }
+    private stepAction(run: WorkflowRun, a: ReturnType<typeof WorkflowActionSchema.parse>) {
+        const steps = run.definition.steps!, index = run.stepIndex ?? 0;
+        if (a.action === 'approve_plan') {
+            if (run.stage !== 'plan_vote' || !this.planApproved(run)) throw new Error('Every planner must approve the current plan first.');
+            run.approvedPlanVersion = run.planVersion; this.advanceStep(run);
+        } else if (a.action === 'revise_plan' || a.action === 'replace_agent') {
+            if (!a.note) throw new Error('Explain the change before replanning.');
+            if (a.action === 'replace_agent') {
+                if (!a.agentId || !a.replacement) throw new Error('Choose the participant and replacement.');
+                const definition = structuredClone(run.definition);
+                const matches = workflowSlots(definition).filter(s => s.agent.id === a.agentId);
+                if (!matches.length) throw new Error('Participant not found');
+                for (const slot of matches) slot.agent = a.replacement;
+                Object.assign(definition, workflowProjection(definition.steps!));
+                run.definition = WorkflowDefinitionSchema.parse(definition);
+            }
+            run.completedSteps = []; run.stepRounds = {}; run.plan = ''; run.checks = []; this.enterStep(run, 0);
+        } else if (a.action === 'retry_review') {
+            if (steps[index].kind !== 'review' || run.approvedPlanVersion !== run.planVersion || !this.planApproved(run)) throw new Error('An approved plan and a reached review step are required.');
+            if (!a.note) throw new Error('Explain what was corrected before requesting another review.');
+            if (run.reviewRound >= run.definition.reviewRounds) throw new Error('Review round limit reached. Request a revised plan.');
+            run.stepRounds = { ...run.stepRounds, [steps[index].id]: run.reviewRound + 1 }; this.enterStep(run, index);
+        } else if (a.action === 'resume') {
+            if (run.reason.includes('limit')) throw new Error('The configured limit was reached. Request a revised plan or start a new run.');
+            if (!a.note && run.status === 'needs_input') throw new Error('Add a response or confirm that interrupted work was inspected.');
+            if (run.status === 'needs_input' && run.stage === 'plan_vote' && !this.planApproved(run)) {
+                if (run.planningRound >= run.definition.planningRounds) throw new Error('Planning round limit reached. Request a revised plan.');
+                run.planVersion++; run.planningRound++; run.stage = 'consolidate';
+            } else if (run.status === 'needs_input' && (run.stage === 'review' || run.stage === 'verify')) {
+                if (run.reviewRound >= run.definition.reviewRounds) throw new Error('Review round limit reached. Request a revised plan.');
+                run.stepRounds = { ...run.stepRounds, [steps[index].id]: run.reviewRound + 1 }; this.enterStep(run, index);
+            }
+        }
+        if (a.note) run.notes.push(a.note);
+        run.status = 'running'; run.reason = ''; this.persist(run, `User action: ${a.action}${a.note ? ` — ${a.note}` : ''}`);
+        this.kick(run); return this.get(run.id);
+    }
+    private async driveSteps(run: WorkflowRun, signal: AbortSignal) {
+        const live = () => run.status === 'running' && !signal.aborted && !this.closed;
+        while (live()) {
+            const index = run.stepIndex ?? 0, step = run.definition.steps![index];
+            if (!step) throw new Error('Saved workflow step is missing.');
+            if (run.stage === 'propose') {
+                for (const slot of step.agents) { await this.perform(run, slot, signal); if (!live()) return; }
+                run.stage = 'consolidate';
+            } else if (run.stage === 'consolidate') {
+                const result = await this.perform(run, step.agents[0], signal); if (!live()) return;
+                if (result.decision === 'information' || !result.document.trim()) { this.block(run, result.summary); return; }
+                run.plan = result.document; run.stage = 'plan_vote';
+            } else if (run.stage === 'plan_vote') {
+                const results = [];
+                for (const slot of step.agents) { results.push(await this.perform(run, slot, signal)); if (!live()) return; }
+                if (results.some(r => r.decision === 'information')) { this.block(run, 'Planners need information. Answer and request a revised plan.'); return; }
+                if (!this.planApproved(run)) {
+                    if (run.planningRound >= run.definition.planningRounds) { this.block(run, 'Planning round limit reached without consensus.'); return; }
+                    run.planningRound++; run.planVersion++; run.stage = 'consolidate';
+                } else if (run.definition.approvePlan && run.approvedPlanVersion !== run.planVersion) { this.block(run, `All planners approved ${step.name}. Your approval is required to continue.`); return; }
+                else { run.approvedPlanVersion = run.planVersion; this.advanceStep(run); }
+            } else if (run.stage === 'execute') {
+                if (run.approvedPlanVersion !== run.planVersion || !this.planApproved(run)) throw new Error('Current plan approvals are missing. Request a revised plan.');
+                const result = await this.perform(run, step.agents[0], signal); if (!live()) return;
+                if (result.decision !== 'approve' || result.findings.some(f => f.blocking)) { this.block(run, `${result.decision === 'replan' ? 'Request a revised plan. ' : ''}${result.summary}`); return; }
+                this.advanceStep(run);
+            } else if (run.stage === 'verify') {
+                const checks = [...step.checks, ...(index === run.definition.steps!.length - 1 ? run.definition.checks : [])];
+                const version = await this.runtime.version(run.directory); if (!live()) return; run.checks = [];
+                for (const check of checks) {
+                    const result = await this.runtime.check(run.directory, check.command, signal); if (!live()) return;
+                    run.checks.push({ name: check.name, ...result, version }); this.persist(run);
+                }
+                if (version !== await this.runtime.version(run.directory)) { this.block(run, 'Completion checks changed workspace files. Inspect the changes, then request a fresh review.'); return; }
+                if (!live()) return;
+                run.artifactVersion = version; run.stage = 'review';
+            } else if (run.stage === 'review') {
+                if (await this.runtime.version(run.directory) !== run.artifactVersion) { this.block(run, 'Workspace changed after verification. Request a fresh review.'); return; }
+                const results = [];
+                for (const slot of step.agents) { results.push(await this.perform(run, slot, signal)); if (!live()) return; }
+                if (await this.runtime.version(run.directory) !== run.artifactVersion) { this.block(run, 'Workspace changed during review. Approvals are no longer current.'); return; }
+                if (!live()) return;
+                if (!this.planApproved(run) || run.approvedPlanVersion !== run.planVersion) throw new Error('Current plan approvals are missing. Request a revised plan.');
+                if (results.some(r => r.decision === 'information' || r.decision === 'replan')) { this.block(run, 'Reviewers need clarification or a revised plan. Inspect their findings.'); return; }
+                const count = step.checks.length + (index === run.definition.steps!.length - 1 ? run.definition.checks.length : 0);
+                if (results.every(r => r.decision === 'approve' && !r.findings.some(f => f.blocking)) && run.checks.length === count && run.checks.every(c => c.exitCode === 0 && c.version === run.artifactVersion)) this.advanceStep(run);
+                else {
+                    if (run.reviewRound >= run.definition.reviewRounds) { this.block(run, 'Review round limit reached with unresolved findings or failed checks.'); return; }
+                    run.stepRounds = { ...run.stepRounds, [step.id]: run.reviewRound + 1 };
+                    const executor = run.definition.steps!.map((s, i) => s.kind === 'execute' && i < index ? i : -1).reduce((a, b) => Math.max(a, b), -1);
+                    if (executor < 0) throw new Error('No preceding execution step can address these findings.');
+                    const retained = new Set(run.definition.steps!.slice(0, executor).map(s => s.id));
+                    run.completedSteps = run.completedSteps?.filter(id => retained.has(id));
+                    this.enterStep(run, executor);
+                }
+            }
+            if (live()) this.persist(run, `Step ${(run.stepIndex ?? 0) + 1}: ${run.definition.steps![run.stepIndex ?? 0].name} — ${run.stage}.`);
         }
     }
     async shutdown() {

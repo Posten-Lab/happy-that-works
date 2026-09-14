@@ -61,7 +61,7 @@ export const initialMachineMetadata: MachineMetadata = {
   cliAvailability: detectCLIAvailability(),
   resumeSupport: { ...detectResumeSupport(), rpcAvailable: true },
   providerUsage: { rpcAvailable: true },
-  workflows: { version: 1 },
+  workflows: { version: 2 },
 };
 
 export async function startDaemon(): Promise<void> {

@@ -1,0 +1,92 @@
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const { execFileSync } = require('node:child_process');
+// Use an authenticated-empty local environment opened by agent-browser. Credentials never enter this file.
+(async () => {
+    const browser = await chromium.connectOverCDP(process.env.CDP_URL || 'http://127.0.0.1:9222');
+    const page = browser.contexts()[0].pages()[0];
+    const button = name => page.getByRole('button', { name, exact: true });
+    const input = name => page.getByRole('textbox', { name, exact: true });
+    const evidence = path.resolve('docs/evidence/workflow-builder'); fs.mkdirSync(evidence, { recursive: true });
+    const top = async () => page.evaluate(() => { for (const el of document.querySelectorAll('*')) if (el.scrollHeight > el.clientHeight) el.scrollTop = 0; });
+    const shot = async name => page.screenshot({ path: `${evidence}/${name}.png` });
+    await page.setViewportSize({ width: 390, height: 844 });
+    if (await button('Cancel editing').count()) await button('Cancel editing').click();
+    await shot('workflow-home-mobile');
+    await button('Create workflow').click();
+    await input('Workflow name').fill('Plan, build, review, polish');
+    await input('Description').fill('A custom five-step delivery workflow with three planners and two independent reviewers.');
+    const add = async (step, role, name, docs = false) => {
+        await button(`Add ${role} to step ${step}`).click();
+        await button('Create new agent').click();
+        await input('Agent name').fill(name);
+        await page.getByRole('button', { name: /^Model:/ }).click();
+        await page.getByRole('checkbox', { name: 'Use GPT-5.6-Sol', exact: true }).click();
+        await page.getByRole('checkbox', { name: 'low', exact: true }).click();
+        if (docs) {
+            await button('Add reference file').click();
+            await input('Reference 1 filename').fill('review-guidelines.md');
+            await input('Reference 1 Markdown').fill('Use concrete file evidence. Keep the fixture scope small. Check each step independently.');
+            await shot('agent-editor-mobile');
+        }
+        await button('Use this agent').click();
+    };
+    await add(1, 'planner', 'Aster', true); await add(1, 'planner', 'Kepler'); await add(1, 'planner', 'Atlas');
+    assert.equal(await button('Add planner to step 1').count(), 0);
+    await add(2, 'executor', 'Forge'); await add(3, 'reviewer', 'Iris'); await add(3, 'reviewer', 'Sentinel');
+    // Remove and reinsert one saved candidate without navigating away from the builder.
+    await button('Remove Atlas from step 1').click(); await button('Add planner to step 1').click(); await button('Add Atlas').click();
+    await button('Customize step 1').click(); await input('Step 1 name').fill('Plan');
+    await input('Step 1 criteria').fill('Agree on the full sequence: Build creates result.txt with stage one, UI review verifies it, Polish changes it to stage two, and Final review verifies completion.');
+    await button('Hide step 1').click();
+    await button('Customize step 2').click();
+    await input('Forge assignment in step 2').fill('Create result.txt containing exactly stage one followed by a newline. Do not implement stage two yet. Do not change README.md.');
+    await button('Hide step 2').click();
+    await button('Customize step 3').click(); await input('Step 3 name').fill('UI review');
+    await input('Step 3 criteria').fill('Verify result.txt contains exactly stage one followed by a newline. Final stage two output is deliberately deferred to Polish. Do not edit files.');
+    await button('Add check to step 3').click(); await input('Step 3 check 1 name').fill('Intermediate output');
+    await input('Step 3 check 1 command').fill(`python3 -c 'from pathlib import Path; assert Path("result.txt").read_text() == "stage one\\n"'`);
+    await button('Hide step 3').click();
+    await button('Add step').click(); await button('Add execution step').click();
+    await input('Step 4 name').fill('Polish');
+    await button('Add executor to step 4').click(); await button('Add Forge').click();
+    await input('Forge assignment in step 4').fill('Replace result.txt with exactly stage two followed by a newline. Preserve README.md. Verify the final completion check.');
+    await input('Step 4 criteria').fill('The final artifact is stage two, after the intermediate review approved stage one.');
+    await button('Hide step 4').click();
+    await button('Add step').click(); await button('Add review step').click();
+    await input('Step 5 name').fill('Final review');
+    for (const name of ['Iris', 'Sentinel']) { await button('Add reviewer to step 5').click(); await button(`Add ${name}`).click(); }
+    await input('Step 5 criteria').fill('Verify result.txt is exactly stage two followed by a newline, README.md is unchanged, and the final check passes.');
+    await button('Hide step 5').click();
+    // Exercise actual reordering and restore the intentional sequence before saving.
+    await button('Move step 4 up').click(); await page.getByText('3. Polish', { exact: true }).waitFor();
+    await button('Move step 3 down').click(); await page.getByText('4. Polish', { exact: true }).waitFor();
+    await input('Completion criteria').fill('All five steps pass in order. The final result.txt contains exactly stage two followed by a newline. README.md is unchanged. No other source files change.');
+    await input('Check 1 name').fill('Final output');
+    await input('Check 1 command').fill(`python3 -c 'from pathlib import Path; assert Path("result.txt").read_text() == "stage two\\n"'`);
+    await page.getByText('1. Plan', { exact: true }).scrollIntoViewIfNeeded(); await shot('steps-mobile');
+    await page.setViewportSize({ width: 1280, height: 1000 }); await top(); await shot('builder-desktop');
+    await page.getByText('3. UI review', { exact: true }).scrollIntoViewIfNeeded(); await shot('custom-sequence-desktop');
+    await button('Save workflow').click(); await input('Task').waitFor();
+    const project = fs.mkdtempSync(path.join(os.tmpdir(), 'talos-editable-workflow-'));
+    fs.writeFileSync(path.join(project, 'README.md'), 'Editable workflow validation fixture.\n');
+    execFileSync('git', ['init', '-q', project]); execFileSync('git', ['-C', project, 'add', 'README.md']);
+    execFileSync('git', ['-C', project, '-c', 'user.name=Talos Validation', '-c', 'user.email=validation@example.invalid', 'commit', '-qm', 'Initialize fixture']);
+    await input('Task').fill('Exercise this small fixture workflow in the configured order. Build creates result.txt with stage one and a newline; UI review verifies it; Polish replaces it with stage two and a newline; Final review verifies it. Follow each step’s assignment. Do not change README.md or any other source files.');
+    await input('Absolute project path').fill(project);
+    await button('Start workflow').click(); await page.waitForURL(/\/workflows\/[0-9a-f-]+\?machineId=/, { timeout: 60000 });
+    const runId = new URL(page.url()).pathname.split('/').at(-1);
+    fs.writeFileSync('/tmp/talos-builder-run.json', JSON.stringify({ runId, url: page.url(), project }));
+    console.log(JSON.stringify({ runId, project, started: true, createdAgents: 6, customSteps: 5, planners: 3, reordered: true, removedAndReadded: true }));
+    await page.getByText('WORKFLOW RUN · COMPLETE', { exact: true }).waitFor({ timeout: 900000 });
+    await top(); await shot('completed-desktop');
+    await page.setViewportSize({ width: 390, height: 844 }); await top(); await shot('completed-mobile');
+    await page.getByRole('checkbox', { name: 'Work', exact: true }).click(); await page.getByText('Final output: Passed', { exact: true }).waitFor();
+    assert.equal(fs.existsSync(path.join(project, 'result.txt')), false);
+    assert.equal(execFileSync('git', ['-C', project, 'status', '--porcelain'], { encoding: 'utf8' }), '');
+    console.log(JSON.stringify({ runId, complete: true, sourceUnchanged: true }));
+    await browser.close();
+})().catch(error => { console.error(error.message); process.exit(1); });

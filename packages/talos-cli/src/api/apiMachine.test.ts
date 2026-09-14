@@ -154,10 +154,12 @@ describe('ApiMachineClient socket reconnection', () => {
         const client = new ApiMachineClient('fake-token', machine);
         vi.spyOn(client, 'updateDaemonState').mockResolvedValue();
         const update = vi.spyOn(client, 'updateMachineMetadata').mockResolvedValue();
+        client.setRPCHandlers({ spawnSession: vi.fn(), stopSession: vi.fn(), requestShutdown: vi.fn(), workflows: {} as any });
         client.connect();
         emitSocketEvent('connect');
         const refreshed = update.mock.calls[0][0](machine.metadata);
         expect(refreshed.providerUsage).toEqual({ rpcAvailable: true });
+        expect(refreshed.workflows).toEqual({ version: 2 });
         expect(refreshed.talosCliVersion).toBe('test');
         expect(refreshed.host).toBe('User computer name');
         emitSocketEvent('disconnect', 'transport close');
