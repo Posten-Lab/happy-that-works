@@ -260,6 +260,7 @@ export class WorkflowCoordinator {
         const task: WorkflowTask = { ...(run.definition.steps ? { stepId: run.definition.steps[run.stepIndex ?? 0].id, attempt: run.stepAttempt } : {}), id: randomUUID(), stage: run.stage, round: run.stage === 'execute' || run.stage === 'review' ? run.reviewRound : run.planningRound,
             agentId: slot.agent.id, agentName: slot.agent.name, assignment: slot.assignment, version: run.stage === 'review' ? run.artifactVersion : `plan:${run.planVersion}`,
             status: 'running', startedAt: Date.now(), clarifications: run.notes.length, inputs,
+            provider: slot.agent.provider, model: slot.agent.model, effort: slot.agent.effort,
             participants: (run.definition.steps?.[run.stepIndex ?? 0]?.agents ?? (run.stage === 'review' ? run.definition.reviewers : run.stage === 'execute' ? [run.definition.executor] : run.definition.planners)).map(s => ({ id: s.agent.id, name: s.agent.name })), prompt };
         run.tasks.push(task); this.persist(run, `${slot.agent.name}: ${run.stage} started.`);
         try {
