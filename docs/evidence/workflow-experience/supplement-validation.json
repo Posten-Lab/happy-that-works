@@ -1,0 +1,13 @@
+{
+  "narrowLibraryRunActionFits": true,
+  "promptGrowsAndShrinks": {
+    "expanded": 240,
+    "shrunk": 156
+  },
+  "desktopStartWidth": 240,
+  "actualInvalidProjectRejected": true,
+  "errorMessage": "Needs your attention\nChoose a Git project with at least one commit. Open Project to choose another folder.",
+  "lightThemeLibraryAndLaunch": true,
+  "pageErrors": [],
+  "validatedAt": "2026-09-14T17:10:18.140Z"
+}

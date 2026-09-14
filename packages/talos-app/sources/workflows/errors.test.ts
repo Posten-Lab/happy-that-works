@@ -32,12 +32,25 @@ describe('workflowRunMessage', () => {
         const raw = 'spawn muse ENOENT';
         expect(workflowRunMessage(raw, [{ error: raw }])).toContain('Muse Code is not installed');
     });
+    it('explains an unreadable agent response without exposing parser diagnostics or changing an agent request', () => {
+        const raw = 'Unexpected non-whitespace character after JSON at position 741 (line 2 column 1)';
+        const friendly = workflowRunMessage(raw, [{ error: raw }]);
+        expect(friendly).toContain('response Talos could not read');
+        expect(friendly).toContain('then resume');
+        expect(friendly).not.toContain('JSON');
+        expect(workflowRunMessage('Which JSON format do you want?', [{ result: { summary: 'Which JSON format do you want?' } }])).toBe('Which JSON format do you want?');
+    });
     it('keeps agent clarification requests and planning approval reasons', () => {
         expect(workflowRunMessage('Which environment should I use?', [{ result: { summary: 'Which environment should I use?' } }])).toBe('Which environment should I use?');
         expect(workflowRunMessage('All planners approved Plan. Your approval is required to continue.', [])).toContain('Your approval');
     });
+    it('explains command-runner failures even when an agent included them in its result summary', () => {
+        const summary = 'Implementation written, but Bash failed with E2BIG exec argument limit on every command.';
+        expect(workflowRunMessage(summary, [{ result: { summary } }])).toContain('command runner could not start');
+        expect(workflowRunMessage(summary, [{ result: { summary } }])).not.toContain('E2BIG');
+    });
     it('does not show raw schema and filesystem failures as status copy', () => {
-        expect(workflowRunMessage('[{"code":"invalid_type","path":["decision"]}]', [])).not.toContain('invalid_type');
+        expect(workflowRunMessage('[{"code":"invalid_type","path":["decision"]}]', [])).toContain('response Talos could not read');
         expect(workflowRunMessage('EPERM: permission denied', [])).toContain('cannot access');
     });
 });

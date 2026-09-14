@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { WorkflowCoordinator, type WorkflowRuntime } from './coordinator';
-import type { WorkflowDefinition, WorkflowRun, WorkflowDecision } from '@ahmadposten/talos-wire';
+import { WorkflowDefinitionSchema, workflowProjection, type WorkflowDefinition, type WorkflowRun, type WorkflowDecision } from '@ahmadposten/talos-wire';
 import { definition } from './testFixture';
 
 const approve: WorkflowDecision = { decision: 'approve', summary: 'Verified.', document: 'Implement the requested result.', findings: [] };
@@ -18,6 +18,16 @@ async function until(c: WorkflowCoordinator, id: string, predicate: (r: Workflow
     throw new Error('Workflow did not reach expected state.');
 }
 const stopped = (r: WorkflowRun) => r.status !== 'running';
+function recoveryDefinition(staged: boolean): WorkflowDefinition {
+    const d = definition();
+    if (!staged) return d;
+    const steps = [
+        { id: randomUUID(), name: 'Plan', kind: 'plan' as const, agents: d.planners, criteria: '', checks: [] },
+        { id: randomUUID(), name: 'Build', kind: 'execute' as const, agents: [d.executor], criteria: '', checks: [] },
+        { id: randomUUID(), name: 'Review', kind: 'review' as const, agents: d.reviewers, criteria: '', checks: [] },
+    ];
+    return WorkflowDefinitionSchema.parse({ ...d, steps, ...workflowProjection(steps) });
+}
 describe('workflow consensus and delivery', () => {
     it('rejects conflicting requests while a run is still being prepared', async () => {
         let release: () => void = () => {};
@@ -147,6 +157,86 @@ describe('workflow consensus and delivery', () => {
         const r=await start(); const waiting=await until(c,r.id,stopped); await new Promise(r=>setTimeout(r,10));
         await c.action({ id:r.id, expectedRevision:waiting.revision, action:'resume', note:'Use plain text.' });
         const done=await until(c,r.id,stopped); expect(done.status).toBe('complete'); expect(done.tasks.filter(t=>t.stage==='execute')).toHaveLength(2);
+    });
+    describe.each([false, true])('recovery with editable stages=%s', staged => {
+        it.each(['information', 'exception'] as const)('resumes a provider argument-limit %s and still requires fresh checks and independent reviews', async failure => {
+            let executions = 0, checks = 0;
+            const message = 'Could not start /bin/zsh: command line plus environment exceed the OS exec argument limit (E2BIG).';
+            const { coordinator: c, start } = setup({
+                turn: async (_run, task) => {
+                    if (task.stage === 'execute') {
+                        executions++;
+                        if (executions === 1) {
+                            if (failure === 'exception') throw new Error(message);
+                            return { ...approve, decision: 'information', summary: message };
+                        }
+                        expect(task.prompt).toContain('I inspected the retained files. Continue with the required checks.');
+                    }
+                    return approve;
+                },
+                check: async () => { checks++; return { exitCode: 0, output: 'Required checks passed.' }; },
+            });
+            const run = await start(recoveryDefinition(staged));
+            const waiting = await until(c, run.id, stopped);
+            await new Promise(resolve => setTimeout(resolve, 10));
+            expect(waiting.reason).toBe(message);
+            expect(waiting.tasks.some(task => task.stage === 'review')).toBe(false);
+            expect(checks).toBe(0);
+            await c.action({ id: run.id, expectedRevision: waiting.revision, action: 'resume', note: 'I inspected the retained files. Continue with the required checks.' });
+            const done = await until(c, run.id, stopped);
+            expect(done.status).toBe('complete');
+            expect(executions).toBe(2);
+            expect(checks).toBe(1);
+            expect(done.tasks.filter(task => task.stage === 'review' && task.status === 'done')).toHaveLength(2);
+            expect(done.tasks.filter(task => task.stage === 'plan_vote')).toHaveLength(2);
+        });
+        it('rejects exhausted agent turns without appending guidance or starting another task', async () => {
+            const { coordinator: c, start } = setup({ turn: async (_run, task) => task.stage === 'review' ? { ...approve, decision: 'changes' } : approve });
+            const d = recoveryDefinition(staged); d.maxTurns = 8;
+            const run = await start(d), waiting = await until(c, run.id, stopped);
+            await new Promise(resolve => setTimeout(resolve, 10));
+            expect(waiting.tasks).toHaveLength(8);
+            expect(waiting.reason).toContain('Agent turn limit');
+            await expect(c.action({ id: run.id, expectedRevision: waiting.revision, action: 'resume', note: 'Try once more.' })).rejects.toThrow('Agent turn limit');
+            expect(c.get(run.id)).toEqual(waiting);
+        });
+        it('can finish a paused gate at the turn budget when all required agent work was already completed', async () => {
+            const initial = setup(); const d = recoveryDefinition(staged); d.maxTurns = 8;
+            const run = await initial.start(d), checkpoint = await until(initial.coordinator, run.id, stopped);
+            expect(checkpoint.tasks).toHaveLength(8);
+            checkpoint.status = 'paused'; checkpoint.reason = 'Paused by you.';
+            let turns = 0;
+            const { coordinator: c } = setup({ turn: async () => { turns++; return approve; } }, [checkpoint]);
+            await c.action({ id: run.id, expectedRevision: checkpoint.revision, action: 'resume' });
+            const done = await until(c, run.id, stopped);
+            expect(done.status).toBe('complete');
+            expect(turns).toBe(0);
+            expect(done.tasks).toHaveLength(8);
+        });
+        it.each(['planning', 'review'] as const)('preserves the configured %s round budget on resume', async budget => {
+            const { coordinator: c, start } = setup({ turn: async (_run, task) => task.stage === (budget === 'planning' ? 'plan_vote' : 'review') ? { ...approve, decision: 'changes' } : approve });
+            const d = recoveryDefinition(staged); d.planningRounds = 1; d.reviewRounds = 1;
+            const run = await start(d), waiting = await until(c, run.id, stopped);
+            await new Promise(resolve => setTimeout(resolve, 10));
+            await expect(c.action({ id: run.id, expectedRevision: waiting.revision, action: 'resume', note: 'Try once more.' })).rejects.toThrow('round limit');
+            expect(c.get(run.id)).toEqual(waiting);
+        });
+        it('retains the exact coordinator context limit without confusing it with provider diagnostics', async () => {
+            const { coordinator: c, start } = setup({ turn: async () => ({ ...approve, document: 'x'.repeat(210000) }) });
+            const run = await start(recoveryDefinition(staged)), waiting = await until(c, run.id, stopped);
+            await new Promise(resolve => setTimeout(resolve, 10));
+            expect(waiting.reason).toContain('Workflow context limit');
+            await expect(c.action({ id: run.id, expectedRevision: waiting.revision, action: 'resume', note: 'Continue.' })).rejects.toThrow('Workflow context limit');
+            expect(c.get(run.id)).toEqual(waiting);
+        });
+    });
+    it('requires replanning when a legacy executor exhausts the planning budget', async () => {
+        const { coordinator: c, start } = setup({ turn: async (_run, task) => task.stage === 'execute' ? { ...approve, decision: 'replan' } : approve });
+        const d = definition(); d.planningRounds = 1;
+        const run = await start(d), waiting = await until(c, run.id, stopped);
+        await new Promise(resolve => setTimeout(resolve, 10));
+        await expect(c.action({ id: run.id, expectedRevision: waiting.revision, action: 'resume', note: 'Try again.' })).rejects.toThrow('Planning round limit');
+        expect(c.get(run.id)).toEqual(waiting);
     });
     it('reconciles a definitively rejected start without creating a run', async () => {
         const {coordinator:c}=setup({ prepare:async()=>{throw new Error('Invalid path');} });

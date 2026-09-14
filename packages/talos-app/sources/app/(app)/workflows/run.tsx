@@ -6,6 +6,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { randomUUID } from 'expo-crypto';
 import { workflowEnabled, type WorkflowDefinition } from '@ahmadposten/talos-wire';
 import { PickerContent, PathPickerContent, type PickerItem } from '@/components/SessionDestinationPicker';
+import { Typography } from '@/constants/Typography';
 import { BaseModal } from '@/modal/components/BaseModal';
 import { storage, useAllMachines, useSessions, useSetting } from '@/sync/storage';
 import { loadPendingWorkflowStart, savePendingWorkflowStart } from '@/sync/persistence';
@@ -15,7 +16,7 @@ import { isMachineOnline } from '@/utils/machineUtils';
 import { workflowRPC } from '@/workflows/api';
 import { workflowErrorMessage } from '@/workflows/errors';
 import { inspectWorkflowStart, prepareWorkflowStart, workflowMachineIssue, workflowStartMethod, settleWorkflowStart, sameWorkflowStart, type PendingWorkflowStart, type WorkflowStartRequest } from '@/workflows/launch';
-import { WorkflowButton, useWorkflowStyles } from '@/workflows/ui';
+import { WorkflowButton, WorkflowAvatar, useWorkflowStyles } from '@/workflows/ui';
 import { WorkflowScaffold, WorkflowNotice, WorkflowPageHeading } from '@/workflows/WorkflowScaffold';
 
 /** A launch has its own state. Opening a workflow never changes an unfinished regular-session draft. */
@@ -31,6 +32,8 @@ export default function RunWorkflowScreen() {
     const machines = useAllMachines({ includeOffline: true }), sessions = useSessions();
     const [machineId, setMachineId] = React.useState(typeof params.machineId === 'string' ? params.machineId : '');
     const [paths, setPaths] = React.useState<Record<string, string>>({});
+    const [promptFocused, setPromptFocused] = React.useState(false);
+    const [promptHeight, setPromptHeight] = React.useState(156);
     const [task, setTask] = React.useState(''), [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState(''), [notice, setNotice] = React.useState('');
     const [picker, setPicker] = React.useState<'machine' | 'project' | null>(null);
@@ -139,39 +142,51 @@ export default function RunWorkflowScreen() {
     const closePicker = () => { Keyboard.dismiss(); setPicker(null); };
     const openPicker = (value: 'machine' | 'project') => { Keyboard.dismiss(); setPicker(value); setError(''); };
     const frozenWorkflow: WorkflowDefinition | undefined = pending.current?.definition ?? (receipt ? undefined : workflow);
-    const stages = frozenWorkflow?.steps?.map(step => step.name) ?? ['Plan', 'Execute', 'Review'];
+    const stages = frozenWorkflow?.steps ?? (frozenWorkflow ? [{ name: 'Plan', kind: 'plan', agents: frozenWorkflow.planners }, { name: 'Build', kind: 'execute', agents: [frozenWorkflow.executor] }, { name: 'Review', kind: 'review', agents: frozenWorkflow.reviewers }] : []);
     const receiptMachine = machines.find(item => item.id === receipt?.machineId);
     const footer = receipt ? <WorkflowButton primary label={busy ? 'Checking your machine…' : 'Check start status'} disabled={busy} onPress={() => void checkStart()} />
-        : workflow && enabled ? <WorkflowButton primary label={busy ? 'Starting workflow…' : 'Start workflow'} disabled={busy || !!machineIssue} onPress={() => void start()} /> : undefined;
+        : workflow && enabled ? <WorkflowButton primary icon="play" label={busy ? 'Starting workflow…' : 'Start workflow'} disabled={busy || !!machineIssue} onPress={() => void start()} /> : undefined;
 
-    return <WorkflowScaffold footer={footer} scrollRef={scroll}>
-        <WorkflowPageHeading eyebrow="RUN WORKFLOW" title={frozenWorkflow?.name ?? (receipt ? 'Check your workflow' : 'Workflow unavailable')} description={frozenWorkflow ? 'Give your team a task and choose where to work.' : undefined} />
+    return <WorkflowScaffold footer={footer ? <View style={{ width: window.width >= 1000 ? 240 : '100%', alignSelf: 'flex-end' }}>{footer}</View> : undefined} scrollRef={scroll} maxWidth={960}>
+        <WorkflowPageHeading title={frozenWorkflow?.name ?? (receipt ? 'Check your workflow' : 'Workflow unavailable')} description={frozenWorkflow ? 'Give this team a task. Choose a project. Start.' : undefined} />
         {receipt && <WorkflowNotice title={busy ? 'Preparing your workflow' : 'Confirm the earlier start'} message={`This request belongs to ${receiptMachine?.metadata?.displayName || receiptMachine?.metadata?.host || 'its original machine'}. This prevents starting the same task twice. You can return to Workflows while it connects.`} />}
         {!!error && <WorkflowNotice title="Needs your attention" message={error} />}
         {!!notice && <WorkflowNotice title="Start status" message={notice} />}
         {!workflow && !receipt && <WorkflowNotice title="Choose a saved workflow" message="This workflow may have been removed on another device. Return to Workflows and choose one from your library." action="Open Workflows" onAction={() => router.replace('/workflows' as any)} />}
         {!enabled && <WorkflowNotice title="Workflows are experimental" message="Enable Experimental Features and Workflows to start a new run. Existing runs continue on their machines." action="Open Features" onAction={() => router.push('/settings/features')} />}
         {frozenWorkflow && <>
-            <View style={{ gap: 10, paddingBottom: 6 }}>
-                <Text style={s.muted}>{stages.join('  →  ')}</Text>
-                {!!frozenWorkflow.description && <Text style={s.muted}>{frozenWorkflow.description}</Text>}
+            <View style={{ flexDirection: window.width >= 1000 ? 'row' : 'column', alignItems: 'stretch', gap: 24 }}>
+            <View style={{ flex: 1, gap: 24 }}>
+            <View style={{ gap: 10 }}>
+                <Text style={{ ...s.text, ...Typography.header(), fontSize: 14 }}>What should your team do?</Text>
+                <TextInput ref={prompt} accessibilityLabel="Workflow task" placeholder="Describe the outcome you want, and anything the team should know…" placeholderTextColor={s.colors.textSecondary}
+                    value={pending.current?.task ?? task} onChangeText={value => { if (value.length < task.length) setPromptHeight(156); setTask(value); }} editable={!locked && enabled} multiline maxLength={24000} textAlignVertical="top" onFocus={() => setPromptFocused(true)}
+                    onContentSizeChange={event => setPromptHeight(Math.max(156, Math.min(240, event.nativeEvent.contentSize.height + (Platform.OS === 'web' ? 2 : 24))))}
+                    onBlur={event => { setPromptFocused(false); if (Platform.OS === 'web') (event.target as unknown as HTMLElement).scrollTop = 0; }}
+                    style={{ ...s.text, height: promptHeight, borderRadius: 14, borderColor: promptFocused ? s.colors.accent : s.colors.divider, borderWidth: 1, padding: 16, backgroundColor: s.colors.surface }} />
             </View>
             <View style={{ gap: 10 }}>
-                <Text style={{ ...s.text, fontWeight: '600' }}>What should your team do?</Text>
-                <TextInput ref={prompt} accessibilityLabel="Workflow task" placeholder="Describe the outcome you want…" placeholderTextColor={s.colors.textSecondary}
-                    value={pending.current?.task ?? task} onChangeText={setTask} editable={!locked && enabled} multiline maxLength={24000} textAlignVertical="top"
-                    style={{ ...s.text, minHeight: 132, maxHeight: 220, borderRadius: 16, borderColor: s.colors.divider, borderWidth: 1, padding: 16, backgroundColor: s.colors.surface }} />
+                <Text style={{ ...s.text, ...Typography.header(), fontSize: 14 }}>Workspace</Text>
+                <View style={{ borderWidth: 1, borderColor: s.colors.divider, borderRadius: 14, overflow: 'hidden', backgroundColor: s.colors.surface }}>
+                    <DestinationRow icon="desktop-outline" label="Machine" value={machineName} disabled={locked || !enabled} onPress={() => openPicker('machine')} />
+                    <View style={{ height: 1, backgroundColor: s.colors.divider, marginHorizontal: 16 }} />
+                    <DestinationRow icon="folder-open-outline" label="Project" value={pending.current?.directory ?? (directory || 'Choose a project folder')} disabled={locked || !enabled || !machine} onPress={() => openPicker('project')} />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}><Ionicons name="git-branch-outline" size={14} color={s.colors.textSecondary} /><Text style={{ ...s.muted, fontSize: 12, flex: 1 }}>Work stays in a separate copy of your Git project.</Text></View>
             </View>
-            <View style={{ ...s.card, padding: 0, overflow: 'hidden', gap: 0 }}>
-                <DestinationRow icon="desktop-outline" label="Machine" value={machineName} disabled={locked || !enabled} onPress={() => openPicker('machine')} />
-                <View style={{ height: 1, backgroundColor: s.colors.divider, marginHorizontal: 18 }} />
-                <DestinationRow icon="folder-open-outline" label="Project" value={pending.current?.directory ?? (directory || 'Choose a project folder')} disabled={locked || !enabled || !machine} onPress={() => openPicker('project')} />
+            </View>
+            <View style={{ width: window.width >= 1000 ? 240 : undefined, gap: 14 }}>
+                <Text style={{ ...s.text, ...Typography.header(), fontSize: 14 }}>Your team</Text>
+                <View style={{ flexDirection: window.width >= 1000 ? 'column' : 'row', flexWrap: 'wrap', gap: 14 }}>
+                    {stages.map((step, index) => <View key={index} style={{ flex: window.width >= 1000 ? undefined : 1, minWidth: 80, gap: 9 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Ionicons name={step.kind === 'plan' ? 'compass-outline' : step.kind === 'execute' ? 'code-slash-outline' : 'checkmark-done-outline'} size={15} color={s.colors.accent} /><Text style={{ ...s.muted, ...Typography.header(), fontSize: 12 }}>{step.name}</Text></View>
+                        {step.agents.map(slot => <View key={slot.agent.id} style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}><WorkflowAvatar name={slot.agent.name} provider={slot.agent.provider} size={26} /><Text style={{ ...s.text, fontSize: 13, flex: 1 }} numberOfLines={1}>{slot.agent.name}</Text></View>)}
+                    </View>)}
+                </View>
+                <View style={{ flexDirection: 'row', gap: 7, paddingTop: 12, borderTopWidth: 1, borderColor: s.colors.divider }}><Ionicons name={frozenWorkflow.approvePlan ? 'hand-left-outline' : 'checkmark-circle-outline'} size={15} color={s.colors.accent} /><Text style={{ ...s.muted, fontSize: 12, lineHeight: 18, flex: 1 }}>{frozenWorkflow.approvePlan ? 'You approve the plan before execution.' : 'Execution follows planning consensus.'}</Text></View>
+            </View>
             </View>
             {machineIssue && !receipt && <WorkflowNotice title={!machine ? 'Connect a machine' : !machine.active ? 'Machine offline' : 'Talos update needed'} message={machineIssue} action={machines.length ? 'Choose machine' : 'Connect machine'} onAction={() => machines.length ? openPicker('machine') : router.push('/terminal/connect')} />}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Ionicons name="git-branch-outline" size={18} color={s.colors.textSecondary} style={{ marginTop: 2 }} />
-                <Text style={{ ...s.muted, flex: 1 }}>Your team works in a separate Git worktree. Choose a Git project with committed changes. {frozenWorkflow.approvePlan ? 'You’ll approve the agreed plan before execution.' : 'Execution starts after the planners agree.'}</Text>
-            </View>
         </>}
         <BaseModal visible={!!picker} onClose={closePicker}>
             <View style={{ width: Math.min(window.width - 24, 520), maxHeight: Math.max(220, Math.min(580, window.height - keyboardHeight - 100)), borderRadius: 22, overflow: 'hidden', backgroundColor: s.colors.surface, paddingTop: 8 }}>
@@ -188,9 +203,9 @@ export default function RunWorkflowScreen() {
 function DestinationRow({ icon, label, value, disabled, onPress }: { icon: 'desktop-outline' | 'folder-open-outline'; label: string; value: string; disabled: boolean; onPress: () => void }) {
     const s = useWorkflowStyles();
     return <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${value}`} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
-        style={({ pressed }) => ({ minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, opacity: disabled ? 0.55 : 1, backgroundColor: pressed ? s.colors.divider : 'transparent' })}>
+        style={({ pressed }) => ({ minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, opacity: disabled ? 0.55 : 1, backgroundColor: pressed ? s.colors.divider : 'transparent' })}>
         <Ionicons name={icon} size={22} color={s.colors.textSecondary} />
-        <View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text style={{ ...s.muted, fontSize: 12 }}>{label}</Text><Text style={{ ...s.text, fontWeight: '600' }} numberOfLines={2}>{value}</Text></View>
+        <View style={{ flex: 1, minWidth: 0, gap: 3 }}><Text style={{ ...s.muted, fontSize: 12 }}>{label}</Text><Text style={{ ...s.text, ...Typography.header(), fontSize: 15 }} numberOfLines={1} ellipsizeMode="middle">{label === 'Project' && /[\\/]/.test(value) ? value.replace(/[\\/]$/, '').split(/[\\/]/).pop() || value : value}</Text>{label === 'Project' && /[\\/]/.test(value) && <Text style={{ ...s.muted, fontSize: 11, lineHeight: 16 }} numberOfLines={1} ellipsizeMode="middle">{value}</Text>}</View>
         <Ionicons name="chevron-forward" size={17} color={s.colors.textSecondary} />
     </Pressable>;
 }

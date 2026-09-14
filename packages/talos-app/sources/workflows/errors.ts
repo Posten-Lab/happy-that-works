@@ -1,6 +1,9 @@
 /** Translate service failures into recovery instructions; never expose raw RPC, Git or schema output. */
 export function workflowErrorMessage(error: unknown, fallback = 'Something went wrong. Try again. If it continues, reconnect this machine in Settings.'): string {
     const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+    if (/E2BIG|argument list too long|exec argument limit/i.test(message)) return 'The agent’s command runner could not start on this machine. Open its session for details, then give the team guidance or replace the agent to continue. Completed files are preserved.';
+    if (/Unexpected .*JSON|JSON.*(?:at position|line \d+ column)|Unexpected end of JSON input/i.test(message)
+        || /"code"\s*:\s*"invalid_(?:type|value)"/.test(message) && /"path"\s*:\s*\[\s*"(?:decision|summary|document|findings)"/.test(message)) return 'The agent returned a response Talos could not read. Add guidance asking for a new response, then resume. Completed work is preserved.';
     if (/not a git repository|ambiguous argument ['"]?HEAD|unknown revision|bad revision ['"]?HEAD/i.test(message)) return 'Choose a Git project with at least one commit. Open Project to choose another folder.';
     if (/repository root/i.test(message)) return 'Choose the top-level folder of your Git project, rather than a folder inside it. Open Project to change the folder.';
     if (/commit or stash|working tree.*(dirty|clean)|uncommitted/i.test(message)) return 'This project has uncommitted changes. Commit or stash them on the selected machine, then try again. Your files have not been changed.';
@@ -30,6 +33,7 @@ export function workflowErrorMessage(error: unknown, fallback = 'Something went 
 /** Agent requests and normal coordinator decisions remain intact; runtime diagnostics get recovery copy. */
 export function workflowRunMessage(reason: string, tasks: { error?: string; result?: { summary: string } }[]): string {
     if (!reason) return '';
+    if (/E2BIG|argument list too long|exec argument limit/i.test(reason)) return workflowErrorMessage(reason);
     if (/^(Coordinator (restarted|stopped)|Paused by you|Cancelled by you|Planners need|Planning round limit|Every planner approved|All planners approved|Reviewers need|Review round limit|Completion checks changed|Workspace changed|Current plan approvals)/.test(reason)) return reason;
     if (tasks.some(task => task.error === reason)) return workflowErrorMessage(reason, 'An agent could not finish this step. Open its session to inspect the work, then resume the run when the issue is resolved.');
     if (tasks.some(task => task.result?.summary && reason.endsWith(task.result.summary))) return reason;

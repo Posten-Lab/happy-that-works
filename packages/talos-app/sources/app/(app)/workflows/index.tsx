@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { workflowEnabled, workflowStageLabel, type WorkflowDefinition } from '@ahmadposten/talos-wire';
@@ -10,16 +10,18 @@ import { Modal } from '@/modal';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { Typography } from '@/constants/Typography';
 import { HomeTabBar } from '@/components/HomeTabBar';
-import { WorkflowButton as Button, useWorkflowStyles } from '@/workflows/ui';
+import { WorkflowButton as Button, WorkflowAvatar, WorkflowStatusChip, useWorkflowStyles } from '@/workflows/ui';
 import { WorkflowScaffold, WorkflowPageHeading, WorkflowNotice } from '@/workflows/WorkflowScaffold';
 import { workflowRPC, type RunSummary } from '@/workflows/api';
 import { workflowLibrarySettings } from '@/workflows/setup';
 import { workflowErrorMessage } from '@/workflows/errors';
+import { agentLibraryEnabled } from '@/agents/agentDefinition';
 
 export default function WorkflowsScreen() {
-    const router = useRouter(), s = useWorkflowStyles();
+    const router = useRouter(), s = useWorkflowStyles(), window = useWindowDimensions();
     const params = useLocalSearchParams<{ saved?: string }>();
     const experiments = useSetting('experiments'), expWorkflows = useSetting('expWorkflows');
+    const expAgentLibrary = useSetting('expAgentLibrary');
     const legacy = useSetting('workflowLibrary'), editable = useSetting('workflowLibraryV2'), providers = useSetting('workflowLibraryV3');
     const library = [...legacy, ...editable, ...providers].sort((a, b) => b.updatedAt - a.updatedAt);
     const machines = useAllMachines({ includeOffline: true });
@@ -77,14 +79,14 @@ export default function WorkflowsScreen() {
     const online = machines.filter(m => isMachineOnline(m) && m.metadata?.workflows);
     return <View style={{ flex: 1 }}>
         <WorkflowScaffold>
-            <WorkflowPageHeading eyebrow="Talos Labs · Experimental" title="Workflows" description="Build your team once. Bring it a new task whenever you need it." />
+            <View style={{ gap: 12 }}><WorkflowStatusChip label="Experimental" /><WorkflowPageHeading title="Workflows" description="Your teams for planning, building and review." /></View>
             {!enabled ? <WorkflowNotice title="Try Workflows" message="Enable Experimental Features and Workflows in Settings to build a team that plans, executes, and reviews together." action="Open Features" onAction={() => router.push('/settings/features')} /> : <>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <Pressable accessibilityRole="button" accessibilityLabel="Create workflow" onPress={() => router.push('/workflows/create')}
                         style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: s.colors.divider, backgroundColor: pressed ? s.colors.surfacePressed : s.colors.surface })}>
                         <Ionicons name="add" size={20} color={s.colors.accent} /><Text style={{ ...s.text, ...Typography.header(), fontSize: 15 }}>Create workflow</Text>
                     </Pressable>
-                    <Pressable accessibilityRole="button" accessibilityLabel="Manage agents" onPress={() => router.push('/agents')} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 }}><Text style={{ ...s.muted, ...Typography.header() }}>Agent library</Text></Pressable>
+                    {agentLibraryEnabled({ experiments, expAgentLibrary }) && <Pressable accessibilityRole="button" accessibilityLabel="Manage agents" onPress={() => router.push('/agents')} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 }}><Text style={{ ...s.muted, ...Typography.header() }}>Agent library</Text></Pressable>}
                 </View>
                 {!!error && <WorkflowNotice title="Couldn't update workflows" message={error} action="Dismiss" onAction={() => setError('')} />}
                 {pending && <WorkflowNotice title="Check your last run" message="A start request is waiting for confirmation. Check its status before starting another run." action="Check start status" onAction={() => router.push('/workflows/run')} />}
@@ -98,7 +100,7 @@ export default function WorkflowsScreen() {
                         <View style={{ gap: 8 }}><Text accessibilityRole="header" style={{ ...s.text, ...Typography.header(), fontSize: 21, textAlign: 'center' }}>Your team, ready for repeat work</Text><Text style={{ ...s.muted, textAlign: 'center' }}>Planners agree on a plan. An executor builds it. Reviewers check the result.</Text></View>
                         <Text style={{ ...s.muted, textAlign: 'center', fontSize: 12 }}>Choose Create workflow to set up your first team in four steps.</Text>
                     </View>}
-                    {library.map(w => <WorkflowCard key={w.id} workflow={w} onRun={() => router.push({ pathname: '/workflows/run', params: { workflowId: w.id } })} onEdit={() => router.push({ pathname: '/workflows/create', params: { id: w.id } })} onDelete={() => void remove(w)} />)}
+                    <View style={{ flexDirection: window.width >= 1000 ? 'row' : 'column', flexWrap: 'wrap', gap: 16 }}>{library.map(w => <View key={w.id} style={{ width: window.width >= 1000 ? '48.8%' : '100%' }}><WorkflowCard workflow={w} onRun={() => router.push({ pathname: '/workflows/run', params: { workflowId: w.id } })} onEdit={() => router.push({ pathname: '/workflows/create', params: { id: w.id } })} onDelete={() => void remove(w)} /></View>)}</View>
                 </> : <>
                     {loading && <ActivityIndicator accessibilityLabel="Loading workflow runs" color={s.colors.accent} />}
                     {failures.length > 0 && <WorkflowNotice title="Some runs couldn't be loaded" message={`Reconnect ${failures.join(', ')} to see its latest runs. Runs on other machines are shown below.`} action="Try again" onAction={() => setRetry(v => v + 1)} />}
@@ -117,14 +119,19 @@ export default function WorkflowsScreen() {
 
 function WorkflowCard({ workflow: w, onRun, onEdit, onDelete }: { workflow: WorkflowDefinition; onRun: () => void; onEdit: () => void; onDelete: () => void }) {
     const s = useWorkflowStyles();
-    const steps = w.steps ?? [{ name: 'Plan', agents: w.planners }, { name: 'Build', agents: [w.executor] }, { name: 'Review', agents: w.reviewers }];
-    return <View style={s.card}>
-        <View style={{ gap: 5 }}><Text accessibilityRole="header" style={{ ...s.text, ...Typography.header(), fontSize: 21 }}>{w.name}</Text>{!!w.description && <Text numberOfLines={2} style={s.muted}>{w.description}</Text>}</View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{steps.map((step, i) => <View key={i} style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: s.colors.surfaceHigh }}><Text style={{ ...s.muted, fontSize: 12, color: s.colors.accent }}>{i + 1}</Text><Text style={{ ...s.muted, fontSize: 12 }}>{step.name} · {step.agents.length}</Text></View>)}</View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 4 }}>
-            <View style={{ flex: 1 }}><Button primary label="Run workflow" accessibilityLabel={`Run ${w.name}`} onPress={onRun} /></View>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${w.name}`} onPress={onEdit} style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' }}><Ionicons name="create-outline" size={21} color={s.colors.textSecondary} /></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${w.name}`} onPress={onDelete} style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' }}><Ionicons name="trash-outline" size={19} color={s.colors.textSecondary} /></Pressable>
+    const [menu, setMenu] = React.useState(false);
+    const steps = w.steps ?? [{ name: 'Plan', kind: 'plan', agents: w.planners }, { name: 'Build', kind: 'execute', agents: [w.executor] }, { name: 'Review', kind: 'review', agents: w.reviewers }];
+    const agents = [...new Map(steps.flatMap(step => step.agents.map(slot => [slot.agent.id, slot.agent] as const))).values()];
+    return <View style={{ ...s.card, borderRadius: 16, gap: 20, padding: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <View style={{ flex: 1, gap: 6 }}><Text accessibilityRole="header" style={{ ...s.text, ...Typography.header(), fontSize: 21, lineHeight: 27, letterSpacing: -0.3 }}>{w.name}</Text>{!!w.description && <Text numberOfLines={2} style={s.muted}>{w.description}</Text>}</View>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Options for ${w.name}`} accessibilityState={{ expanded: menu }} onPress={() => setMenu(!menu)} style={{ minHeight: 44, minWidth: 44, marginTop: -8, marginRight: -10, justifyContent: 'center', alignItems: 'center' }}><Ionicons name="ellipsis-horizontal" size={20} color={s.colors.textSecondary} /></Pressable>
+        </View>
+        {menu && <View style={{ flexDirection: 'row', gap: 8 }}><Button variant="ghost" icon="create-outline" label="Edit workflow" accessibilityLabel={`Edit ${w.name}`} onPress={onEdit} /><Button variant="danger" icon="trash-outline" label="Delete" accessibilityLabel={`Delete ${w.name}`} onPress={onDelete} /></View>}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>{steps.map((step, i) => <React.Fragment key={i}>{i > 0 && <Ionicons name="chevron-forward" size={11} color={s.colors.textSecondary} />}<View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Ionicons name={step.kind === 'plan' ? 'compass-outline' : step.kind === 'execute' ? 'code-slash-outline' : 'checkmark-done-outline'} size={14} color={s.colors.accent} /><Text style={{ ...s.muted, fontSize: 12 }}>{step.name}</Text></View></React.Fragment>)}</View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center', borderTopWidth: 1, borderColor: s.colors.divider, paddingTop: 16 }}>
+            <View style={{ flex: 1, minWidth: agents.length > 4 ? 168 : Math.max(100, agents.length * 32 - 4), gap: 7 }}><View style={{ flexDirection: 'row', gap: 4 }}>{agents.slice(0, 4).map(agent => <WorkflowAvatar key={agent.id} name={agent.name} provider={agent.provider} size={28} />)}{agents.length > 4 && <Text style={s.muted}>+{agents.length - 4}</Text>}</View><Text style={{ ...s.muted, fontSize: 12, lineHeight: 17 }} numberOfLines={1}>{agents.map(a => a.name).join(', ')}</Text></View>
+            <View style={{ marginLeft: 'auto' }}><Button primary compact icon="play" label="Run workflow" accessibilityLabel={`Run ${w.name}`} onPress={onRun} /></View>
         </View>
     </View>;
 }

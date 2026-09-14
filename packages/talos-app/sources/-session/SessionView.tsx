@@ -15,6 +15,8 @@ import { getSuggestions } from '@/components/autocomplete/suggestions';
 import { ChatHeaderView } from '@/components/ChatHeaderView';
 import { ChatList } from '@/components/ChatList';
 import { SessionTaskPanel } from '@/-session/SessionTaskPanel';
+import { WorkflowSessionContext, useWorkflowParticipantContext, type ParticipantContext } from '@/-session/WorkflowSessionContext';
+import { workflowSessionFolder } from '@/-session/workflowSessionPresentation';
 import { Deferred } from '@/components/Deferred';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { Avatar } from '@/components/Avatar';
@@ -66,6 +68,7 @@ export const SessionView = React.memo((props: { id: string; searchMessageId?: st
     const sessionId = props.id;
     const router = useRouter();
     const session = useSession(sessionId);
+    const workflowContext = useWorkflowParticipantContext(session);
     const sessionMachine = useMachine(session?.metadata?.machineId ?? '');
     const unresolvedRecovery = hasUnresolvedSessionRecovery(getSessionRecovery(sessionMachine?.daemonState, sessionId, session?.metadata?.lifecycleState));
     const isDataReady = useIsDataReady();
@@ -216,15 +219,14 @@ export const SessionView = React.memo((props: { id: string; searchMessageId?: st
             return { title: t(searchRestorationFailed ? 'sessionSearch.openError' : 'errors.sessionDeleted'), folderName: undefined, isConnected: false };
         }
         const isConnected = session.presence === 'online' && !unresolvedRecovery;
-        const pathSegments = session.metadata?.path?.split(/[/\\]/).filter(Boolean);
-        const folderName = pathSegments?.[pathSegments.length - 1];
+        const folderName = workflowSessionFolder(session.metadata);
         const sessionName = getSessionName(session);
         return {
-            title: sessionName,
-            folderName,
+            title: workflowContext ? `${workflowContext.agentName} · ${workflowContext.workflowName}` : sessionName,
+            folderName: workflowContext ? undefined : folderName,
             isConnected,
         };
-    }, [session, isDataReady, unresolvedRecovery, isRestoringSearch, searchRestorationFailed]);
+    }, [session, workflowContext, isDataReady, unresolvedRecovery, isRestoringSearch, searchRestorationFailed]);
     const headerRight = session && deviceType === 'phone' && Platform.OS !== 'web'
         ? (
             <Pressable
@@ -302,7 +304,7 @@ export const SessionView = React.memo((props: { id: string; searchMessageId?: st
                         {!searchRestorationFailed && <Text style={{ color: theme.colors.textSecondary, fontSize: 15, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>{t('errors.sessionDeletedDescription')}</Text>}
                     </View>
                 ) : (
-                    <SessionViewLoaded key={sessionId} sessionId={sessionId} session={session} searchMessageId={props.searchMessageId} searchBlockIndex={props.searchBlockIndex} />
+                    <SessionViewLoaded key={sessionId} sessionId={sessionId} session={session} workflowContext={workflowContext} searchMessageId={props.searchMessageId} searchBlockIndex={props.searchBlockIndex} />
                 )}
             </View>
         </>
@@ -454,7 +456,7 @@ const ChatComposer = React.memo(function ChatComposer(props: ChatComposerProps) 
     );
 });
 
-function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockIndex }: { sessionId: string; session: Session; searchMessageId?: string; searchBlockIndex?: number }) {
+function SessionViewLoaded({ sessionId, session, workflowContext, searchMessageId, searchBlockIndex }: { sessionId: string; session: Session; workflowContext: ParticipantContext | null; searchMessageId?: string; searchBlockIndex?: number }) {
     const { theme } = useUnistyles();
     const router = useRouter();
     const safeArea = useSafeAreaInsets();
@@ -822,12 +824,9 @@ function SessionViewLoaded({ sessionId, session, searchMessageId, searchBlockInd
     ) : null;
 
     const input = session.metadata?.workflowManaged ? (
-        <View style={{ padding: 16, gap: 8 }}>
-            <Text style={{ color: theme.colors.textSecondary }}>This participant is managed by a workflow. Review its work here and make decisions in the workflow workspace.</Text>
-            <Pressable accessibilityRole="button" onPress={() => router.push(`/workflows/${session.metadata?.workflowRunId}?machineId=${encodeURIComponent(session.metadata?.machineId ?? '')}` as any)}>
-                <Text style={{ color: theme.colors.accent }}>Open workflow</Text>
-            </Pressable>
-        </View>
+        <CenteredInputWidth horizontalPadding={sessionInputHorizontalPadding}>
+            <WorkflowSessionContext session={session} identity={workflowContext} />
+        </CenteredInputWidth>
     ) : (
         <>
             {inactiveHint}

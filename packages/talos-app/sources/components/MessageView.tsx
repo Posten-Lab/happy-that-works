@@ -12,6 +12,9 @@ import { sync } from '@/sync/sync';
 import { Option } from './markdown/MarkdownView';
 import { layout } from "./layout";
 import { parseLocalCommandMessage, isUserSlashCommandEcho } from './parseLocalCommandMessage';
+import { workflowAssignmentFromMessage, workflowDecisionFromMessage } from '@/-session/workflowSessionPresentation';
+import { WorkflowDecisionMessage } from '@/-session/WorkflowDecisionMessage';
+import { WorkflowAssignmentMessage } from '@/-session/WorkflowAssignmentMessage';
 
 
 export const MessageView = React.memo((props: {
@@ -52,7 +55,9 @@ function RenderBlock(props: {
   onForkFromUserMessage?: (messageId: string, rewindPointId: string | undefined, messageText: string) => void;
 }): React.ReactElement {
   switch (props.message.kind) {
-    case 'user-text':
+    case 'user-text': {
+      const assignment = workflowAssignmentFromMessage(props.message, props.metadata);
+      if (assignment) return <WorkflowAssignmentMessage {...assignment} raw={props.message.text} sessionId={props.sessionId} />;
       return (
         <UserTextBlock
           message={props.message}
@@ -61,9 +66,13 @@ function RenderBlock(props: {
           onForkFromUserMessage={props.onForkFromUserMessage}
         />
       );
+    }
 
-    case 'agent-text':
+    case 'agent-text': {
+      const decision = workflowDecisionFromMessage(props.message, props.metadata);
+      if (decision) return <WorkflowDecisionMessage decision={decision} raw={props.message.text} sessionId={props.sessionId} />;
       return <AgentTextBlock message={props.message} sessionId={props.sessionId} />;
+    }
 
     case 'tool-call':
       return <ToolCallBlock

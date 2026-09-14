@@ -433,7 +433,7 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle }
                     </Text>
                 </View>
 
-                {session.path ? (
+                {session.path && !session.workflowManaged ? (
                     <View style={styles.sessionSubtitleRow}>
                         <Text style={styles.sessionSubtitle} numberOfLines={1}>
                             {session.path.split(/[/\\]/).filter(Boolean).pop()}

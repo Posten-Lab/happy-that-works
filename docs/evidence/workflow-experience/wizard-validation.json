@@ -1,0 +1,69 @@
+{
+  "validatedAt": "2026-09-14T17:07:23.790Z",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "threeDistinctPlanners": true,
+  "capThreeHidesAdd": true,
+  "removalReopensAdd": true,
+  "addedStageReorderedAndRemoved": true,
+  "originalSavedTeamRestored": true,
+  "exactFinishCriteriaAndCommand": true,
+  "approvalEnabled": true,
+  "explicitDiscard": true,
+  "savedLibrariesUnchanged": true,
+  "pageErrors": [],
+  "measurements": [
+    {
+      "name": "45-wizard-three-planners",
+      "scrollable": true,
+      "target": 0,
+      "actual": 0,
+      "height": 985,
+      "client": 788
+    },
+    {
+      "name": "45-wizard-three-planners-lower",
+      "scrollable": true,
+      "target": 197,
+      "actual": 197,
+      "height": 985,
+      "client": 788
+    },
+    {
+      "name": "13-wizard-finish",
+      "scrollable": true,
+      "target": 0,
+      "actual": 0,
+      "height": 1010,
+      "client": 788
+    },
+    {
+      "name": "14-wizard-finish-lower",
+      "scrollable": true,
+      "target": 222,
+      "actual": 222,
+      "height": 1010,
+      "client": 788
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "45-wizard-three-planners.png",
+      "sha256": "8d726da15c35c6ca93bdeb2fd03edbe2f70cff761cd0d241ef4b985070e2ca3e"
+    },
+    {
+      "file": "45-wizard-three-planners-lower.png",
+      "sha256": "67993549c932679236b169c167834e0327c36e23b87e9bf9a3904f3b948062e7"
+    },
+    {
+      "file": "13-wizard-finish.png",
+      "sha256": "6792b4dccb5d67c29110a3a47bf534b497247183025d5ae91a7a75b995955870"
+    },
+    {
+      "file": "14-wizard-finish-lower.png",
+      "sha256": "7db60e5f8203a8fe7590f56c188d865a9cafbe481301a64d01cd6ca0867b2836"
+    }
+  ]
+}
