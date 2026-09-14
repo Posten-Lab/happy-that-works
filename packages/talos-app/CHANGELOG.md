@@ -6,7 +6,7 @@ Follow each planner’s contribution and understand how the team reaches agreeme
 - Read the discussion, compare plan versions, and inspect each round’s votes.
 - Trace objections from the original finding through the response and verification.
 - Open the exact source behind a contribution without losing your place.
-- Update your machine CLI to 1.0.17 for complete history on new workflow runs.
+- Update your machine CLI to 1.0.18 for complete history on new workflow runs.
 
 # Resume interrupted workflows
 
