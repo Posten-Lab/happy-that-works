@@ -1,3 +1,12 @@
+# YOLO for your agents
+
+Choose how your saved agents work, and see whether reference files were attached.
+
+- Select YOLO when creating or editing an agent to skip approval prompts in new sessions.
+- Attach Markdown references up to 64,000 characters and see clear added-to-draft or not-attached feedback.
+- Keep your latest instructions while a file is being read.
+- Update your machine CLI to use these agent settings in workflows.
+
 # Faster session search
 
 Find conversations sooner after signing in or adding a device.

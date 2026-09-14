@@ -28,11 +28,11 @@ export default function CreateWorkflowScreen() {
     const router = useRouter(), navigation = useNavigation(), s = useWorkflowStyles();
     const { id } = useLocalSearchParams<{ id?: string }>();
     const experiments = useSetting('experiments'), expWorkflows = useSetting('expWorkflows');
-    const savedAgents = useSetting('agentLibrary'), providerAgents = useSetting('agentLibraryV2');
+    const savedAgents = useSetting('agentLibrary'), providerAgents = useSetting('agentLibraryV2'), extendedAgents = useSetting('agentLibraryV3');
     const machines = useAllMachines({ includeOffline: true });
     const [initial] = React.useState(() => {
         const settings = storage.getState().settings;
-        const existing = id ? [...settings.workflowLibrary, ...settings.workflowLibraryV2, ...settings.workflowLibraryV3].find(workflow => workflow.id === id) : undefined;
+        const existing = id ? [...settings.workflowLibrary, ...settings.workflowLibraryV2, ...settings.workflowLibraryV3, ...settings.workflowLibraryV4].find(workflow => workflow.id === id) : undefined;
         const draft = editableWorkflow(existing);
         return { missing: !!id && !existing, original: existing ? JSON.stringify(existing) : null, draft, snapshot: JSON.stringify(draft) };
     });
@@ -72,7 +72,7 @@ export default function CreateWorkflowScreen() {
         try {
             const settings = storage.getState().settings;
             if (!workflowEnabled(settings)) throw new Error('Enable Workflows before saving.');
-            const current = [...settings.workflowLibrary, ...settings.workflowLibraryV2, ...settings.workflowLibraryV3];
+            const current = [...settings.workflowLibrary, ...settings.workflowLibraryV2, ...settings.workflowLibraryV3, ...settings.workflowLibraryV4];
             if (initial.original && JSON.stringify(current.find(workflow => workflow.id === draft.id)) !== initial.original) throw new Error('This workflow changed elsewhere.');
             const result = workflowSave({ ...draft, revision: draft.revision + (initial.original ? 1 : 0), updatedAt: Date.now() }, candidates, allSavedAgents(settings), current);
             // Validate both collections first, then publish one settings update. Failed saves never leave orphan agents.
@@ -110,7 +110,7 @@ export default function CreateWorkflowScreen() {
         <WorkflowPageHeading title={pageCopy[page].title} description={pageCopy[page].description} />
         {error !== '' && <WorkflowNotice title="A detail needs your attention" message={error} />}
         {page < 3 ? <WorkflowBuilder section={(['basics', 'team', 'finish'] as WorkflowBuilderSection[])[page]} draft={draft} onChange={value => { setDraft(value); setError(''); }}
-            candidates={candidates} onCandidates={setCandidates} agents={[...savedAgents, ...providerAgents]} machine={machine} machines={machines} onMachine={setMachineId}
+            candidates={candidates} onCandidates={setCandidates} agents={[...savedAgents, ...providerAgents, ...extendedAgents]} machine={machine} machines={machines} onMachine={setMachineId}
             onReveal={() => { /* Keep the original stage scroll position when the agent sheet closes. */ }} />
             : <WorkflowReview draft={draft} onEdit={go} />}
     </WorkflowScaffold>;

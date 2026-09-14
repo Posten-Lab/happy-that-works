@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "title": "YOLO for your agents",
+      "summary": "Choose how your saved agents work, and see whether reference files were attached.",
+      "markdown": "- Select YOLO when creating or editing an agent to skip approval prompts in new sessions.\n- Attach Markdown references up to 64,000 characters and see clear added-to-draft or not-attached feedback.\n- Keep your latest instructions while a file is being read.\n- Update your machine CLI to use these agent settings in workflows."
+    },
+    {
       "title": "Faster session search",
       "summary": "Find conversations sooner after signing in or adding a device.",
       "markdown": "- Search results appear while large conversation histories continue indexing.\n- Completed search progress stays in place during background refreshes.\n- Reopening the app reuses your encrypted search history."
@@ -61,5 +66,5 @@
       "markdown": "- A new identity across your phone, browser, desktop, and terminal.\n- Bronze accents, warm light surfaces, and a focused dark theme.\n- Connect your terminal with `talos` and keep your agents within reach.\n- Pair your devices securely and control which server they connect to."
     }
   ],
-  "latestTitle": "Faster session search"
+  "latestTitle": "YOLO for your agents"
 }

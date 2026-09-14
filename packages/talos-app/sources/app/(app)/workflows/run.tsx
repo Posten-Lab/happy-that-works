@@ -27,8 +27,8 @@ export default function RunWorkflowScreen() {
     const router = useRouter(), s = useWorkflowStyles(), window = useWindowDimensions();
     const focused = useIsFocused(), focusedRef = React.useRef(focused); focusedRef.current = focused;
     const experiments = useSetting('experiments'), expWorkflows = useSetting('expWorkflows');
-    const legacy = useSetting('workflowLibrary'), editable = useSetting('workflowLibraryV2'), providers = useSetting('workflowLibraryV3');
-    const workflow = [...legacy, ...editable, ...providers].find(item => item.id === workflowId);
+    const legacy = useSetting('workflowLibrary'), editable = useSetting('workflowLibraryV2'), providers = useSetting('workflowLibraryV3'), extended = useSetting('workflowLibraryV4');
+    const workflow = [...legacy, ...editable, ...providers, ...extended].find(item => item.id === workflowId);
     const enabled = workflowEnabled({ experiments, expWorkflows });
     const machines = useAllMachines({ includeOffline: true }), sessions = useSessions();
     const [machineId, setMachineId] = React.useState(typeof params.machineId === 'string' ? params.machineId : '');

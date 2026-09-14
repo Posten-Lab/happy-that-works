@@ -1,11 +1,17 @@
 import { z } from 'zod';
 
+export const AGENT_DOCUMENT_MAX_CHARACTERS = 64000;
+export const AgentDocumentSchema = z.object({
+    name: z.string().min(1).max(120),
+    content: z.string().max(AGENT_DOCUMENT_MAX_CHARACTERS, 'Each instruction file can contain up to 64,000 characters.'),
+});
+
 const text = z.string().trim().min(1).max(24000);
 export const WorkflowAgentSchema = z.object({
     id: z.string().min(1).max(100), revision: z.number().int().positive(), name: z.string().min(1).max(60),
     description: z.string().max(300), provider: z.enum(['codex', 'claude', 'muse']), model: z.string().min(1).max(200), modelLabel: z.string().max(300).optional(),
-    effort: z.string().max(30).nullable(), permissionMode: z.enum(['default', 'read-only']),
-    instructions: text, documents: z.array(z.object({ name: z.string().max(120), content: z.string().max(16000) })).max(5),
+    effort: z.string().max(30).nullable(), permissionMode: z.enum(['default', 'read-only', 'yolo']),
+    instructions: text, documents: z.array(AgentDocumentSchema).max(5),
 });
 export const WorkflowSlotSchema = z.object({ agent: WorkflowAgentSchema, assignment: text });
 export const WorkflowStepSchema = z.object({

@@ -22,8 +22,8 @@ export default function WorkflowsScreen() {
     const params = useLocalSearchParams<{ saved?: string }>();
     const experiments = useSetting('experiments'), expWorkflows = useSetting('expWorkflows');
     const expAgentLibrary = useSetting('expAgentLibrary');
-    const legacy = useSetting('workflowLibrary'), editable = useSetting('workflowLibraryV2'), providers = useSetting('workflowLibraryV3');
-    const library = [...legacy, ...editable, ...providers].sort((a, b) => b.updatedAt - a.updatedAt);
+    const legacy = useSetting('workflowLibrary'), editable = useSetting('workflowLibraryV2'), providers = useSetting('workflowLibraryV3'), extended = useSetting('workflowLibraryV4');
+    const library = [...legacy, ...editable, ...providers, ...extended].sort((a, b) => b.updatedAt - a.updatedAt);
     const machines = useAllMachines({ includeOffline: true });
     const [tab, setTab] = React.useState<'library' | 'runs'>('library');
     const [runs, setRuns] = React.useState<RunSummary[]>([]);
@@ -73,7 +73,7 @@ export default function WorkflowsScreen() {
         if (!await Modal.confirm(`Delete ${workflow.name}?`, 'Past and active runs keep their configuration and work.')) return;
         try {
             const current = storage.getState().settings;
-            sync.applySettings(workflowLibrarySettings([...current.workflowLibrary, ...current.workflowLibraryV2, ...current.workflowLibraryV3].filter(w => w.id !== workflow.id)));
+            sync.applySettings(workflowLibrarySettings([...current.workflowLibrary, ...current.workflowLibraryV2, ...current.workflowLibraryV3, ...current.workflowLibraryV4].filter(w => w.id !== workflow.id)));
         } catch (e) { setError(workflowErrorMessage(e, 'The workflow could not be deleted. Try again.')); }
     };
     const online = machines.filter(m => isMachineOnline(m) && m.metadata?.workflows);

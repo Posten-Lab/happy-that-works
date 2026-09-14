@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { AgentDefinitionSchema, AgentLibrarySchema, agentInstructions, agentLaunchError, agentLibraryEnabled, agentLibrarySettings, allSavedAgents, type AgentDefinition } from './agentDefinition';
 import { settingsParse, settingsParsePending } from '@/sync/settings';
 import { resolveMessageModeMeta } from '@/sync/messageMeta';
@@ -6,6 +7,31 @@ import { resolveMessageModeMeta } from '@/sync/messageMeta';
 const agent: AgentDefinition = { id: 'iris', revision: 1, name: 'Iris', avatar: 'eye', description: 'Reviewer', provider: 'codex', model: 'test-model', effort: 'high', permissionMode: 'read-only', instructions: 'Review without editing.', documents: [{ name: 'review.md', content: 'Report evidence.' }], specialties: ['review'], updatedAt: 1 };
 const catalog = [{ code: 'test-model', value: 'Test', supportedReasoningEfforts: [{ code: 'high', value: 'High' }] }];
 describe('experimental agent definitions', () => {
+    it.each(['codex', 'claude', 'muse'] as const)('saves and restores YOLO for %s sessions, ahead of global defaults', provider => {
+        const profile = AgentDefinitionSchema.parse({ ...agent, provider, permissionMode: 'yolo' });
+        const saved = allSavedAgents(settingsParse(agentLibrarySettings([profile])))[0];
+        expect(saved).toEqual(profile);
+        const session = { metadata: { path: '/tmp', host: 'test', flavor: provider, agentProfile: saved }, permissionMode: null, modelMode: null, effortLevel: null };
+        const defaults = { agentDefaultOverrides: { [provider]: { permissionMode: 'default' } } };
+        expect(resolveMessageModeMeta(session, defaults).permissionMode).toBe('yolo');
+        expect(resolveMessageModeMeta({ ...session, permissionMode: 'default' }, defaults).permissionMode).toBe('default');
+    });
+    it('keeps extended definitions out of libraries parsed by older clients', () => {
+        const yolo = { ...agent, id: 'yolo', permissionMode: 'yolo' as const };
+        const large = { ...agent, id: 'large', documents: [{ name: 'large.md', content: 'x'.repeat(20000) }] };
+        const fields = agentLibrarySettings([agent, yolo, large]);
+        expect(fields.agentLibrary).toEqual([agent]);
+        expect(fields.agentLibraryV3).toEqual([yolo, large]);
+        // Old clients parse known libraries and preserve unknown fields in full-blob sync.
+        const oldAgent = z.object({ permissionMode: z.enum(['default', 'read-only']), documents: z.array(z.object({ name: z.string().min(1).max(120), content: z.string().max(16000) })) }).passthrough();
+        const oldSettings = z.object({ agentLibrary: z.array(oldAgent), agentLibraryV2: z.array(oldAgent) }).passthrough();
+        const roundTrip = settingsParse({ ...oldSettings.parse(fields), experiments: true });
+        expect(allSavedAgents(roundTrip)).toEqual([agent, yolo, large]);
+        expect(settingsParsePending(fields)).toEqual(fields);
+        const changed = agentLibrarySettings([agent, { ...yolo, permissionMode: 'default' }, large]);
+        expect(changed.agentLibrary.map(a => a.id)).toEqual(['iris', 'yolo']);
+        expect(changed.agentLibraryV3.map(a => a.id)).toEqual(['large']);
+    });
     it('requires both opt-in switches and defaults off for old accounts', () => {
         expect(agentLibraryEnabled(settingsParse({}))).toBe(false);
         expect(agentLibraryEnabled({ experiments: true })).toBe(false);
