@@ -1,0 +1,13 @@
+{
+  "environment": "jolly-mountain",
+  "workflowId": "dad32617-e11c-4089-bc18-8cde0ac6c035",
+  "directSource": "/private/tmp/talos-workspace-folder-FixIcy",
+  "isolatedSource": "/private/tmp/talos-workspace-git-L074Ha",
+  "directRunId": "e0f53c3d-5624-42ce-af5e-5aa77004c6f6",
+  "isolatedRunId": "c974369a-eebd-4066-9c76-d469ea0ee40b",
+  "directExactCwd": true,
+  "nestedGitEdited": true,
+  "cleanGitSourceUnchanged": true,
+  "cleanGitWorktree": "/Users/ahmedposten/work/talos-workflow-workspace-folders/environments/data/envs/jolly-mountain/cli/home/workflow-worktrees/c974369a-eebd-4066-9c76-d469ea0ee40b",
+  "realCodexTurns": true
+}

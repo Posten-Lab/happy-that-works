@@ -1,0 +1,35 @@
+{
+  "capturedAt": "2026-09-14T19:36:42.418Z",
+  "images": [
+    {
+      "file": "clean-git-control-complete-overview.png",
+      "sha256": "63c8bb4076838eba25296a5c98d736389bb7401cee97a8f40700e35a03ee3757",
+      "bytes": 56647
+    },
+    {
+      "file": "clean-git-control-ready.png",
+      "sha256": "dfff1d0419a54a7086b655fd13997892867feaedae04dfc335f209756bc402b7",
+      "bytes": 58730
+    },
+    {
+      "file": "clean-git-control-workspace-details.png",
+      "sha256": "f42ebb29015718d28a9ad7601ce1106c30731863986e438edb20f22f3b6d5b9a",
+      "bytes": 87915
+    },
+    {
+      "file": "direct-folder-complete-overview.png",
+      "sha256": "2f49b5447b1957baa2bceba327c3bc77813d8fecfb179221700de820692b2db0",
+      "bytes": 55991
+    },
+    {
+      "file": "direct-folder-ready.png",
+      "sha256": "a92ff8f6d2c98bcf5ce9ef25d479eef79fda112f3f9faef15636037da99488cf",
+      "bytes": 59189
+    },
+    {
+      "file": "direct-folder-workspace-details.png",
+      "sha256": "666debd1a9d4057dbf8644dcc7f4ec95e494b693f4c372b904e3807aafc0f247",
+      "bytes": 74322
+    }
+  ]
+}
