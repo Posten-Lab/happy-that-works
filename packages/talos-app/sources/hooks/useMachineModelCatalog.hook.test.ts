@@ -2,19 +2,19 @@ import * as React from 'react';
 // @ts-expect-error The workspace has react-test-renderer without its optional type package.
 import TestRenderer, { act } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const { codexListModels, useSocketStatus } = vi.hoisted(() => ({ codexListModels: vi.fn(), useSocketStatus: vi.fn() }));
-vi.mock('@/sync/ops', () => ({ codexListModels }));
+const { codexListModels, claudeListModels, museListModels, useSocketStatus } = vi.hoisted(() => ({ codexListModels: vi.fn(), claudeListModels: vi.fn(), museListModels: vi.fn(), useSocketStatus: vi.fn() }));
+vi.mock('@/sync/ops', () => ({ codexListModels, claudeListModels, museListModels }));
 vi.mock('@/sync/storage', () => ({ useSocketStatus }));
 import { useMachineModelCatalog } from './useMachineModelCatalog';
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const success = { type: 'success', models: [{ code: 'model', value: 'Model' }] };
 let current: ReturnType<typeof useMachineModelCatalog>;
 let renderer: { update(element: React.ReactElement): void; unmount(): void } | undefined;
-function Probe({ machine = 'mac' }: { machine?: string | null }) { current = useMachineModelCatalog(machine); return null; }
-async function render(machine: string | null = 'mac') {
-    await act(async () => { if (renderer) renderer.update(React.createElement(Probe, { machine })); else renderer = TestRenderer.create(React.createElement(Probe, { machine })); });
+function Probe({ machine = 'mac', provider = 'codex' }: { machine?: string | null; provider?: 'codex' | 'claude' | 'muse' }) { current = useMachineModelCatalog(machine, provider); return null; }
+async function render(machine: string | null = 'mac', provider: 'codex' | 'claude' | 'muse' = 'codex') {
+    await act(async () => { if (renderer) renderer.update(React.createElement(Probe, { machine, provider })); else renderer = TestRenderer.create(React.createElement(Probe, { machine, provider })); });
 }
-beforeEach(() => { codexListModels.mockReset(); useSocketStatus.mockReturnValue({ status: 'connected' }); });
+beforeEach(() => { codexListModels.mockReset(); claudeListModels.mockReset(); museListModels.mockReset(); useSocketStatus.mockReturnValue({ status: 'connected' }); });
 afterEach(() => { act(() => renderer?.unmount()); renderer = undefined; vi.useRealTimers(); });
 describe('machine catalog setup feedback', () => {
     it.each(['rpc-error', 'empty', 'rejection'])('exposes %s and permits a successful explicit retry', async failure => {
@@ -41,6 +41,16 @@ describe('machine catalog setup feedback', () => {
         await render('mac'); await render('dell');
         await act(async () => finish({ type: 'success', models: [{ code: 'old', value: 'Old' }] }));
         expect(current.status).toBe('ready'); expect(current.models).toEqual(success.models);
+    });
+    it('discards stale provider results and discovers each selected provider', async () => {
+        let finish!: (x: typeof success) => void;
+        codexListModels.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        claudeListModels.mockResolvedValue({ type: 'success', models: [{ code: 'sonnet', value: 'Sonnet' }] });
+        museListModels.mockResolvedValue({ type: 'success', models: [{ code: 'code', value: 'Muse Code' }] });
+        await render('mac', 'codex'); await render('mac', 'claude');
+        await act(async () => finish(success));
+        expect(current.models[0].code).toBe('sonnet');
+        await render('mac', 'muse'); expect(current.models[0].code).toBe('code');
     });
     it('waits for connection, discovers on reconnect, and stops when no eligible machine exists', async () => {
         useSocketStatus.mockReturnValue({ status: 'disconnected' }); codexListModels.mockResolvedValue(success);

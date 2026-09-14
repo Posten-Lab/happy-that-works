@@ -48,6 +48,7 @@ function resolveFlavor(metadata: Metadata): 'codex' | 'claude' | 'muse' | null {
 }
 
 export function buildResumeLaunch(session: ResumableTalosSession, options: ResumeLaunchOptions = {}): ResumeLaunch {
+    if (session.metadata?.workflowManaged) throw new Error('Resume this agent through its workflow. Workflow participants cannot start independently.');
     const { metadata } = session;
     const flavor = resolveFlavor(metadata);
 

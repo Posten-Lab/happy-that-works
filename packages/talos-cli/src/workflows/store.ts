@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, renameSync, openSync, fsyncSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
-import { WorkflowRunSchema, type WorkflowRun } from '@ahmadposten/talos-wire';
+import { WorkflowRunSchema, workflowNeedsProviders, type WorkflowRun } from '@ahmadposten/talos-wire';
 import { decrypt, encrypt } from '@/api/encryption';
 
 /** Account/server/machine-scoped, authenticated encryption and atomic private writes. */
@@ -13,7 +13,23 @@ export class WorkflowStore {
     }
     save(run: WorkflowRun) {
         WorkflowRunSchema.parse(run);
-        const directory = run.definition.steps ? join(this.directory, 'v2') : this.directory;
+        const v3 = join(this.directory, 'v3');
+        const upgraded = existsSync(join(v3, `${run.id}.bin`));
+        if (workflowNeedsProviders(run.definition) && !upgraded) {
+            // Retire the old coordinator's checkpoint before promotion. A crash must
+            // never let an older CLI resume the pre-replacement agent configuration.
+            for (const oldDirectory of [this.directory, join(this.directory, 'v2')]) {
+                const oldPath = join(oldDirectory, `${run.id}.bin`);
+                if (!existsSync(oldPath)) continue;
+                const previous = WorkflowRunSchema.parse(decrypt(this.key, 'dataKey', readFileSync(oldPath)));
+                if (workflowNeedsProviders(previous.definition)) throw new Error('Unexpected provider checkpoint in a legacy directory.');
+                previous.status = 'cancelled';
+                previous.reason = 'This run was upgraded to multi-provider workflows. Continue using the updated Talos CLI; this legacy checkpoint cannot resume.';
+                this.save(previous);
+            }
+        }
+        // Once upgraded, retain the versioned location even if replacements are all Codex.
+        const directory = upgraded || workflowNeedsProviders(run.definition) ? v3 : run.definition.steps ? join(this.directory, 'v2') : this.directory;
         mkdirSync(directory, { recursive: true, mode: 0o700 });
         const target = join(directory, `${run.id}.bin`), tmp = `${target}.tmp`;
         const data = encrypt(this.key, 'dataKey', run);
@@ -26,9 +42,10 @@ export class WorkflowStore {
         }
     }
     load(): WorkflowRun[] {
-        return [this.directory, join(this.directory, 'v2')].filter(existsSync).flatMap(directory => readdirSync(directory).filter(f => f.endsWith('.bin')).map(f => {
+        const runs = [this.directory, join(this.directory, 'v2'), join(this.directory, 'v3')].filter(existsSync).flatMap(directory => readdirSync(directory).filter(f => f.endsWith('.bin')).map(f => {
             const data = readFileSync(join(directory, f));
             return WorkflowRunSchema.parse(decrypt(this.key, 'dataKey', data));
         }));
+        return [...new Map(runs.map(run => [run.id, run])).values()];
     }
 }

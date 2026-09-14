@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AgentDefinitionSchema, AgentLibrarySchema, agentInstructions, agentLaunchError, agentLibraryEnabled, type AgentDefinition } from './agentDefinition';
+import { AgentDefinitionSchema, AgentLibrarySchema, agentInstructions, agentLaunchError, agentLibraryEnabled, agentLibrarySettings, allSavedAgents, type AgentDefinition } from './agentDefinition';
 import { settingsParse, settingsParsePending } from '@/sync/settings';
 import { resolveMessageModeMeta } from '@/sync/messageMeta';
 
@@ -32,10 +32,19 @@ describe('experimental agent definitions', () => {
         const large = Array.from({ length: 6 }, (_, i) => ({ ...agent, id: String(i), instructions: 'a'.repeat(24000) }));
         expect(AgentLibrarySchema.safeParse(large).success).toBe(false);
     });
-    it('preserves earlier definitions but blocks new non-Codex launches', () => {
+    it('preserves earlier definitions and validates their provider catalog', () => {
         const earlier = { ...agent, provider: 'claude' as const, permissionMode: 'default' as const };
         expect(settingsParse({ agentLibrary: [earlier] }).agentLibrary).toEqual([earlier]);
-        expect(agentLaunchError(earlier, catalog)).toContain('supports Codex');
+        expect(agentLaunchError(earlier, catalog)).toBeNull();
+        expect(agentLaunchError({ ...earlier, provider: 'muse' }, catalog)).toBeNull();
+    });
+    it('partitions new provider identities without dropping old libraries or exceeding combined quota', () => {
+        const muse = { ...agent, id: 'muse', provider: 'muse' as const, permissionMode: 'default' as const };
+        const changes = agentLibrarySettings([agent, muse]);
+        expect(changes.agentLibrary).toEqual([agent]); expect(changes.agentLibraryV2).toEqual([muse]);
+        expect(allSavedAgents(settingsParse(changes))).toEqual([agent, muse]);
+        expect(settingsParsePending(changes)).toEqual(changes);
+        expect(() => agentLibrarySettings(Array.from({ length: 101 }, (_, i) => ({ ...muse, id: String(i) })))).toThrow();
     });
     it('takes a deep snapshot and includes attached instructions', () => {
         const source = structuredClone(agent);

@@ -1,6 +1,6 @@
 import { AgentLibrarySchema, type AgentDefinition } from '@/agents/agentDefinition';
 import type { ProviderModel } from '@/sync/ops';
-import { WorkflowDefinitionSchema, WorkflowLibrarySchema, type WorkflowDefinition, WorkflowAgentSchema, workflowSlots } from '@ahmadposten/talos-wire';
+import { WorkflowDefinitionSchema, WorkflowLibrarySchema, type WorkflowDefinition, WorkflowAgentSchema, workflowSlots, workflowNeedsProviders } from '@ahmadposten/talos-wire';
 
 const roles = [
     { name: 'Aster', description: 'Plans the user experience and acceptance criteria', avatar: 'compass', specialties: ['design'], instructions: 'Independently identify the user goal, acceptance criteria, and practical approach. Make assumptions explicit. Consolidate proposals when assigned, preserving unresolved objections for a fresh vote.' },
@@ -24,7 +24,7 @@ export function createStarterTeam(model: ProviderModel, effort: string | null, l
 
 /** Pick a writable executor without assigning the same identity to two roles. */
 export function savedWorkflowTeam(library: AgentDefinition[]): AgentDefinition[] | null {
-    const agents = [...new Map(library.filter(a => a.provider === 'codex').map(a => [a.id, a])).values()];
+    const agents = [...new Map(library.map(a => [a.id, a])).values()];
     const executor = agents.find(a => a.permissionMode !== 'read-only');
     if (!executor || agents.length < 5) return null;
     const others = agents.filter(a => a.id !== executor.id);
@@ -83,5 +83,5 @@ export function workflowStepError(draft: WorkflowDefinition, step: number): stri
 
 /** A separate settings field prevents old apps stripping steps and running a different workflow. */
 export function workflowLibrarySettings(workflows: WorkflowDefinition[]) {
-    return { workflowLibrary: workflows.filter(w => !w.steps), workflowLibraryV2: workflows.filter(w => !!w.steps) };
+    return { workflowLibrary: workflows.filter(w => !w.steps && !workflowNeedsProviders(w)), workflowLibraryV2: workflows.filter(w => !!w.steps && !workflowNeedsProviders(w)), workflowLibraryV3: workflows.filter(workflowNeedsProviders) };
 }

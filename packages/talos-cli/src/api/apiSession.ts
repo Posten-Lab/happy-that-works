@@ -985,7 +985,7 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     private checkpointRecovery(metadata = this.recoveryMetadata) {
-        if (!metadata || this.closed) return;
+        if (!metadata || this.closed || metadata.workflowManaged) return;
         checkpointSession({
             sessionId: this.sessionId,
             metadata,

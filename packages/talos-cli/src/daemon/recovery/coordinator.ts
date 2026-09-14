@@ -84,7 +84,7 @@ export class SessionRecoveryCoordinator {
             for (const id of this.statuses.keys()) if (!ids.has(id)) this.remove(id);
             for (const c of checkpoints) {
                 if (this.stopped || !this.deps.ready()) return;
-                if (c.desiredState !== 'running') { this.remove(c.sessionId); continue; }
+                if (c.desiredState !== 'running' || c.metadata.workflowManaged) { this.remove(c.sessionId); continue; }
                 let status = this.statuses.get(c.sessionId);
                 if (this.deps.isAlive(c)) {
                     if (!status) continue;

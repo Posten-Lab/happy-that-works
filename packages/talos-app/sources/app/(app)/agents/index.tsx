@@ -1,3 +1,4 @@
+import { AgentRuntimePicker } from '@/agents/AgentRuntimePicker';
 import React from 'react';
 import { View, Text, TextInput, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -8,10 +9,10 @@ import { File } from 'expo-file-system';
 import { randomUUID } from 'expo-crypto';
 import { useAllMachines, useSetting, storage } from '@/sync/storage';
 import { sync } from '@/sync/sync';
-import { useProviderModels } from '@/hooks/useProviderModels';
+import { useMachineModelCatalog } from '@/hooks/useMachineModelCatalog';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { Modal } from '@/modal';
-import { AgentDefinitionSchema, AgentLibrarySchema, agentTemplates, agentLibraryEnabled, agentLaunchError, type AgentDefinition } from '@/agents/agentDefinition';
+import { AgentDefinitionSchema, AgentLibrarySchema, agentTemplates, agentLibraryEnabled, agentLaunchError, agentLibrarySettings, allSavedAgents, type AgentDefinition } from '@/agents/agentDefinition';
 
 const steps = ['Identity', 'Instructions', 'Runtime', 'Review'];
 const newAgent = (): AgentDefinition => ({ id: randomUUID(), revision: 1, name: '', description: '', avatar: 'sparkles', provider: 'codex', model: '', effort: null, permissionMode: 'default', instructions: '', documents: [], specialties: [], updatedAt: Date.now() });
@@ -22,7 +23,8 @@ export default function AgentLibraryScreen() {
     const experiments = useSetting('experiments');
     const expWorkflows = useSetting('expWorkflows');
     const expAgentLibrary = useSetting('expAgentLibrary');
-    const library = useSetting('agentLibrary');
+    const legacyLibrary = useSetting('agentLibrary'), providerLibrary = useSetting('agentLibraryV2');
+    const library = [...legacyLibrary, ...providerLibrary];
     const machines = useAllMachines({ includeOffline: false }).filter(isMachineOnline);
     const [tab, setTab] = React.useState<'mine' | 'discover'>('mine');
     const [draft, setDraft] = React.useState<AgentDefinition | null>(null);
@@ -31,7 +33,8 @@ export default function AgentLibraryScreen() {
     const [error, setError] = React.useState('');
     const [machineId, setMachineId] = React.useState('');
     const selectedMachine = machines.find(m => m.id === machineId) ?? machines[0];
-    const models = useProviderModels('codex', selectedMachine ? [selectedMachine.id] : [], draft?.provider === 'codex');
+    const catalog = useMachineModelCatalog(draft ? selectedMachine?.id ?? null : null, draft?.provider ?? 'codex');
+    const models = catalog.status === 'ready' ? catalog.models : null;
     const chosenModel = models?.find(m => m.code === draft?.model);
     const colors = theme.colors;
     const card = { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: 16, padding: 20, gap: 12 } as const;
@@ -78,14 +81,14 @@ export default function AgentLibraryScreen() {
         if (!draft) return;
         const state = storage.getState();
         if (!agentLibraryEnabled(state.settings)) return setError('The agent library is disabled. Enable it in Features to save.');
-        const latest = state.settings.agentLibrary;
+        const latest = allSavedAgents(state.settings);
         if (original && JSON.stringify(latest.find(a => a.id === original.id)) !== JSON.stringify(original)) return setError('This agent changed on another screen or device. Reopen it before saving.');
         const parsed = AgentDefinitionSchema.safeParse({ ...draft, revision: (original?.revision ?? 0) + 1, updatedAt: Date.now() });
         if (!parsed.success) return setError(parsed.error.issues[0].message);
         if (!original && latest.length >= 100) return setError('Your library can hold up to 100 agents.');
         const nextLibrary = AgentLibrarySchema.safeParse([...latest.filter(a => a.id !== draft.id), parsed.data]);
         if (!nextLibrary.success) return setError(nextLibrary.error.issues[0].message);
-        sync.applySettings({ agentLibrary: nextLibrary.data });
+        sync.applySettings(agentLibrarySettings(nextLibrary.data));
         setDraft(null); setTab('mine'); setError('');
     };
     if (!agentLibraryEnabled({ experiments, expAgentLibrary })) return <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
@@ -117,20 +120,10 @@ export default function AgentLibraryScreen() {
                 </>}
                 {step === 2 && <>
                     <Text style={text}>Runtime</Text>
-                    <Text style={text}>Codex</Text>
-                    <Text style={muted}>This first experiment runs agents with Codex.</Text>
-                    {draft.provider !== 'codex' && button('Use Codex', () => patch({ provider: 'codex', model: '', effort: null, permissionMode: 'default' }))}
                     <Text style={text}>Discover models on</Text>
                     {machines.map(m => button(m.metadata?.displayName || m.metadata?.host || m.id, () => { setMachineId(m.id); }, selectedMachine?.id === m.id))}
                     {!selectedMachine && <Text style={muted}>Connect a machine to choose a model. You can keep editing the other steps.</Text>}
-                    <Text style={text}>Model</Text>
-                    {models?.map(m => button(m.value, () => patch({ model: m.code, effort: m.defaultReasoningEffort ?? null }), draft.model === m.code))}
-                    {!models && selectedMachine && <Text style={muted}>Waiting for the machine’s live model catalog…</Text>}
-                    {chosenModel && <>
-                        <Text style={text}>Reasoning effort</Text>
-                        {button('Provider default', () => patch({ effort: null }), draft.effort === null)}
-                        {chosenModel.supportedReasoningEfforts?.map(e => button(e.value, () => patch({ effort: e.code }), draft.effort === e.code))}
-                    </>}
+                    <AgentRuntimePicker catalog={catalog} agent={draft} machineId={selectedMachine?.id ?? null} onChange={patch} />
                     <Text style={text}>Permissions</Text>
                     {button('Ask for untrusted actions', () => patch({ permissionMode: 'default' }), draft.permissionMode === 'default')}
                     {draft.provider === 'codex' && button('Read only', () => patch({ permissionMode: 'read-only' }), draft.permissionMode === 'read-only')}
@@ -158,12 +151,11 @@ export default function AgentLibraryScreen() {
             {tab === 'discover' && agentTemplates.map(template => <View key={template.name} style={card}><Ionicons name={template.avatar} size={32} color={colors.accent} /><Text style={{ ...text, fontSize: 22, fontWeight: '600' }}>{template.name}</Text><Text style={muted}>{template.description}</Text><Text style={muted}>Talos template · Customize instructions and choose your model</Text>{button(`Customize ${template.name}`, () => begin({ ...newAgent(), ...template }))}</View>)}
             {tab === 'mine' && library.map(agent => <View key={agent.id} style={card}>
                 <Ionicons name={agent.avatar} size={32} color={colors.accent} /><Text style={{ ...text, fontSize: 22, fontWeight: '600' }}>{agent.name}</Text><Text style={muted}>{agent.description}</Text><Text style={muted}>{agent.provider} · {agent.model} · v{agent.revision}</Text>
-                {agent.provider !== 'codex' && <Text style={muted}>Edit this agent to choose Codex before starting a new session.</Text>}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {button(`Start ${agent.name}`, () => router.push({ pathname: '/new', params: { agentId: agent.id } } as any), true, agent.provider !== 'codex')}
+                    {button(`Start ${agent.name}`, () => router.push({ pathname: '/new', params: { agentId: agent.id } } as any), true)}
                     {button(`Edit ${agent.name}`, () => begin({ ...agent, documents: [...agent.documents] }, agent))}
                     {button(`Duplicate ${agent.name}`, () => begin({ ...agent, id: randomUUID(), revision: 1, name: `${agent.name.slice(0, 54)} copy` }))}
-                    {button(`Delete ${agent.name}`, () => { void (async () => { if (await Modal.confirm('Delete agent?', 'Existing sessions retain their configuration.', { confirmText: 'Delete', cancelText: 'Cancel' })) sync.applySettings({ agentLibrary: storage.getState().settings.agentLibrary.filter(a => a.id !== agent.id) }); })(); })}
+                    {button(`Delete ${agent.name}`, () => { void (async () => { if (await Modal.confirm('Delete agent?', 'Existing sessions retain their configuration.', { confirmText: 'Delete', cancelText: 'Cancel' })) sync.applySettings(agentLibrarySettings(allSavedAgents(storage.getState().settings).filter(a => a.id !== agent.id))); })(); })}
                 </View>
             </View>)}
         </>}

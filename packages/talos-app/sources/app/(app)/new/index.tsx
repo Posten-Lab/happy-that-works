@@ -558,7 +558,8 @@ function NewSessionScreen() {
     const { agentId } = useLocalSearchParams<{ agentId?: string }>();
     const experiments = useSetting('experiments');
     const expAgentLibrary = useSetting('expAgentLibrary');
-    const agentLibrary = useSetting('agentLibrary');
+    const legacyAgentLibrary = useSetting('agentLibrary'), providerAgentLibrary = useSetting('agentLibraryV2');
+    const agentLibrary = [...legacyAgentLibrary, ...providerAgentLibrary];
     const libraryEnabled = agentLibraryEnabled({ experiments, expAgentLibrary });
     const savedAgent = agentId ? agentLibrary.find(a => a.id === agentId) : undefined;
     // Freeze the selected definition for this launch, including while settings sync.

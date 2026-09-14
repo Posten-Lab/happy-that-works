@@ -1,3 +1,4 @@
+import { discoverWorkflowProviderModels, providerWorkflowTurn } from './providers';
 import { workflowEnvironment } from './environment';
 import { z } from 'zod';
 import { spawn } from 'node:child_process';
@@ -14,10 +15,21 @@ export function workflowRuntime(api: ApiClient, home: string): WorkflowRuntime {
     return {
         prepare: i => prepareWorkspace(i.directory, home, i.id), version: workspaceVersion,
         async validate(slots: WorkflowSlot[]) {
+            for (const provider of ['claude', 'muse'] as const) {
+                const selected = slots.filter(s => s.agent.provider === provider);
+                if (!selected.length) continue;
+                const models = await discoverWorkflowProviderModels(provider);
+                for (const { agent } of selected) {
+                    const model = models.find(m => m.code === agent.model);
+                    if (!model) throw new Error(`${agent.name}: ${provider} model ${agent.model} is unavailable on this machine.`);
+                    if (agent.effort && !model.supportedReasoningEfforts?.some(e => e.code === agent.effort)) throw new Error(`${agent.name}: reasoning effort is unavailable.`);
+                }
+            }
+            if (!slots.some(s => s.agent.provider === 'codex')) return;
             const client = new CodexAppServerClient(undefined, true);
             try {
                 await client.connect(); const models = await client.listModels();
-                for (const { agent } of slots) {
+                for (const { agent } of slots.filter(s => s.agent.provider === 'codex')) {
                     const model = models.find(m => m.model === agent.model);
                     if (!model) throw new Error(`${agent.name}: model ${agent.model} is unavailable on this machine.`);
                     if (agent.effort && !model.supportedReasoningEfforts?.some(e => e.reasoningEffort === agent.effort)) throw new Error(`${agent.name}: reasoning effort is unavailable.`);
@@ -25,6 +37,7 @@ export function workflowRuntime(api: ApiClient, home: string): WorkflowRuntime {
             } finally { await client.disconnect(); }
         },
         async turn(run, task, slot, signal, checkpoint) {
+            if (slot.agent.provider !== 'codex') return providerWorkflowTurn(api, home)(run, task, slot, signal, checkpoint);
             if (signal.aborted) throw new Error('Step cancelled');
             const client = new CodexAppServerClient(undefined, true);
             const session = await api.getOrCreateSession({ tag: `workflow-${run.id}-${task.id}`, metadata: {

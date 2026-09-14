@@ -25,6 +25,9 @@ describe('parseResumeCommandArgs', () => {
 });
 
 describe('buildResumeLaunch', () => {
+    it('keeps managed participants under workflow control', () => {
+        expect(() => buildResumeLaunch({ id: 'participant', active: false, metadata: { workflowManaged: true } as any })).toThrow('through its workflow');
+    });
     it('builds a Codex resume command', () => {
         expect(buildResumeLaunch({
             id: 'session-1',
