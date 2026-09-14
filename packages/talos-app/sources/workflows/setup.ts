@@ -1,4 +1,4 @@
-import { AgentLibrarySchema, type AgentDefinition } from '@/agents/agentDefinition';
+import { agentNeedsExtendedStorage, AgentLibrarySchema, type AgentDefinition } from '@/agents/agentDefinition';
 import type { ProviderModel } from '@/sync/ops';
 import { WorkflowDefinitionSchema, WorkflowLibrarySchema, type WorkflowDefinition, WorkflowAgentSchema, workflowSlots, workflowNeedsProviders } from '@ahmadposten/talos-wire';
 
@@ -83,5 +83,8 @@ export function workflowStepError(draft: WorkflowDefinition, step: number): stri
 
 /** A separate settings field prevents old apps stripping steps and running a different workflow. */
 export function workflowLibrarySettings(workflows: WorkflowDefinition[]) {
-    return { workflowLibrary: workflows.filter(w => !w.steps && !workflowNeedsProviders(w)), workflowLibraryV2: workflows.filter(w => !!w.steps && !workflowNeedsProviders(w)), workflowLibraryV3: workflows.filter(workflowNeedsProviders) };
+    WorkflowLibrarySchema.parse(workflows);
+    const extended = (workflow: WorkflowDefinition) => workflowSlots(workflow).some(slot => agentNeedsExtendedStorage(slot.agent));
+    const compatible = workflows.filter(workflow => !extended(workflow));
+    return { workflowLibrary: compatible.filter(w => !w.steps && !workflowNeedsProviders(w)), workflowLibraryV2: compatible.filter(w => !!w.steps && !workflowNeedsProviders(w)), workflowLibraryV3: compatible.filter(workflowNeedsProviders), workflowLibraryV4: workflows.filter(extended) };
 }

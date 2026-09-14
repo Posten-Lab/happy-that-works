@@ -30,7 +30,7 @@ pnpm --filter talosapp exec vitest run --project unit src/workflows
 git diff --check
 ```
 
-- App: 978 tests passed in 99 files; TypeScript passed. Rerun after the final review wording change.
+- App: 986 tests passed in 99 files; TypeScript passed. Rerun after merging main and adding old-client storage compatibility.
 - Wire: 34 tests passed in 4 files; build/typecheck passed.
 - CLI workflow regressions: 67 tests passed in 7 files; the test setup rebuilt/typechecked the CLI.
 - New regression coverage includes all three providers' saved YOLO settings and session metadata precedence, documents beyond 16K, the exact 64K boundary, multibyte content, invalid filenames, oversize pre-read rejection, and read failures.
@@ -47,3 +47,12 @@ git diff --check
 - [Real session proof and reference marker, phone](session-proof-mobile.png)
 - [Workflow participant permission setting, phone](workflow-agent-mobile.png)
 - [In-app release notes, phone](release-changelog-mobile.png)
+
+## Release compatibility follow-up
+
+Release inspection found that old clients reject an entire known library field if any agent contains YOLO or a reference longer than 16,000 characters. A later full-settings push could persist that empty library. Extended agent definitions now use `agentLibraryV3`, and workflows containing them use `workflowLibraryV4`. Compatible definitions remain in their existing fields. Older clients already preserve unknown settings fields; regression tests round-trip the new fields through older schema constraints and verify all definitions survive. All agent/workflow pickers, save, edit, delete, and launch paths read the new fields. Combined library budgets remain enforced.
+
+Repeated real-service validation saved and reloaded a versioned agent, then launched another real Codex session. It created/read `agent-yolo-v3-proof.txt` containing `YOLO_V3_OK` without an approval prompt and returned the reference's final `MARKDOWN_OVER_16K_OK` marker. A workflow with the extended agent plus two new participants also saved and reloaded successfully from encrypted account sync.
+
+- [Session from versioned storage](versioned-session-mobile.png)
+- [Workflow reloaded from versioned storage](versioned-workflow-mobile.png)

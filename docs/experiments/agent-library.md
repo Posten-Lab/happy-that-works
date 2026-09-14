@@ -14,7 +14,7 @@ Reference imports show reading, added-to-draft, and explicit not-attached feedba
 
 ## Persistence and compatibility
 
-- Definitions live in the existing encrypted account-settings sync as `agentLibrary`. The individual `expAgentLibrary` flag also syncs using that mechanism.
+- Definitions live in the existing encrypted account-settings sync across versioned library fields. Definitions with YOLO or longer references use `agentLibraryV3` so older clients preserve them as unknown settings rather than reject a whole known library. Workflows containing those definitions use `workflowLibraryV4`. The individual `expAgentLibrary` flag also syncs using that mechanism.
 - Each launch saves a deep, versioned definition copy into encrypted session metadata as `agentProfile` before delivering the first task. Raw metadata and provider-specific fields survive optimistic-concurrency retries.
 - Every app message carries the snapshot instructions through the existing `appendSystemPrompt` provider path. Model, effort and permission metadata use the session snapshot as their fallback, ahead of mutable global defaults. Users can still explicitly override a session's controls.
 - Editing/deleting a library definition, or disabling the experiment, does not remove existing session snapshots. Resuming from another app device uses the same snapshot. This is configuration persistence, not an additional agent memory system.

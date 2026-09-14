@@ -53,10 +53,16 @@ export const agentTemplates = [
 export const agentProviders = [{ code: 'codex', name: 'Codex' }, { code: 'claude', name: 'Claude' }, { code: 'muse', name: 'Muse Code' }] as const;
 export function agentLibrarySettings(agents: AgentDefinition[]) {
     AgentLibrarySchema.parse(agents);
-    return { agentLibrary: agents.filter(a => a.provider !== 'muse'), agentLibraryV2: agents.filter(a => a.provider === 'muse') };
+    // Older clients preserve unknown settings fields, but reset invalid known libraries.
+    const compatible = agents.filter(a => !agentNeedsExtendedStorage(a));
+    return { agentLibrary: compatible.filter(a => a.provider !== 'muse'), agentLibraryV2: compatible.filter(a => a.provider === 'muse'), agentLibraryV3: agents.filter(agentNeedsExtendedStorage) };
 }
-export function allSavedAgents(settings: { agentLibrary: AgentDefinition[]; agentLibraryV2: AgentDefinition[] }) { return [...settings.agentLibrary, ...settings.agentLibraryV2]; }
+export function allSavedAgents(settings: { agentLibrary: AgentDefinition[]; agentLibraryV2: AgentDefinition[]; agentLibraryV3?: AgentDefinition[] }) { return [...settings.agentLibrary, ...settings.agentLibraryV2, ...(settings.agentLibraryV3 ?? [])]; }
 
 export function agentPermissionLabel(mode: AgentDefinition['permissionMode']) {
     return mode === 'yolo' ? 'YOLO (no approvals)' : mode === 'read-only' ? 'Read only' : 'Ask for untrusted actions';
+}
+
+export function agentNeedsExtendedStorage(agent: Pick<AgentDefinition, 'permissionMode' | 'documents'>) {
+    return agent.permissionMode === 'yolo' || agent.documents.some(document => document.content.length > 16000);
 }

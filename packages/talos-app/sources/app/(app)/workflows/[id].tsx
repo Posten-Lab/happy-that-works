@@ -22,8 +22,8 @@ export default function WorkflowRunScreen() {
     const params = useLocalSearchParams<{ id: string; machineId: string }>();
     const id = typeof params.id === 'string' ? params.id : '', machine = typeof params.machineId === 'string' ? params.machineId : '';
     const router = useRouter(), s = useWorkflowStyles(), window = useWindowDimensions();
-    const legacyAgents = useSetting('agentLibrary'), providerAgents = useSetting('agentLibraryV2');
-    const agents = [...legacyAgents, ...providerAgents];
+    const legacyAgents = useSetting('agentLibrary'), providerAgents = useSetting('agentLibraryV2'), extendedAgents = useSetting('agentLibraryV3');
+    const agents = [...legacyAgents, ...providerAgents, ...extendedAgents];
     const [run, setRun] = React.useState<WorkflowRun | null>(null), [error, setError] = React.useState(''), [note, setNote] = React.useState('');
     const [busy, setBusy] = React.useState(false), [chosenPane, setChosenPane] = React.useState<WorkflowPane | null>(null);
     const [replacement, setReplacement] = React.useState<string | null>(null), [controls, setControls] = React.useState(false);

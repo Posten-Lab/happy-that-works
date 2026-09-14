@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { AgentDefinitionSchema, AgentLibrarySchema, agentInstructions, agentLaunchError, agentLibraryEnabled, agentLibrarySettings, allSavedAgents, type AgentDefinition } from './agentDefinition';
 import { settingsParse, settingsParsePending } from '@/sync/settings';
 import { resolveMessageModeMeta } from '@/sync/messageMeta';
@@ -14,6 +15,22 @@ describe('experimental agent definitions', () => {
         const defaults = { agentDefaultOverrides: { [provider]: { permissionMode: 'default' } } };
         expect(resolveMessageModeMeta(session, defaults).permissionMode).toBe('yolo');
         expect(resolveMessageModeMeta({ ...session, permissionMode: 'default' }, defaults).permissionMode).toBe('default');
+    });
+    it('keeps extended definitions out of libraries parsed by older clients', () => {
+        const yolo = { ...agent, id: 'yolo', permissionMode: 'yolo' as const };
+        const large = { ...agent, id: 'large', documents: [{ name: 'large.md', content: 'x'.repeat(20000) }] };
+        const fields = agentLibrarySettings([agent, yolo, large]);
+        expect(fields.agentLibrary).toEqual([agent]);
+        expect(fields.agentLibraryV3).toEqual([yolo, large]);
+        // Old clients parse known libraries and preserve unknown fields in full-blob sync.
+        const oldAgent = z.object({ permissionMode: z.enum(['default', 'read-only']), documents: z.array(z.object({ name: z.string().min(1).max(120), content: z.string().max(16000) })) }).passthrough();
+        const oldSettings = z.object({ agentLibrary: z.array(oldAgent), agentLibraryV2: z.array(oldAgent) }).passthrough();
+        const roundTrip = settingsParse({ ...oldSettings.parse(fields), experiments: true });
+        expect(allSavedAgents(roundTrip)).toEqual([agent, yolo, large]);
+        expect(settingsParsePending(fields)).toEqual(fields);
+        const changed = agentLibrarySettings([agent, { ...yolo, permissionMode: 'default' }, large]);
+        expect(changed.agentLibrary.map(a => a.id)).toEqual(['iris', 'yolo']);
+        expect(changed.agentLibraryV3.map(a => a.id)).toEqual(['large']);
     });
     it('requires both opt-in switches and defaults off for old accounts', () => {
         expect(agentLibraryEnabled(settingsParse({}))).toBe(false);

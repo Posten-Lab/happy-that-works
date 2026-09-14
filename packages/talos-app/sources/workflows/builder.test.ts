@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
+import { z } from 'zod';
+import { settingsParse } from '@/sync/settings';
 import { randomUUID } from 'node:crypto';
 vi.mock('expo-crypto', () => ({ randomUUID }));
-import { WorkflowDefinitionSchema, WorkflowAgentSchema } from '@ahmadposten/talos-wire';
+import { workflowSlots, WorkflowDefinitionSchema, WorkflowAgentSchema } from '@ahmadposten/talos-wire';
 import { editableWorkflow, attachWorkflowAgent, builderAgent, newWorkflowStep, withSteps } from './builder';
 import { workflowSave, workflowLibrarySettings, createStarterTeam, workflowDraft } from './setup';
 function configured() {
@@ -11,6 +13,22 @@ function configured() {
     return { draft: { ...draft, name: 'Delivery', criteria: 'Verified result', checks: [{ name: 'Verify', command: 'pnpm test' }] }, agents };
 }
 describe('workflow stage builder', () => {
+    it('stores YOLO and long-reference workflows in a field older clients preserve', () => {
+        const { draft } = configured();
+        for (const patch of [{ permissionMode: 'yolo' as const }, { documents: [{ name: 'large.md', content: 'x'.repeat(20000) }] }]) {
+            const agent = { ...draft.executor.agent, ...patch };
+            const changed = { ...attachWorkflowAgent(draft, draft.steps![1].id, agent, 0), id: randomUUID() };
+            const fields = workflowLibrarySettings([draft, changed]);
+            expect(fields.workflowLibraryV2).toEqual([draft]);
+            expect(fields.workflowLibraryV4).toEqual([changed]);
+            expect(fields.workflowLibraryV3).toEqual([]);
+            // A settings update retains unknown versioned fields as opaque data.
+            const oldWorkflow = WorkflowDefinitionSchema.refine(w => workflowSlots(w).every(slot => slot.agent.permissionMode !== 'yolo' && slot.agent.documents.every(d => d.content.length <= 16000)));
+            const oldSettings = z.object({ workflowLibrary: z.array(oldWorkflow), workflowLibraryV2: z.array(oldWorkflow), workflowLibraryV3: z.array(oldWorkflow) }).passthrough();
+            const restored = settingsParse({ ...oldSettings.parse(fields), experiments: true });
+            expect(restored.workflowLibraryV4[0].executor.agent).toEqual(agent);
+        }
+    });
     it('starts with empty slots and saves newly created agents in any added stage atomically', () => {
         expect(editableWorkflow().steps!.every(step => step.agents.length === 0)).toBe(true);
         const initial = configured(); const extra = newWorkflowStep('review');

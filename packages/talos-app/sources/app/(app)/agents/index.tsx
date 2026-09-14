@@ -24,8 +24,8 @@ export default function AgentLibraryScreen() {
     const experiments = useSetting('experiments');
     const expWorkflows = useSetting('expWorkflows');
     const expAgentLibrary = useSetting('expAgentLibrary');
-    const legacyLibrary = useSetting('agentLibrary'), providerLibrary = useSetting('agentLibraryV2');
-    const library = [...legacyLibrary, ...providerLibrary];
+    const legacyLibrary = useSetting('agentLibrary'), providerLibrary = useSetting('agentLibraryV2'), extendedAgents = useSetting('agentLibraryV3');
+    const library = [...legacyLibrary, ...providerLibrary, ...extendedAgents];
     const machines = useAllMachines({ includeOffline: false }).filter(isMachineOnline);
     const [tab, setTab] = React.useState<'mine' | 'discover'>('mine');
     const [draft, setDraft] = React.useState<AgentDefinition | null>(null);
