@@ -1,3 +1,12 @@
+# Editable workflows
+
+Build a workflow around your own planning, execution, and review stages. Enable Workflows in Experimental Features to try it.
+
+- Add, remove, and reorder stages.
+- Choose up to three planners or reviewers and one executor per stage.
+- Create agents while editing, and customize instructions and completion checks.
+- Update your machine CLI to use the new workflows.
+
 # Resume after migration
 
 Resume older conversations automatically on the same computer after moving from Happy to Talos.
