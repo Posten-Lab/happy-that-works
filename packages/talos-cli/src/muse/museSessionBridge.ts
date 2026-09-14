@@ -9,9 +9,12 @@ import { museExecutable } from './museClient';
 const execute = promisify(execFile);
 const bridgeDirectory = () => join(homedir(), '.talos', 'muse', 'bridges');
 
-export function museSessionInstructions(): string {
+export function museSessionInstructions(pluginAvailable = true): string {
     const quote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
     const command = `${quote(process.execPath)} ${quote(join(projectPath(), 'bin', 'talos-mcp.mjs'))} --muse-session`;
+    if (!pluginAvailable) {
+        return `This is a Talos chat. This Muse build has no plugin support. Use these Talos tools through the terminal. At the beginning of a new conversation, on a substantial topic change, or when asked to rename this chat, run:\n${command} --call change_title --arguments '{"title":"Task title"}'\nTo show a local image, run:\n${command} --call present_image --arguments '{"path":"/absolute/image.png"}'\nUse valid JSON and shell quoting for your arguments. These commands work only inside a session launched by Talos. Use write_todos for multi-step work; Talos displays its full list as live progress.`;
+    }
     return `This is a Talos chat. At the beginning of a new conversation, on a substantial topic change, or when asked to rename this chat, call mcp__plugin_talos_session_talos__change_title with a concise title. To show a local image, call mcp__plugin_talos_session_talos__present_image with its absolute path. Use write_todos for multi-step work; Talos displays its full list as live progress.\n\nMuse 1.0.3 can lose MCP tools after native terminal handoff. If these tools are unavailable, invoke the SAME Talos tools through the terminal instead:\n${command} --call change_title --arguments '{"title":"Task title"}'\n${command} --call present_image --arguments '{"path":"/absolute/image.png"}'\nUse valid JSON and shell quoting for your arguments. Do not search the repository for a rename implementation. These commands work only inside a session launched by Talos.`;
 }
 
@@ -43,7 +46,18 @@ export async function registerMuseSessionBridge(url: string): Promise<() => Prom
 }
 
 /** Install only Talos's bridge capability using Muse's own plugin manager. */
-export async function ensureMuseSessionPlugin() {
+export async function ensureMuseSessionPlugin(): Promise<boolean> {
+    const run = async (args: string[]) => JSON.parse((await execute(museExecutable(), ['plugins', ...args, '--json'], { timeout: 20000 })).stdout);
+    let installed;
+    try {
+        installed = await run(['list']);
+    } catch (error) {
+        // Some official builds omit plugins entirely. The ancestry-routed
+        // terminal bridge still works, so this capability is optional.
+        const output = error as { stdout?: string; stderr?: string };
+        if (/^plugins are not available in this build\s*$/m.test(`${output.stdout ?? ''}\n${output.stderr ?? ''}`)) return false;
+        throw error;
+    }
     const directory = join(bridgeDirectory(), 'plugin');
     const manifestDirectory = join(directory, '.muse-plugin');
     const manifest = JSON.stringify({
@@ -60,8 +74,6 @@ export async function ensureMuseSessionPlugin() {
     const skill = `---\nname: talos-session\ndescription: Use for naming or renaming this Talos chat, sharing local images, and tracking task progress. Includes the session tool fallback for native terminal handoff.\n---\n\n${museSessionInstructions()}\n`;
     let previous: string | undefined;
     try { previous = await readFile(path, 'utf8'); } catch { /* First installation. */ }
-    const run = async (args: string[]) => JSON.parse((await execute(museExecutable(), ['plugins', ...args, '--json'], { timeout: 20000 })).stdout);
-    const installed = await run(['list']);
     const present = Array.isArray(installed.plugins) && installed.plugins.some((p: { record?: { id: string } }) => p.record?.id === 'talos-session');
     let previousSkill: string | undefined;
     try { previousSkill = await readFile(join(skillDirectory, 'SKILL.md'), 'utf8'); } catch { /* First installation. */ }
@@ -76,4 +88,5 @@ export async function ensureMuseSessionPlugin() {
     }
     await run(['enable', 'talos-session']);
     await run(['approve', 'talos-session:mcp_server:talos']);
+    return true;
 }

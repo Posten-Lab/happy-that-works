@@ -37,6 +37,7 @@ export class MuseSession {
     private disposal: Promise<void> | undefined;
     private unregisterBridge?: () => Promise<void>;
     private needsSessionInstructions = false;
+    private sessionPluginAvailable = true;
     private controls: MuseControlState = { permissionMode: 'default', effort: 'high', hostArgs: [] };
     private get permissionMode() { return this.controls.permissionMode; }
     private set permissionMode(mode: string) { this.controls.permissionMode = mode; }
@@ -90,9 +91,9 @@ export class MuseSession {
 
     async start(resumeId?: string, mode: 'local' | 'remote' = 'remote') {
         if (this.sessionToolsUrl) {
-            await ensureMuseSessionPlugin();
+            this.sessionPluginAvailable = await ensureMuseSessionPlugin();
             this.unregisterBridge = await registerMuseSessionBridge(this.sessionToolsUrl);
-            this.needsSessionInstructions = !resumeId && mode === 'remote';
+            this.needsSessionInstructions = (!resumeId && mode === 'remote') || !this.sessionPluginAvailable;
         }
         this.sessionId = resumeId ?? '';
         if (resumeId) {
@@ -459,7 +460,7 @@ export class MuseSession {
         try {
             const ack = await host.connection.command('turn/start', { sessionId: this.sessionId,
                 input: [...prepared.input, { type: 'text', text: this.needsSessionInstructions
-                    ? `Talos session instructions:\n${museSessionInstructions()}\n\nUser message:\n${prompt}` : prompt }],
+                    ? `Talos session instructions:\n${museSessionInstructions(this.sessionPluginAvailable)}\n\nUser message:\n${prompt}` : prompt }],
                 ...(this.needsSessionInstructions ? { displayText: prompt } : {}),
                 reasoningEffort: museWireEffort(effort) }, { commandId });
             for (const ref of prepared.accepted) this.callbacks.fileStatus?.(ref, 'accepted');
