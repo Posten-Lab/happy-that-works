@@ -4,7 +4,7 @@ This change replaces inline, expanding agent forms with a focused editor and Pro
 
 ## Status
 
-**Not release-ready: Claude execution needs a fresh local login.** The actual Claude SDK reached the provider and reported expired OAuth that could not refresh. Model discovery and UI selection work. Full Claude planning/execution/structured-result validation must pass before merging or releasing. No production deployment or npm publication was performed.
+**Claude authentication and the full mixed-provider execution flow now pass.** After refreshing the local login, Claude completed planning, consolidation, voting, and execution, followed by Muse review/execution and Codex final review. No production deployment or npm publication was performed.
 
 ## Real execution evidence
 
@@ -13,11 +13,13 @@ Isolated authenticated-empty environment `sharp-maple`, local API, encrypted par
 - `source environments/data/envs/sharp-maple/env.sh`
 - `pnpm exec tsx --tsconfig packages/talos-cli/tsconfig.json scripts/evidence/workflow-providers.mts --without-claude`
 - Run `eb0126d7-45eb-43bb-895f-7eae5eea0a2a`: **complete**, five stages, seven real turns. Codex planned/consolidated/voted and created `stage one`; Muse reviewed, then changed the artifact to `stage two`; Codex performed final review. Final checks passed, encrypted disk reload succeeded, source checkout remained clean.
-- Default invocation of the same script includes Claude planning and execution. It stopped safely at authentication. The first attempt also exposed a Claude JSON Schema draft incompatibility; its adapter now emits draft-7.
+- Default invocation (without `--without-claude`), run `776d69b6-d1c9-4af0-9515-583f38ea39e5`: **complete**, five stages and seven real turns using Claude planning/consolidation/voting/execution, Muse review/execution, and Codex final review. Final checks, encrypted reload, and clean source assertions passed. The initial Claude attempt exposed a JSON Schema draft incompatibility (fixed with draft-7) and expired local authentication (resolved by a fresh login).
 - Real Muse execution exposed a trailing native reminder overwriting the final answer. Only native agent-message items now supply the structured answer; a regression test covers this.
 - Real test participants exposed ordinary session recovery attempting to resume completed workflow agents. Managed participants no longer create ordinary recovery checkpoints, existing checkpoints are durably stopped during daemon startup and skipped, and manual resume directs users to the workflow controller.
 
 - `scripts/evidence/workflow-provider-boundaries.mts`: actual Muse read-only turn could not create or change fixture files; cancellation after native session creation settled in 676 ms.
+- `scripts/evidence/workflow-provider-boundaries.mts --claude`: read-only session `cmu10qjc70057riujzqccktdy` left both fixture files unchanged. Executor session `cmu10qxo0006friujh795whbi` attempted an outside-worktree Write (denied by the permission callback) and Bash redirection (denied by the OS sandbox), then successfully wrote `safe\n` inside the worktree. The outside canary remained unchanged. Cancellation session `cmu10r6b2007jriujcqsfwgmj` settled in **2,874 ms**.
+- The initial Claude boundary probe returned malformed StructuredOutput arguments (missing the required `findings` field) and was rejected without accepting a result. A clarified probe specifying separate required arguments passed. This is an observed model-output failure; the adapter continues to fail closed on invalid results.
 
 ## Compatibility
 
