@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, workflowSlots, workflowProjection, workflowFindingId, validWorkflowResponses, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
+import { WorkflowActionSchema, WorkflowStartSchema, WorkflowRunSchema, WorkflowDefinitionSchema, workflowSlots, workflowProjection, workflowRecoverableExecutor, workflowFindingId, validWorkflowResponses, type WorkflowRun, type WorkflowSlot, type WorkflowTask, type WorkflowDecision } from '@ahmadposten/talos-wire';
 
 type Start = ReturnType<typeof WorkflowStartSchema.parse>;
 export interface WorkflowRuntime {
