@@ -117,6 +117,57 @@ describe('MuseSession lifecycle', () => {
         expect(f.callbacks.message.mock.calls.filter(([m]) => m.data?.message === 'recovered reply')).toHaveLength(1);
         await f.session.dispose();
     }, 10000);
+    it('recovers pending approvals through the observer when the writer projection is unavailable', async () => {
+        const f = fixture(); await f.session.start();
+        vi.useFakeTimers();
+        f.request.mockImplementation(async method => {
+            if (method === 'approval/listPending') throw new Error('loaded pending projection unavailable: materialized session view is unavailable');
+            return { session: { modelId: 'muse-spark-1.3-contributor', providerId: 'meta' } };
+        });
+        const observer = { connection: { request: vi.fn(async (method: string) => method === 'view/page' ? { events: [] } : {
+            approvals: [{ sessionId: 'native-id', approvalId: 'recovered-approval', toolName: 'shell',
+                currentRequirementId: { approvalId: 'recovered-approval', sourceIndex: 1 },
+                availableChoices: [{ choiceId: 'deny', decision: 'denied', scope: 'once' }] }], userInputs: [],
+        }) }, close: vi.fn(async () => {}) };
+        mock.connect.mockResolvedValue(observer);
+        try {
+            const turn = f.session.prompt('Check approvals');
+            await vi.advanceTimersByTimeAsync(2000);
+            expect(observer.connection.request).toHaveBeenCalledWith('approval/listPending', { sessionId: 'native-id' });
+            expect(f.request).not.toHaveBeenCalledWith('approval/listPending', expect.anything());
+            expect(f.command).toHaveBeenCalledWith('approval/decide', expect.objectContaining({
+                requirementId: { approvalId: 'recovered-approval', sourceIndex: 1 }, choiceId: 'deny',
+            }));
+            expect(f.callbacks.notice).not.toHaveBeenCalled();
+            expect(observer.close).toHaveBeenCalledOnce();
+            f.notify('turn/completed', { turnId: 'turn-1', terminal: 'completed' });
+            await turn;
+        } finally { await f.session.dispose(); vi.useRealTimers(); }
+    });
+    it('reports one warning per recovery outage while continuing to retry', async () => {
+        const f = fixture(); await f.session.start();
+        vi.useFakeTimers();
+        let unavailable = true;
+        const observer = { connection: { request: vi.fn(async () => {
+            if (unavailable) throw new Error('temporary read failure');
+            return { events: [], approvals: [], userInputs: [] };
+        }) }, close: vi.fn(async () => {}) };
+        mock.connect.mockResolvedValue(observer);
+        try {
+            const turn = f.session.prompt('Keep working');
+            await vi.advanceTimersByTimeAsync(6000);
+            expect(observer.close).toHaveBeenCalledTimes(3);
+            expect(f.callbacks.notice).toHaveBeenCalledTimes(1);
+            unavailable = false;
+            await vi.advanceTimersByTimeAsync(2000);
+            unavailable = true;
+            await vi.advanceTimersByTimeAsync(4000);
+            expect(observer.close).toHaveBeenCalledTimes(6);
+            expect(f.callbacks.notice).toHaveBeenCalledTimes(2);
+            f.notify('turn/completed', { turnId: 'turn-1', terminal: 'completed' });
+            await turn;
+        } finally { await f.session.dispose(); vi.useRealTimers(); }
+    });
     it('ignores a late observer response after the original turn has finished', async () => {
         const f = fixture(); await f.session.start();
         vi.useFakeTimers();

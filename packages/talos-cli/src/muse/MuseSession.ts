@@ -472,6 +472,7 @@ export class MuseSession {
         }
         const isCurrentTurn = () => Boolean(turn && this.turn === turn && this.host === host && !this.disposed);
         let recovering = false;
+        let recoveryWarning = false;
         const recover = async () => {
             if (recovering || !isCurrentTurn()) return;
             recovering = true;
@@ -505,12 +506,21 @@ export class MuseSession {
                     }
                     this.notification('turn/completed', object(terminal.params));
                 } else if (isCurrentTurn()) {
-                    const pending = await host.connection.request('approval/listPending', { sessionId: this.sessionId });
+                    // Keep all recovery reads off the writer. Muse 1.3 can lose
+                    // its loaded pending projection while the durable log and
+                    // the running turn remain healthy.
+                    const pending = await observer.connection.request('approval/listPending', { sessionId: this.sessionId });
                     if (!isCurrentTurn()) return;
                     for (const request of Array.isArray(pending.approvals) ? pending.approvals : []) this.notification('approval/requested', object(request));
                     for (const request of Array.isArray(pending.userInputs) ? pending.userInputs : []) this.notification('userInput/requested', object(request));
                 }
-            } catch (error) { if (isCurrentTurn()) this.callbacks.notice(`Muse event recovery failed: ${String(error)}`); }
+                recoveryWarning = false;
+            } catch (error) {
+                if (isCurrentTurn() && !recoveryWarning) {
+                    recoveryWarning = true;
+                    this.callbacks.notice(`Muse event recovery failed: ${String(error)}`);
+                }
+            }
             finally { await observer?.close(); recovering = false; }
         };
         const recovery = setInterval(() => void recover(), 2000);
